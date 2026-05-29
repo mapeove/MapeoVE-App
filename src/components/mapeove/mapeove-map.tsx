@@ -121,14 +121,37 @@ export function MapeoVEMap({
     markersRef.current = [];
 
     businesses.forEach((business) => {
+      // Validar coordenadas — convertir a número si vienen como string
+      const lat = Number(business.latitude);
+      const lng = Number(business.longitude);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        console.warn(
+          `[MapeoVE] Coordenadas inválidas para "${business.name}":`,
+          `lat=${business.latitude}, lng=${business.longitude}`
+        );
+        return; // No crear marker para negocios sin coordenadas válidas
+      }
+
       const color = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
       const isSelected = selectedBusiness?.id === business.id;
 
-      const el = document.createElement("div");
-      el.className = "mapeove-marker";
-      el.style.cssText = `
-        width: ${isSelected ? "44px" : "36px"};
-        height: ${isSelected ? "44px" : "36px"};
+      // Estructura anidada: root (libre para MapLibre) → pin (con rotate) → icono (contrarrotado)
+      const markerRoot = document.createElement("div");
+      markerRoot.className = "mapeove-marker-root";
+      markerRoot.style.cssText = `
+        width: ${isSelected ? "48px" : "40px"};
+        height: ${isSelected ? "48px" : "40px"};
+        cursor: pointer;
+        z-index: ${isSelected ? "10" : "1"};
+        transition: all 0.2s ease;
+      `;
+
+      const pin = document.createElement("div");
+      pin.className = "mapeove-marker-pin";
+      pin.style.cssText = `
+        width: ${isSelected ? "40px" : "34px"};
+        height: ${isSelected ? "40px" : "34px"};
         border-radius: 50% 50% 50% 4px;
         background: ${color};
         display: flex;
@@ -136,21 +159,26 @@ export function MapeoVEMap({
         justify-content: center;
         font-size: ${isSelected ? "20px" : "16px"};
         box-shadow: 0 2px 8px ${color}80, 0 0 0 ${isSelected ? "3px" : "2px"} white;
-        cursor: pointer;
         transform: rotate(-45deg);
         transition: all 0.2s ease;
-        z-index: ${isSelected ? "10" : "1"};
       `;
 
       const iconSpan = document.createElement("span");
-      iconSpan.style.cssText = "transform: rotate(45deg); display: flex;";
+      iconSpan.style.cssText = `
+        transform: rotate(45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
       iconSpan.textContent = business.category.icon;
-      el.appendChild(iconSpan);
 
-      el.addEventListener("click", () => onMarkerClick(business));
+      pin.appendChild(iconSpan);
+      markerRoot.appendChild(pin);
 
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([business.longitude, business.latitude])
+      markerRoot.addEventListener("click", () => onMarkerClick(business));
+
+      const marker = new maplibregl.Marker({ element: markerRoot })
+        .setLngLat([lng, lat])
         .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
 
       markersRef.current.push(marker);
@@ -162,19 +190,32 @@ export function MapeoVEMap({
     const maplibregl = maplibreRef.current;
     if (!mapRef.current || !userLocation || !mapLoaded || !maplibregl) return;
 
+    const lat = Number(userLocation.lat);
+    const lng = Number(userLocation.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
     if (userMarkerRef.current) {
-      (userMarkerRef.current as { setLngLat: (lngLat: [number, number]) => void }).setLngLat([userLocation.lng, userLocation.lat]);
+      (userMarkerRef.current as { setLngLat: (lngLat: [number, number]) => void }).setLngLat([lng, lat]);
     } else {
-      const el = document.createElement("div");
-      el.style.cssText = `
+      // Estructura anidada: root (sin transform) → dot + pulse
+      const markerRoot = document.createElement("div");
+      markerRoot.style.cssText = `
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        z-index: 20;
+        position: relative;
+      `;
+
+      const dot = document.createElement("div");
+      dot.style.cssText = `
         width: 20px;
         height: 20px;
         border-radius: 50%;
         background: ${BRAND.blue};
         border: 3px solid white;
         box-shadow: 0 0 0 2px ${BRAND.blue}40, 0 2px 8px rgba(0,0,0,0.3);
-        z-index: 20;
-        position: relative;
       `;
 
       const pulseEl = document.createElement("div");
@@ -189,10 +230,11 @@ export function MapeoVEMap({
         animation: pulse 2s infinite;
       `;
 
-      el.appendChild(pulseEl);
+      markerRoot.appendChild(pulseEl);
+      markerRoot.appendChild(dot);
 
-      userMarkerRef.current = new maplibregl.Marker({ element: el })
-        .setLngLat([userLocation.lng, userLocation.lat])
+      userMarkerRef.current = new maplibregl.Marker({ element: markerRoot })
+        .setLngLat([lng, lat])
         .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
     }
   }, [userLocation, mapLoaded]);
@@ -201,8 +243,13 @@ export function MapeoVEMap({
   useEffect(() => {
     if (!mapRef.current || !selectedBusiness || !mapLoaded) return;
 
+    const lat = Number(selectedBusiness.latitude);
+    const lng = Number(selectedBusiness.longitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
     (mapRef.current as { flyTo: (options: { center: [number, number]; zoom: number; duration: number }) => void }).flyTo({
-      center: [selectedBusiness.longitude, selectedBusiness.latitude],
+      center: [lng, lat],
       zoom: 15,
       duration: 800,
     });
