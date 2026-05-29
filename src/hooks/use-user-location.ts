@@ -10,6 +10,7 @@ interface UserLocation {
 
 export function useUserLocation() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isRealLocation, setIsRealLocation] = useState(false);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -19,16 +20,19 @@ export function useUserLocation() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
+          setIsRealLocation(true);
         },
         () => {
-          // Fallback a La Victoria
+          // Fallback a La Victoria — NO es ubicación real del usuario
           setUserLocation({ lat: MAP_CONFIG.latitude, lng: MAP_CONFIG.longitude });
+          setIsRealLocation(false);
         }
       );
     } else {
       setUserLocation({ lat: MAP_CONFIG.latitude, lng: MAP_CONFIG.longitude });
+      setIsRealLocation(false);
     }
   }, []);
 
-  return { userLocation };
+  return { userLocation, isRealLocation };
 }

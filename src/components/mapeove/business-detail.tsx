@@ -9,18 +9,33 @@ import {
   MapPin,
   Clock,
   Shield,
-  ChevronRight,
 } from "lucide-react";
 
 interface BusinessDetailProps {
   business: Business;
   onClose: () => void;
+  userLocation: { lat: number; lng: number } | null;
 }
 
-export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
+/** Check if coordinates are roughly within Venezuela */
+function isInVenezuela(lat: number, lng: number): boolean {
+  return lat >= 0 && lat <= 13 && lng >= -74 && lng <= -59;
+}
+
+export function BusinessDetail({
+  business,
+  onClose,
+  userLocation,
+}: BusinessDetailProps) {
   const categoryColor = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
   const whatsappNumber = business.whatsapp?.replace(/[^0-9]/g, "") || "";
   const phoneNumber = business.phone?.replace(/[^0-9]/g, "") || "";
+
+  // Distance logic: only show if user location is within Venezuela
+  const hasValidDistance =
+    business.distance !== undefined &&
+    userLocation !== null &&
+    isInVenezuela(userLocation.lat, userLocation.lng);
 
   function handleCall() {
     if (phoneNumber) window.open(`tel:${phoneNumber}`, "_self");
@@ -36,111 +51,132 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
   }
 
   function handleDirections() {
-    window.open(
-      `https://www.openstreetmap.org/directions?from=&to=${business.latitude},${business.longitude}`,
-      "_blank"
-    );
+    const lat = Number(business.latitude);
+    const lng = Number(business.longitude);
+
+    // If user has a valid location within Venezuela, use directions
+    if (
+      userLocation &&
+      isInVenezuela(userLocation.lat, userLocation.lng)
+    ) {
+      window.open(
+        `https://www.openstreetmap.org/directions?from=${userLocation.lat},${userLocation.lng}&to=${lat},${lng}`,
+        "_blank"
+      );
+    } else {
+      // No valid user location — just open the destination
+      window.open(
+        `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`,
+        "_blank"
+      );
+    }
   }
 
   return (
-    <div className="bg-white rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up">
-      {/* Color header bar */}
-      <div className="h-2" style={{ backgroundColor: categoryColor }} />
+    <div className="bg-white rounded-t-2xl shadow-2xl overflow-hidden animate-slide-up max-h-[45vh] md:max-h-none md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3">
+      {/* Drag handle (mobile) */}
+      <div className="flex justify-center pt-2 pb-0 md:hidden">
+        <div className="w-9 h-1 rounded-full bg-gray-300" />
+      </div>
 
-      <div className="p-5">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
-        >
-          <X size={16} className="text-gray-600" />
-        </button>
+      {/* Color accent bar */}
+      <div className="h-1 md:h-1.5" style={{ backgroundColor: categoryColor }} />
 
-        {/* Category badge */}
-        <div className="flex items-center gap-2 mb-2">
-          <span
-            className="text-xs font-bold px-2.5 py-1 rounded-full text-white"
-            style={{ backgroundColor: categoryColor }}
-          >
-            {business.category.icon} {business.category.name}
-          </span>
-          {business.verified && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
-              <Shield size={12} />
-              Verificado
+      {/* Scrollable content */}
+      <div className="overflow-y-auto max-h-[calc(45vh-32px)] md:max-h-[400px] px-4 pt-3 pb-4">
+        {/* Header row: category + close */}
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white leading-tight"
+              style={{ backgroundColor: categoryColor }}
+            >
+              {business.category.icon} {business.category.name}
             </span>
-          )}
+            {business.verified && (
+              <span className="flex items-center gap-0.5 text-[11px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                <Shield size={10} />
+                Verificado
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0"
+          >
+            <X size={14} className="text-gray-500" />
+          </button>
         </div>
 
         {/* Name */}
-        <h2 className="text-xl font-bold text-gray-900 pr-8 leading-tight">
+        <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}
         </h2>
 
-        {/* Description */}
+        {/* Description — truncated to 2 lines */}
         {business.description && (
-          <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+          <p className="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">
             {business.description}
           </p>
         )}
 
-        {/* Info rows */}
-        <div className="mt-4 space-y-2.5">
-          <div className="flex items-start gap-3">
-            <MapPin size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-            <span className="text-sm text-gray-700">{business.address}</span>
+        {/* Info rows — compact */}
+        <div className="mt-2.5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <MapPin size={13} className="text-gray-400 flex-shrink-0" />
+            <span className="text-xs text-gray-600 truncate">{business.address}</span>
           </div>
           {business.hours && (
-            <div className="flex items-start gap-3">
-              <Clock size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-              <span className="text-sm text-gray-700">{business.hours}</span>
+            <div className="flex items-center gap-2">
+              <Clock size={13} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-600">{business.hours}</span>
             </div>
           )}
-          {business.phone && (
-            <div className="flex items-start gap-3">
-              <Phone size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-              <span className="text-sm text-gray-700">{business.phone}</span>
+          {phoneNumber && (
+            <div className="flex items-center gap-2">
+              <Phone size={13} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-600">{business.phone}</span>
             </div>
           )}
-          {business.distance !== undefined && (
-            <div className="flex items-start gap-3">
-              <Navigation size={16} className="text-gray-400 mt-0.5 flex-shrink-0" />
-              <span className="text-sm font-medium" style={{ color: BRAND.blue }}>
+          {hasValidDistance && (
+            <div className="flex items-center gap-2">
+              <Navigation size={13} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs font-semibold" style={{ color: BRAND.blue }}>
                 {business.distance} km de distancia
               </span>
             </div>
           )}
         </div>
 
-        {/* Action buttons */}
-        <div className="mt-5 flex gap-2.5">
+        {/* Action buttons — compact grid */}
+        <div className="mt-3 flex gap-2">
           {phoneNumber && (
             <button
               onClick={handleCall}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-95"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
               style={{ backgroundColor: BRAND.blue }}
             >
-              <Phone size={16} />
-              Llamar
+              <Phone size={14} />
+              <span>Llamar</span>
             </button>
           )}
           {whatsappNumber && (
             <button
               onClick={handleWhatsApp}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-95"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
               style={{ backgroundColor: "#25D366" }}
             >
-              <MessageCircle size={16} />
-              WhatsApp
+              <MessageCircle size={14} />
+              <span>WhatsApp</span>
             </button>
           )}
           <button
             onClick={handleDirections}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90 active:scale-95"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
             style={{ backgroundColor: BRAND.red }}
           >
-            <Navigation size={16} />
-            Cómo llegar
+            <Navigation size={14} />
+            <span>Cómo llegar</span>
           </button>
         </div>
       </div>

@@ -13,7 +13,6 @@ export function CategoryFilters({
   activeCategory,
   onCategoryChange,
 }: CategoryFiltersProps) {
-  // Only show categories that have businesses, ordered as the user specified
   const orderedSlugs = [
     "restaurantes",
     "farmacias",
@@ -29,7 +28,7 @@ export function CategoryFilters({
     .filter((c): c is Category => !!c && c.businessCount > 0);
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-3 px-3 md:mx-0 md:px-0">
       {filteredCategories.map((category) => {
         const isActive = activeCategory === category.slug;
         const color = CATEGORY_COLORS[category.slug] || BRAND.blue;
@@ -40,25 +39,25 @@ export function CategoryFilters({
             onClick={() =>
               onCategoryChange(isActive ? null : category.slug)
             }
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200 border-2 ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 border flex-shrink-0 ${
               isActive
-                ? "text-white shadow-lg scale-105"
-                : "bg-white text-gray-700 border-gray-100 hover:border-gray-200 hover:shadow-md"
+                ? "text-white shadow-md scale-[1.03]"
+                : "bg-white text-gray-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"
             }`}
             style={
               isActive
                 ? {
                     backgroundColor: color,
                     borderColor: color,
-                    boxShadow: `0 4px 14px ${color}40`,
+                    boxShadow: `0 2px 8px ${color}35`,
                   }
                 : {}
             }
           >
-            <span className="text-base">{category.icon}</span>
+            <span className="text-sm">{category.icon}</span>
             <span>{category.name}</span>
             <span
-              className={`text-xs px-1.5 py-0.5 rounded-full ${
+              className={`text-[10px] px-1 py-0.5 rounded-full leading-none ${
                 isActive
                   ? "bg-white/25 text-white"
                   : "bg-gray-100 text-gray-500"

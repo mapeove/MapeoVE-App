@@ -140,27 +140,27 @@ export function MapeoVEMap({
       const markerRoot = document.createElement("div");
       markerRoot.className = "mapeove-marker-root";
       markerRoot.style.cssText = `
-        width: ${isSelected ? "48px" : "40px"};
-        height: ${isSelected ? "48px" : "40px"};
+        width: ${isSelected ? "36px" : "28px"};
+        height: ${isSelected ? "36px" : "28px"};
         cursor: pointer;
         z-index: ${isSelected ? "10" : "1"};
-        transition: all 0.2s ease;
+        transition: all 0.15s ease;
       `;
 
       const pin = document.createElement("div");
       pin.className = "mapeove-marker-pin";
       pin.style.cssText = `
-        width: ${isSelected ? "40px" : "34px"};
-        height: ${isSelected ? "40px" : "34px"};
+        width: ${isSelected ? "30px" : "22px"};
+        height: ${isSelected ? "30px" : "22px"};
         border-radius: 50% 50% 50% 4px;
         background: ${color};
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: ${isSelected ? "20px" : "16px"};
-        box-shadow: 0 2px 8px ${color}80, 0 0 0 ${isSelected ? "3px" : "2px"} white;
+        font-size: ${isSelected ? "14px" : "11px"};
+        box-shadow: 0 1px 4px ${color}60, 0 0 0 ${isSelected ? "2.5px" : "1.5px"} white;
         transform: rotate(-45deg);
-        transition: all 0.2s ease;
+        transition: all 0.15s ease;
       `;
 
       const iconSpan = document.createElement("span");
@@ -201,8 +201,8 @@ export function MapeoVEMap({
       // Estructura anidada: root (sin transform) → dot + pulse
       const markerRoot = document.createElement("div");
       markerRoot.style.cssText = `
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
         cursor: pointer;
         z-index: 20;
         position: relative;
@@ -210,21 +210,21 @@ export function MapeoVEMap({
 
       const dot = document.createElement("div");
       dot.style.cssText = `
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
         border-radius: 50%;
         background: ${BRAND.blue};
-        border: 3px solid white;
-        box-shadow: 0 0 0 2px ${BRAND.blue}40, 0 2px 8px rgba(0,0,0,0.3);
+        border: 2.5px solid white;
+        box-shadow: 0 0 0 2px ${BRAND.blue}40, 0 1px 4px rgba(0,0,0,0.2);
       `;
 
       const pulseEl = document.createElement("div");
       pulseEl.style.cssText = `
         position: absolute;
-        top: -8px;
-        left: -8px;
-        width: 36px;
-        height: 36px;
+        top: -6px;
+        left: -6px;
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         background: ${BRAND.blue}20;
         animation: pulse 2s infinite;

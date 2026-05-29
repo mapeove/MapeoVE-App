@@ -147,8 +147,8 @@
   display: none;
 }
 
-/* MapLibre marker hover */
-.mapeove-marker:hover {
+/* MapLibre marker hover — aplicado al pin interno, nunca al root */
+.mapeove-marker-root:hover .mapeove-marker-pin {
   transform: rotate(-45deg) scale(1.15) !important;
 }
 
