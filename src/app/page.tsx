@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { SplashOverlay } from "@/components/mapeove/splash-overlay";
 import { SearchBar } from "@/components/mapeove/search-bar";
 import { CategoryFilters } from "@/components/mapeove/category-filters";
 import { BusinessDetail } from "@/components/mapeove/business-detail";
 import { BusinessList } from "@/components/mapeove/business-list";
-import { MapeoVEMap } from "@/components/mapeove/mapeove-map";
 import {
   Business,
   Category,
@@ -16,7 +16,23 @@ import {
   fetchCategories,
   fetchBusinesses,
 } from "@/lib/mapeove-api";
-import { MapPin, List, X, ChevronUp } from "lucide-react";
+import { MapPin, List, X } from "lucide-react";
+
+// Dynamic import del mapa para evitar SSR — MapLibre GL usa window/document
+const MapeoVEMap = dynamic(
+  () => import("@/components/mapeove/mapeove-map").then((mod) => mod.MapeoVEMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${BRAND.blue}`, borderTopColor: "transparent" }} />
+          <p className="text-sm text-gray-500 font-medium">Cargando mapa...</p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -44,7 +60,7 @@ export default function Home() {
         setCategories(cats);
         setBusinesses(biz.businesses);
       } catch (err) {
-        console.error("Error loading data:", err);
+        console.error("Error cargando datos:", err);
       } finally {
         setIsLoading(false);
       }
@@ -85,7 +101,7 @@ export default function Home() {
         });
         setBusinesses(result.businesses);
       } catch (err) {
-        console.error("Error loading businesses:", err);
+        console.error("Error cargando negocios:", err);
       }
     }
     if (!isLoading) loadByCategory();
@@ -128,7 +144,7 @@ export default function Home() {
       {/* Splash Screen */}
       <SplashOverlay />
 
-      {/* Map */}
+      {/* Map — cargado solo en cliente */}
       <MapeoVEMap
         businesses={businesses}
         selectedBusiness={selectedBusiness}
@@ -164,8 +180,7 @@ export default function Home() {
             style={{ backgroundColor: BRAND.blue }}
           >
             <MapPin size={14} />
-            {businessCount} negocio{businessCount !== 1 ? "s" : ""} en La
-            Victoria
+            {businessCount} negocio{businessCount !== 1 ? "s" : ""} en La Victoria
           </div>
         </div>
 
@@ -229,11 +244,8 @@ export default function Home() {
       {userLocation && !selectedBusiness && !showList && (
         <div className="absolute bottom-24 right-4 z-20">
           <button
-            onClick={() => {
-              // The GeolocateControl handles this
-            }}
             className="w-12 h-12 flex items-center justify-center rounded-full bg-white shadow-lg hover:shadow-xl transition-all active:scale-95 border border-gray-100"
-            title="Mi ubicación"
+            title="Mi ubicacion"
           >
             <MapPin size={20} style={{ color: BRAND.blue }} />
           </button>

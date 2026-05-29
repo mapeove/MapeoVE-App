@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import { useEffect, useRef, useState } from "react";
 import { Business, CATEGORY_COLORS, BRAND, MAP_CONFIG } from "@/types/mapeove";
 
 interface MapeoVEMapProps {
@@ -19,60 +17,85 @@ export function MapeoVEMap({
   userLocation,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<maplibregl.Map | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const selectedMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return;
+    if (!mapContainer.current || mapRef.current) return;
 
-    const m = new maplibregl.Map({
-      container: mapContainer.current,
-      style: {
-        version: 8,
-        sources: {
-          osm: {
-            type: "raster",
-            tiles: [
-              "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            ],
-            tileSize: 256,
-            attribution: "&copy; OpenStreetMap contributors",
+    let map: maplibregl.Map | null = null;
+
+    // Import maplibre-gl dinámicamente para evitar problemas de SSR
+    import("maplibre-gl").then((maplibregl) => {
+      if (!mapContainer.current || mapRef.current) return;
+
+      // Importar CSS de maplibre
+      const linkEl = document.createElement("link");
+      linkEl.rel = "stylesheet";
+      linkEl.href = "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css";
+      if (!document.querySelector('link[href*="maplibre-gl"]')) {
+        document.head.appendChild(linkEl);
+      }
+
+      map = new maplibregl.Map({
+        container: mapContainer.current,
+        style: {
+          version: 8,
+          sources: {
+            osm: {
+              type: "raster",
+              tiles: [
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+              ],
+              tileSize: 256,
+              attribution: "&copy; OpenStreetMap contributors",
+            },
           },
+          layers: [
+            {
+              id: "osm",
+              type: "raster",
+              source: "osm",
+              minzoom: 0,
+              maxzoom: 19,
+            },
+          ],
         },
-        layers: [
-          {
-            id: "osm",
-            type: "raster",
-            source: "osm",
-            minzoom: 0,
-            maxzoom: 19,
-          },
-        ],
-      },
-      center: [MAP_CONFIG.longitude, MAP_CONFIG.latitude],
-      zoom: MAP_CONFIG.zoom,
+        center: [MAP_CONFIG.longitude, MAP_CONFIG.latitude],
+        zoom: MAP_CONFIG.zoom,
+      });
+
+      map.addControl(new maplibregl.NavigationControl(), "bottom-right");
+      map.addControl(
+        new maplibregl.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          trackUserLocation: true,
+        }),
+        "bottom-right"
+      );
+
+      map.on("load", () => {
+        setMapLoaded(true);
+      });
+
+      mapRef.current = map;
     });
 
-    m.addControl(new maplibregl.NavigationControl(), "bottom-right");
-    m.addControl(new maplibregl.GeolocateControl({
-      positionOptions: { enableHighAccuracy: true },
-      trackUserLocation: true,
-    }), "bottom-right");
-
-    map.current = m;
-
     return () => {
-      m.remove();
-      map.current = null;
+      if (map) {
+        map.remove();
+      }
+      mapRef.current = null;
+      setMapLoaded(false);
     };
   }, []);
 
   // Update business markers
   useEffect(() => {
-    if (!map.current) return;
+    if (!mapRef.current || !mapLoaded) return;
 
     // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove());
@@ -100,28 +123,26 @@ export function MapeoVEMap({
         transition: all 0.2s ease;
         z-index: ${isSelected ? "10" : "1"};
       `;
-      el.textContent = business.category.icon;
 
       // Counter-rotate the icon inside the rotated marker
       const iconSpan = document.createElement("span");
       iconSpan.style.cssText = "transform: rotate(45deg); display: flex;";
       iconSpan.textContent = business.category.icon;
-      el.textContent = "";
       el.appendChild(iconSpan);
 
       el.addEventListener("click", () => onMarkerClick(business));
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([business.longitude, business.latitude])
-        .addTo(map.current);
+        .addTo(mapRef.current!);
 
       markersRef.current.push(marker);
     });
-  }, [businesses, selectedBusiness, onMarkerClick]);
+  }, [businesses, selectedBusiness, onMarkerClick, mapLoaded]);
 
   // Update user location marker
   useEffect(() => {
-    if (!map.current || !userLocation) return;
+    if (!mapRef.current || !userLocation || !mapLoaded) return;
 
     if (userMarkerRef.current) {
       userMarkerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
@@ -135,6 +156,7 @@ export function MapeoVEMap({
         border: 3px solid white;
         box-shadow: 0 0 0 2px ${BRAND.blue}40, 0 2px 8px rgba(0,0,0,0.3);
         z-index: 20;
+        position: relative;
       `;
 
       const pulseEl = document.createElement("div");
@@ -153,24 +175,35 @@ export function MapeoVEMap({
 
       userMarkerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([userLocation.lng, userLocation.lat])
-        .addTo(map.current);
+        .addTo(mapRef.current);
     }
-  }, [userLocation]);
+  }, [userLocation, mapLoaded]);
 
   // Fly to selected business
   useEffect(() => {
-    if (!map.current || !selectedBusiness) return;
+    if (!mapRef.current || !selectedBusiness || !mapLoaded) return;
 
-    map.current.flyTo({
+    mapRef.current.flyTo({
       center: [selectedBusiness.longitude, selectedBusiness.latitude],
       zoom: 15,
       duration: 800,
     });
-  }, [selectedBusiness]);
+  }, [selectedBusiness, mapLoaded]);
 
   return (
     <>
-      <div ref={mapContainer} className="absolute inset-0" />
+      <div
+        ref={mapContainer}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: "100%",
+          height: "100vh",
+        }}
+      />
       <style jsx global>{`
         @keyframes pulse {
           0% { transform: scale(1); opacity: 0.6; }

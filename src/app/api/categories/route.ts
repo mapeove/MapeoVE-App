@@ -24,7 +24,7 @@ export async function GET(_request: NextRequest) {
 
     return successResponse(data);
   } catch (err) {
-    console.error("Error fetching categories:", err);
-    return errorResponse("Failed to fetch categories", 500);
+    console.error("Error cargando categorias:", err);
+    return errorResponse("Error al cargar categorias", 500);
   }
 }

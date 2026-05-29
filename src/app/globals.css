@@ -151,3 +151,20 @@
 .mapeove-marker:hover {
   transform: rotate(-45deg) scale(1.15) !important;
 }
+
+/* Asegurar que el contenedor del mapa sea visible */
+.maplibregl-map {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100vh !important;
+  z-index: 0;
+}
+
+/* Canvas del mapa debe llenar el contenedor */
+.maplibregl-canvas {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+}

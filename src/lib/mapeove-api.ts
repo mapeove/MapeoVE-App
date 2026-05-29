@@ -5,7 +5,7 @@ const API_BASE = "/api";
 export async function fetchCategories(): Promise<Category[]> {
   const res = await fetch(`${API_BASE}/categories`);
   const json: ApiResponse<Category[]> = await res.json();
-  if (!json.success) throw new Error(json.error || "Error fetching categories");
+  if (!json.success) throw new Error(json.error || "Error al cargar categorias");
   return json.data;
 }
 
@@ -29,7 +29,7 @@ export async function fetchBusinesses(params?: {
 
   const res = await fetch(`${API_BASE}/businesses?${searchParams.toString()}`);
   const json: ApiResponse<Business[]> = await res.json();
-  if (!json.success) throw new Error(json.error || "Error fetching businesses");
+  if (!json.success) throw new Error(json.error || "Error al cargar negocios");
   return { businesses: json.data, pagination: json.pagination };
 }
 
@@ -40,7 +40,7 @@ export async function fetchBusinessById(id: string, lat?: number, lng?: number):
 
   const res = await fetch(`${API_BASE}/businesses/${id}?${params.toString()}`);
   const json: ApiResponse<Business> = await res.json();
-  if (!json.success) throw new Error(json.error || "Error fetching business");
+  if (!json.success) throw new Error(json.error || "Error al cargar negocio");
   return json.data;
 }
 
@@ -51,6 +51,6 @@ export async function searchBusinesses(q: string, lat?: number, lng?: number): P
 
   const res = await fetch(`${API_BASE}/businesses/search?${params.toString()}`);
   const json: ApiResponse<Business[]> = await res.json();
-  if (!json.success) throw new Error(json.error || "Error searching businesses");
+  if (!json.success) throw new Error(json.error || "Error al buscar negocios");
   return json.data;
 }

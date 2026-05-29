@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     const lng = searchParams.get("lng");
 
     if (!q || q.trim() === "") {
-      return errorResponse("Search query 'q' is required");
+      return errorResponse("El parametro de busqueda 'q' es obligatorio");
     }
 
     const searchTerm = q.trim();
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     return successResponse(results);
   } catch (err) {
-    console.error("Error searching businesses:", err);
-    return errorResponse("Failed to search businesses", 500);
+    console.error("Error buscando negocios:", err);
+    return errorResponse("Error al buscar negocios", 500);
   }
 }

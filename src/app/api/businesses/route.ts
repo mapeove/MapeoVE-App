@@ -130,8 +130,8 @@ export async function GET(request: NextRequest) {
       totalPages,
     });
   } catch (err) {
-    console.error("Error fetching businesses:", err);
-    return errorResponse("Failed to fetch businesses", 500);
+    console.error("Error cargando negocios:", err);
+    return errorResponse("Error al cargar negocios", 500);
   }
 }
 
@@ -157,25 +157,25 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!name || typeof name !== "string" || name.trim() === "") {
-      return errorResponse("Name is required");
+      return errorResponse("El nombre es obligatorio");
     }
     if (!address || typeof address !== "string" || address.trim() === "") {
-      return errorResponse("Address is required");
+      return errorResponse("La direccion es obligatoria");
     }
     if (latitude === undefined || typeof latitude !== "number") {
-      return errorResponse("Latitude is required and must be a number");
+      return errorResponse("La latitud es obligatoria y debe ser un numero");
     }
     if (longitude === undefined || typeof longitude !== "number") {
-      return errorResponse("Longitude is required and must be a number");
+      return errorResponse("La longitud es obligatoria y debe ser un numero");
     }
     if (!categoryId || typeof categoryId !== "string" || categoryId.trim() === "") {
-      return errorResponse("Category ID is required");
+      return errorResponse("El ID de categoria es obligatorio");
     }
 
     // Check category exists
     const category = await db.category.findUnique({ where: { id: categoryId } });
     if (!category) {
-      return errorResponse("Category not found", 404);
+      return errorResponse("Categoria no encontrada", 404);
     }
 
     const business = await db.business.create({
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
 
     return successResponse(business, 201);
   } catch (err) {
-    console.error("Error creating business:", err);
-    return errorResponse("Failed to create business", 500);
+    console.error("Error creando negocio:", err);
+    return errorResponse("Error al crear negocio", 500);
   }
 }

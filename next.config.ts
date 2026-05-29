@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Vercel maneja el output automáticamente, no necesitamos standalone
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -14,6 +13,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Next.js 16 usa Turbopack por defecto — configuracion vacia para silenciar warning
+  turbopack: {},
 };
 
 export default nextConfig;

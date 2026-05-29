@@ -33,9 +33,9 @@ export function errorResponse(error: string, status = 400): NextResponse {
   return NextResponse.json({ success: false, error }, { status });
 }
 
-export function notFoundResponse(entity = "Resource"): NextResponse {
+export function notFoundResponse(entity = "Recurso"): NextResponse {
   return NextResponse.json(
-    { success: false, error: `${entity} not found` },
+    { success: false, error: `${entity} no encontrado` },
     { status: 404 }
   );
 }
