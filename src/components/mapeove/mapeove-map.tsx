@@ -17,95 +17,113 @@ export function MapeoVEMap({
   userLocation,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
-  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const mapRef = useRef<unknown>(null);
+  const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
+  const markersRef = useRef<unknown[]>([]);
+  const userMarkerRef = useRef<unknown>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
-  // Initialize map
+  // Initialize map — import maplibre-gl dinámicamente y guardar referencia
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
-    let map: maplibregl.Map | null = null;
+    let cancelled = false;
 
-    // Import maplibre-gl dinámicamente para evitar problemas de SSR
-    import("maplibre-gl").then((maplibregl) => {
-      if (!mapContainer.current || mapRef.current) return;
+    import("maplibre-gl")
+      .then((maplibregl) => {
+        if (cancelled || !mapContainer.current || mapRef.current) return;
 
-      // Importar CSS de maplibre
-      const linkEl = document.createElement("link");
-      linkEl.rel = "stylesheet";
-      linkEl.href = "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css";
-      if (!document.querySelector('link[href*="maplibre-gl"]')) {
-        document.head.appendChild(linkEl);
-      }
+        // Guardar referencia al módulo para otros useEffect
+        maplibreRef.current = maplibregl;
 
-      map = new maplibregl.Map({
-        container: mapContainer.current,
-        style: {
-          version: 8,
-          sources: {
-            osm: {
-              type: "raster",
-              tiles: [
-                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-              ],
-              tileSize: 256,
-              attribution: "&copy; OpenStreetMap contributors",
+        // Cargar CSS desde CDN
+        if (!document.querySelector('link[href*="maplibre-gl"]')) {
+          const linkEl = document.createElement("link");
+          linkEl.rel = "stylesheet";
+          linkEl.href = "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css";
+          document.head.appendChild(linkEl);
+        }
+
+        const map = new maplibregl.Map({
+          container: mapContainer.current,
+          style: {
+            version: 8,
+            sources: {
+              osm: {
+                type: "raster",
+                tiles: [
+                  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                ],
+                tileSize: 256,
+                attribution: "&copy; OpenStreetMap contributors",
+              },
             },
+            layers: [
+              {
+                id: "osm",
+                type: "raster",
+                source: "osm",
+                minzoom: 0,
+                maxzoom: 19,
+              },
+            ],
           },
-          layers: [
-            {
-              id: "osm",
-              type: "raster",
-              source: "osm",
-              minzoom: 0,
-              maxzoom: 19,
-            },
-          ],
-        },
-        center: [MAP_CONFIG.longitude, MAP_CONFIG.latitude],
-        zoom: MAP_CONFIG.zoom,
+          center: [MAP_CONFIG.longitude, MAP_CONFIG.latitude],
+          zoom: MAP_CONFIG.zoom,
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), "bottom-right");
+        map.addControl(
+          new maplibregl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+          }),
+          "bottom-right"
+        );
+
+        map.on("load", () => {
+          setMapLoaded(true);
+        });
+
+        map.on("error", () => {
+          setMapError(true);
+        });
+
+        mapRef.current = map;
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMapError(true);
+        }
       });
-
-      map.addControl(new maplibregl.NavigationControl(), "bottom-right");
-      map.addControl(
-        new maplibregl.GeolocateControl({
-          positionOptions: { enableHighAccuracy: true },
-          trackUserLocation: true,
-        }),
-        "bottom-right"
-      );
-
-      map.on("load", () => {
-        setMapLoaded(true);
-      });
-
-      mapRef.current = map;
-    });
 
     return () => {
+      cancelled = true;
+      const map = mapRef.current as { remove: () => void } | null;
       if (map) {
         map.remove();
       }
       mapRef.current = null;
+      maplibreRef.current = null;
       setMapLoaded(false);
     };
   }, []);
 
   // Update business markers
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded) return;
+    const maplibregl = maplibreRef.current;
+    const map = mapRef.current as { current: unknown } | null;
+    if (!map || !mapLoaded || !maplibregl) return;
 
     // Clear existing markers
-    markersRef.current.forEach((marker) => marker.remove());
+    (markersRef.current as { remove: () => void }[]).forEach((marker) => marker.remove());
     markersRef.current = [];
 
     businesses.forEach((business) => {
       const color = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
       const isSelected = selectedBusiness?.id === business.id;
 
-      // Create custom marker element
       const el = document.createElement("div");
       el.className = "mapeove-marker";
       el.style.cssText = `
@@ -124,7 +142,6 @@ export function MapeoVEMap({
         z-index: ${isSelected ? "10" : "1"};
       `;
 
-      // Counter-rotate the icon inside the rotated marker
       const iconSpan = document.createElement("span");
       iconSpan.style.cssText = "transform: rotate(45deg); display: flex;";
       iconSpan.textContent = business.category.icon;
@@ -134,7 +151,7 @@ export function MapeoVEMap({
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([business.longitude, business.latitude])
-        .addTo(mapRef.current!);
+        .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
 
       markersRef.current.push(marker);
     });
@@ -142,10 +159,11 @@ export function MapeoVEMap({
 
   // Update user location marker
   useEffect(() => {
-    if (!mapRef.current || !userLocation || !mapLoaded) return;
+    const maplibregl = maplibreRef.current;
+    if (!mapRef.current || !userLocation || !mapLoaded || !maplibregl) return;
 
     if (userMarkerRef.current) {
-      userMarkerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
+      (userMarkerRef.current as { setLngLat: (lngLat: [number, number]) => void }).setLngLat([userLocation.lng, userLocation.lat]);
     } else {
       const el = document.createElement("div");
       el.style.cssText = `
@@ -175,7 +193,7 @@ export function MapeoVEMap({
 
       userMarkerRef.current = new maplibregl.Marker({ element: el })
         .setLngLat([userLocation.lng, userLocation.lat])
-        .addTo(mapRef.current);
+        .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
     }
   }, [userLocation, mapLoaded]);
 
@@ -183,12 +201,25 @@ export function MapeoVEMap({
   useEffect(() => {
     if (!mapRef.current || !selectedBusiness || !mapLoaded) return;
 
-    mapRef.current.flyTo({
+    (mapRef.current as { flyTo: (options: { center: [number, number]; zoom: number; duration: number }) => void }).flyTo({
       center: [selectedBusiness.longitude, selectedBusiness.latitude],
       zoom: 15,
       duration: 800,
     });
   }, [selectedBusiness, mapLoaded]);
+
+  // Error state
+  if (mapError) {
+    return (
+      <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center px-6">
+          <div className="text-4xl">🗺️</div>
+          <p className="text-sm text-gray-600 font-medium">No se pudo cargar el mapa</p>
+          <p className="text-xs text-gray-400">Verifica tu conexión a internet y recarga la página</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
