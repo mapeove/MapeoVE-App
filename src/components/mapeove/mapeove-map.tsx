@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Business, CATEGORY_COLORS, BRAND, MAP_CONFIG } from "@/types/mapeove";
 import { isValidVenezuelaCoordinate } from "@/lib/coordinate-validator";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface MapeoVEMapProps {
   businesses: Business[];
@@ -11,6 +13,72 @@ interface MapeoVEMapProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
+interface BusinessFeatureProperties {
+  id: string;
+  name: string;
+  category: string;
+  icon: string;
+  color: string;
+}
+
+// ─── buildGeoJSON ────────────────────────────────────────────────────────────
+// FASE 2: Genera un FeatureCollection de GeoJSON a partir de los negocios.
+// Cada negocio se convierte en un Point con properties.
+// Se validan coordenadas (Number.isFinite + rango Venezuela) antes de incluir.
+
+function buildGeoJSON(businesses: Business[]): GeoJSON.FeatureCollection<GeoJSON.Point, BusinessFeatureProperties> {
+  const features: GeoJSON.Feature<GeoJSON.Point, BusinessFeatureProperties>[] = [];
+
+  for (const business of businesses) {
+    const lat = Number(business.latitude);
+    const lng = Number(business.longitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      console.warn(
+        `[MapeoVE GeoJSON] Coordenadas no finitas para "${business.name}": lat=${business.latitude}, lng=${business.longitude}`
+      );
+      continue;
+    }
+
+    if (!isValidVenezuelaCoordinate(lat, lng)) {
+      console.warn(
+        `[MapeoVE GeoJSON] Coordenadas fuera de Venezuela para "${business.name}": lat=${lat}, lng=${lng}`
+      );
+      continue;
+    }
+
+    const color = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
+
+    features.push({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [lng, lat], // GeoJSON: [longitude, latitude]
+      },
+      properties: {
+        id: business.id,
+        name: business.name,
+        category: business.category.slug,
+        icon: business.category.icon,
+        color,
+      },
+    });
+  }
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+// ─── Source & Layer IDs ──────────────────────────────────────────────────────
+
+const SOURCE_ID = "businesses";
+const CIRCLES_LAYER_ID = "business-circles";
+const LABELS_LAYER_ID = "business-labels";
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export function MapeoVEMap({
   businesses,
   selectedBusiness,
@@ -18,14 +86,16 @@ export function MapeoVEMap({
   userLocation,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<unknown>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
   const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
-  const markersRef = useRef<unknown[]>([]);
   const userMarkerRef = useRef<unknown>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
 
-  // Initialize map — import maplibre-gl dinámicamente y guardar referencia
+  // Refs para rastrear si source/layers ya fueron creados
+  const sourcesAddedRef = useRef(false);
+
+  // ─── Inicializar mapa ────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
@@ -35,7 +105,6 @@ export function MapeoVEMap({
       .then((maplibregl) => {
         if (cancelled || !mapContainer.current || mapRef.current) return;
 
-        // Guardar referencia al módulo para otros useEffect
         maplibreRef.current = maplibregl;
 
         // Cargar CSS desde CDN
@@ -101,116 +170,162 @@ export function MapeoVEMap({
 
     return () => {
       cancelled = true;
-      const map = mapRef.current as { remove: () => void } | null;
+      const map = mapRef.current;
       if (map) {
         map.remove();
       }
       mapRef.current = null;
       maplibreRef.current = null;
+      sourcesAddedRef.current = false;
       setMapLoaded(false);
     };
   }, []);
 
-  // Update business markers
-  // — anchor: "bottom" → la punta del pin toca la coordenada exacta
-  // — root usa display:flex; align-items:flex-end; justify-content:center → el pin cuelga hacia abajo
-  // — NO se aplica transform al root, solo al pin interno
+  // ─── FASE 3 & 4: Crear source GeoJSON + layers (circles + labels) ──────
+  // Se ejecuta UNA vez cuando el mapa carga y hay datos disponibles.
   useEffect(() => {
+    const map = mapRef.current;
     const maplibregl = maplibreRef.current;
-    const map = mapRef.current as { current: unknown } | null;
-    if (!map || !mapLoaded || !maplibregl) return;
+    if (!map || !mapLoaded || !maplibregl || sourcesAddedRef.current) return;
+    if (businesses.length === 0) return;
 
-    // Clear existing markers
-    (markersRef.current as { remove: () => void }[]).forEach((marker) => marker.remove());
-    markersRef.current = [];
+    const geojson = buildGeoJSON(businesses);
 
-    let validCount = 0;
-    let invalidCount = 0;
-
-    businesses.forEach((business) => {
-      const lat = Number(business.latitude);
-      const lng = Number(business.longitude);
-
-      // Validar coordenadas con el validador centralizado
-      if (!isValidVenezuelaCoordinate(lat, lng)) {
-        invalidCount++;
-        console.warn(
-          `[MapeoVE] Coordenadas inválidas para "${business.name}":`,
-          `lat=${business.latitude}, lng=${business.longitude}`
-        );
-        return;
-      }
-      validCount++;
-
-      const color = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
-      const isSelected = selectedBusiness?.id === business.id;
-
-      // Root: contenedor flexible — la punta del pin queda en el borde inferior
-      // MapLibre usa anchor:"bottom" → la coordenada toca el borde inferior del root
-      // El pin cuelga desde abajo, su punta (esquina inferior-izquierda del border-radius)
-      // coincide con la coordenada
-      const markerRoot = document.createElement("div");
-      markerRoot.className = "mapeove-marker-root";
-      markerRoot.style.cssText = `
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        width: ${isSelected ? "36px" : "28px"};
-        height: ${isSelected ? "40px" : "32px"};
-        cursor: pointer;
-        z-index: ${isSelected ? "10" : "1"};
-        transition: all 0.15s ease;
-      `;
-
-      const pin = document.createElement("div");
-      pin.className = "mapeove-marker-pin";
-      pin.style.cssText = `
-        width: ${isSelected ? "30px" : "22px"};
-        height: ${isSelected ? "30px" : "22px"};
-        border-radius: 50% 50% 50% 4px;
-        background: ${color};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: ${isSelected ? "14px" : "11px"};
-        box-shadow: 0 1px 4px ${color}60, 0 0 0 ${isSelected ? "2.5px" : "1.5px"} white;
-        transform: rotate(-45deg);
-        transition: all 0.15s ease;
-      `;
-
-      const iconSpan = document.createElement("span");
-      iconSpan.style.cssText = `
-        transform: rotate(45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-      iconSpan.textContent = business.category.icon;
-
-      pin.appendChild(iconSpan);
-      markerRoot.appendChild(pin);
-
-      markerRoot.addEventListener("click", () => onMarkerClick(business));
-
-      // anchor: "bottom" → la coordenada geográfica coincide con el borde inferior del markerRoot
-      // Esto hace que la punta visual del pin apunte exactamente a la ubicación
-      const marker = new maplibregl.Marker({ element: markerRoot, anchor: "bottom" })
-        .setLngLat([lng, lat])
-        .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
-
-      markersRef.current.push(marker);
+    // ─── FASE 3: Source GeoJSON ──────────────────────────────────────────
+    map.addSource(SOURCE_ID, {
+      type: "geojson",
+      data: geojson,
     });
 
-    // Reporte de coordenadas en desarrollo
-    if (invalidCount > 0) {
-      console.warn(
-        `[MapeoVE] Reporte de coordenadas: ${validCount} válidos, ${invalidCount} inválidos`
-      );
-    }
-  }, [businesses, selectedBusiness, onMarkerClick, mapLoaded]);
+    // ─── FASE 3: Layer business-circles ─────────────────────────────────
+    map.addLayer({
+      id: CIRCLES_LAYER_ID,
+      type: "circle",
+      source: SOURCE_ID,
+      paint: {
+        // FASE 5: Radio dinámico según selección
+        "circle-radius": [
+          "case",
+          ["boolean", ["feature-state", "selected"], false],
+          10,
+          7,
+        ],
+        // Color de categoría
+        "circle-color": ["get", "color"],
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2,
+        // Un poco de opacidad para suavizar
+        "circle-opacity": 0.9,
+        "circle-stroke-opacity": 1,
+      },
+    });
 
-  // Update user location marker
-  // anchor: "center" → el punto azul se centra en la ubicación exacta del usuario
+    // ─── FASE 4: Layer business-labels (symbol, emoji, zoom >= 14) ──────
+    map.addLayer({
+      id: LABELS_LAYER_ID,
+      type: "symbol",
+      source: SOURCE_ID,
+      minzoom: 14,
+      layout: {
+        "text-field": ["get", "icon"],
+        "text-size": 12,
+        "text-anchor": "center",
+        "text-allow-overlap": true,
+        "text-ignore-placement": true,
+      },
+      paint: {
+        "text-opacity": 1,
+      },
+    });
+
+    sourcesAddedRef.current = true;
+  }, [mapLoaded, businesses]);
+
+  // ─── FASE 7: Actualización eficiente con source.setData() ──────────────
+  // Cuando cambian los businesses (filtros, búsqueda), solo actualiza los datos
+  // del source, sin recrear mapa, source ni layers.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !sourcesAddedRef.current) return;
+
+    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+
+    const geojson = buildGeoJSON(businesses);
+    source.setData(geojson);
+  }, [businesses, mapLoaded]);
+
+  // ─── FASE 5: Selección eficiente con setPaintProperty() ────────────────
+  // Cuando selectedBusiness cambie, NO recrear mapa ni layers.
+  // Solo actualiza las propiedades de pintura para destacar el seleccionado.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !sourcesAddedRef.current) return;
+
+    const selectedId = selectedBusiness?.id ?? null;
+
+    // Actualizar circle-radius con expresión MapLibre
+    // Si el feature tiene el ID del negocio seleccionado → radio 10, sino → 7
+    map.setPaintProperty(CIRCLES_LAYER_ID, "circle-radius", [
+      "case",
+      ["==", ["get", "id"], selectedId],
+      10,
+      7,
+    ]);
+
+    // Actualizar circle-stroke-width: más grueso para el seleccionado
+    map.setPaintProperty(CIRCLES_LAYER_ID, "circle-stroke-width", [
+      "case",
+      ["==", ["get", "id"], selectedId],
+      3,
+      2,
+    ]);
+
+    // Actualizar circle-opacity: el seleccionado es completamente opaco
+    map.setPaintProperty(CIRCLES_LAYER_ID, "circle-opacity", [
+      "case",
+      ["==", ["get", "id"], selectedId],
+      1,
+      0.85,
+    ]);
+  }, [selectedBusiness, mapLoaded]);
+
+  // ─── FASE 6: Click nativo MapLibre + cursor pointer ────────────────────
+  // Registra listeners una sola vez cuando los layers están listos.
+  const clickHandlerSetRef = useRef(false);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !sourcesAddedRef.current || clickHandlerSetRef.current) return;
+
+    // Click en business-circles → obtener feature.properties.id → onMarkerClick
+    map.on("click", CIRCLES_LAYER_ID, (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+      if (!e.features || e.features.length === 0) return;
+
+      const feature = e.features[0];
+      const businessId = feature.properties?.id as string | undefined;
+      if (!businessId) return;
+
+      const business = businesses.find((b) => b.id === businessId);
+      if (business) {
+        onMarkerClick(business);
+      }
+    });
+
+    // Cursor: pointer al pasar sobre un círculo
+    map.on("mouseenter", CIRCLES_LAYER_ID, () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+
+    // Cursor: default al salir
+    map.on("mouseleave", CIRCLES_LAYER_ID, () => {
+      map.getCanvas().style.cursor = "";
+    });
+
+    clickHandlerSetRef.current = true;
+  }, [mapLoaded, businesses, onMarkerClick]);
+
+  // ─── Marcador del usuario (DOM Marker — se mantiene) ───────────────────
   useEffect(() => {
     const maplibregl = maplibreRef.current;
     if (!mapRef.current || !userLocation || !mapLoaded || !maplibregl) return;
@@ -223,7 +338,6 @@ export function MapeoVEMap({
     if (userMarkerRef.current) {
       (userMarkerRef.current as { setLngLat: (lngLat: [number, number]) => void }).setLngLat([lng, lat]);
     } else {
-      // Punto azul del usuario — centrado en la ubicación
       const markerRoot = document.createElement("div");
       markerRoot.style.cssText = `
         width: 16px;
@@ -265,7 +379,7 @@ export function MapeoVEMap({
     }
   }, [userLocation, mapLoaded]);
 
-  // Fly to selected business
+  // ─── Fly to selected business ──────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !selectedBusiness || !mapLoaded) return;
 
@@ -281,7 +395,7 @@ export function MapeoVEMap({
     });
   }, [selectedBusiness, mapLoaded]);
 
-  // Error state
+  // ─── Error state ───────────────────────────────────────────────────────
   if (mapError) {
     return (
       <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
