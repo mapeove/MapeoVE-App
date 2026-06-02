@@ -50,7 +50,15 @@ export function MapeoVEHome() {
   const [showList, setShowList] = useState(false);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-100">
+    <div className="relative w-full h-screen overflow-hidden bg-gray-100"
+      style={{
+        // Safe areas para iPhone con notch/dynamic island
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
+    >
       {/* Splash Screen */}
       <SplashOverlay />
 
@@ -63,7 +71,9 @@ export function MapeoVEHome() {
       />
 
       {/* Barra superior: Búsqueda + Categorías */}
-      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="px-3 pt-2 pb-1 space-y-2 pointer-events-auto md:px-4 md:pt-3 md:space-y-2.5">
           <SearchBar
             onSearch={handleSearch}
@@ -79,7 +89,9 @@ export function MapeoVEHome() {
       </div>
 
       {/* Sección inferior */}
-      <div className="absolute bottom-0 left-0 right-0 z-20">
+      <div className="absolute bottom-0 left-0 right-0 z-20"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
         {/* Contador de negocios */}
         {!selectedBusiness && !showList && (
           <div className="flex justify-center mb-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Business, Category } from "@/types/mapeove";
 import { fetchCategories, fetchBusinesses } from "@/lib/mapeove-api";
 
@@ -12,8 +12,24 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carga inicial de datos
+  // Ref para rastrear si la carga inicial ya se hizo
+  const initialLoadDone = useRef(false);
+
+  // Ref para rastrear la ubicación usada en la última carga
+  // Se inicializa con la locationKey que tendrá la primera carga
+  const prevLocationRef = useRef<string>(userLocation
+    ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
+    : "null"
+  );
+
+  // Ref para rastrear los filtros activos al momento de la carga inicial
+  const initialCategoryRef = useRef<string | null>(null);
+  const initialSearchRef = useRef<string>("");
+
+  // Carga inicial — solo UNA vez
   useEffect(() => {
+    if (initialLoadDone.current) return;
+
     async function loadData() {
       try {
         const [cats, biz] = await Promise.all([
@@ -22,6 +38,15 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
         ]);
         setCategories(cats);
         setBusinesses(biz.businesses);
+        initialLoadDone.current = true;
+        // Registrar la locationKey usada en la carga inicial para evitar
+        // que el segundo efecto haga una llamada redundante inmediatamente
+        prevLocationRef.current = userLocation
+          ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
+          : "null";
+        // Registrar los filtros vigentes al momento de la carga inicial
+        initialCategoryRef.current = activeCategory;
+        initialSearchRef.current = searchQuery;
       } catch (err) {
         console.error("Error cargando datos:", err);
       } finally {
@@ -31,9 +56,31 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     loadData();
   }, []);
 
-  // Recargar negocios al cambiar categoría, búsqueda o ubicación
+  // Recargar negocios cuando cambian categoría, búsqueda o ubicación
+  // Se ejecuta DESPUÉS de la carga inicial
   useEffect(() => {
-    async function loadByCategory() {
+    if (!initialLoadDone.current) return;
+
+    // Calcular la locationKey actual
+    const locationKey = userLocation
+      ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
+      : "null";
+
+    // Si la ubicación no cambió Y no hay filtros activos → no recargar
+    // Esto evita la 2da llamada redundante tras la carga inicial
+    const locationChanged = locationKey !== prevLocationRef.current;
+    const categoryChanged = activeCategory !== initialCategoryRef.current;
+    const searchChanged = searchQuery !== initialSearchRef.current;
+
+    if (!locationChanged && !categoryChanged && !searchChanged) {
+      return; // Nada cambió — no recargar
+    }
+
+    prevLocationRef.current = locationKey;
+    initialCategoryRef.current = activeCategory;
+    initialSearchRef.current = searchQuery;
+
+    async function loadByFilter() {
       try {
         const result = await fetchBusinesses({
           category: activeCategory || undefined,
@@ -47,8 +94,8 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
         console.error("Error cargando negocios:", err);
       }
     }
-    if (!isLoading) loadByCategory();
-  }, [activeCategory, isLoading, userLocation, searchQuery]);
+    loadByFilter();
+  }, [activeCategory, searchQuery, userLocation]);
 
   const handleMarkerClick = useCallback((business: Business) => {
     setSelectedBusiness(business);

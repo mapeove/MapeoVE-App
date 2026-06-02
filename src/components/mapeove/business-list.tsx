@@ -1,6 +1,7 @@
 "use client";
 
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
+import { isInVenezuela } from "@/lib/coordinate-validator";
 import { MapPin, Clock, Navigation } from "lucide-react";
 
 interface BusinessListProps {
@@ -8,11 +9,6 @@ interface BusinessListProps {
   onSelectBusiness: (business: Business) => void;
   selectedId: string | null;
   userLocation?: { lat: number; lng: number } | null;
-}
-
-/** Check if coordinates are roughly within Venezuela */
-function isInVenezuela(lat: number, lng: number): boolean {
-  return lat >= 0 && lat <= 13 && lng >= -74 && lng <= -59;
 }
 
 export function BusinessList({

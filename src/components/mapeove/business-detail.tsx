@@ -1,6 +1,7 @@
 "use client";
 
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
+import { isInVenezuela } from "@/lib/coordinate-validator";
 import {
   X,
   Phone,
@@ -9,6 +10,7 @@ import {
   MapPin,
   Clock,
   Shield,
+  CircleDot,
 } from "lucide-react";
 
 interface BusinessDetailProps {
@@ -17,9 +19,48 @@ interface BusinessDetailProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
-/** Check if coordinates are roughly within Venezuela */
-function isInVenezuela(lat: number, lng: number): boolean {
-  return lat >= 0 && lat <= 13 && lng >= -74 && lng <= -59;
+/**
+ * Determina si un negocio está "Abierto" o "Cerrado" basado en el campo hours.
+ * Parseo simple — mejora futura: soportar rangos por día.
+ */
+function getOpenStatus(hours: string | null): { isOpen: boolean; label: string } {
+  if (!hours) return { isOpen: false, label: "Sin horario" };
+
+  const lower = hours.toLowerCase();
+
+  // Patrones comunes de "abierto ahora"
+  if (lower.includes("24") || lower.includes("siempre") || lower.includes("todo el día")) {
+    return { isOpen: true, label: "Abierto 24h" };
+  }
+
+  // Intentar parsear rangos como "8:00 AM - 6:00 PM" o "8am a 6pm"
+  const rangeMatch = lower.match(
+    /(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.?)\s*[-–a]\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.?)/
+  );
+
+  if (rangeMatch) {
+    const toMinutes = (h: string, m: string, p: string) => {
+      let hour = parseInt(h, 10);
+      const min = m ? parseInt(m, 10) : 0;
+      if (p.startsWith("p") && hour !== 12) hour += 12;
+      if (p.startsWith("a") && hour === 12) hour = 0;
+      return hour * 60 + min;
+    };
+
+    const openMin = toMinutes(rangeMatch[1], rangeMatch[2] || "0", rangeMatch[3]);
+    const closeMin = toMinutes(rangeMatch[4], rangeMatch[5] || "0", rangeMatch[6]);
+
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+
+    if (nowMin >= openMin && nowMin <= closeMin) {
+      return { isOpen: true, label: "Abierto ahora" };
+    } else {
+      return { isOpen: false, label: "Cerrado" };
+    }
+  }
+
+  return { isOpen: false, label: hours };
 }
 
 export function BusinessDetail({
@@ -31,11 +72,14 @@ export function BusinessDetail({
   const whatsappNumber = business.whatsapp?.replace(/[^0-9]/g, "") || "";
   const phoneNumber = business.phone?.replace(/[^0-9]/g, "") || "";
 
-  // Distance logic: only show if user location is within Venezuela
+  // Distance: solo mostrar si la ubicación del usuario está dentro de Venezuela
   const hasValidDistance =
     business.distance !== undefined &&
     userLocation !== null &&
     isInVenezuela(userLocation.lat, userLocation.lng);
+
+  // Open status
+  const { isOpen, label: openLabel } = getOpenStatus(business.hours);
 
   function handleCall() {
     if (phoneNumber) window.open(`tel:${phoneNumber}`, "_self");
@@ -54,19 +98,19 @@ export function BusinessDetail({
     const lat = Number(business.latitude);
     const lng = Number(business.longitude);
 
-    // If user has a valid location within Venezuela, use directions
     if (
       userLocation &&
       isInVenezuela(userLocation.lat, userLocation.lng)
     ) {
+      // Ubicación válida en Venezuela → Google Maps directions
       window.open(
-        `https://www.openstreetmap.org/directions?from=${userLocation.lat},${userLocation.lng}&to=${lat},${lng}`,
+        `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
         "_blank"
       );
     } else {
-      // No valid user location — just open the destination
+      // Sin ubicación válida → Google Maps búsqueda del destino
       window.open(
-        `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`,
+        `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
         "_blank"
       );
     }
@@ -79,48 +123,99 @@ export function BusinessDetail({
         <div className="w-9 h-1 rounded-full bg-gray-300" />
       </div>
 
-      {/* Color accent bar */}
-      <div className="h-1 md:h-1.5" style={{ backgroundColor: categoryColor }} />
-
-      {/* Scrollable content */}
-      <div className="overflow-y-auto max-h-[calc(45vh-32px)] md:max-h-[400px] px-4 pt-3 pb-4">
-        {/* Header row: category + close */}
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
+      {/* Imagen o placeholder */}
+      {business.image ? (
+        <div className="relative h-28 md:h-32 overflow-hidden">
+          <img
+            src={business.image}
+            alt={business.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          {/* Close button sobre imagen */}
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors"
+          >
+            <X size={14} className="text-white" />
+          </button>
+          {/* Badge de categoría sobre imagen */}
+          <div className="absolute bottom-2 left-3">
             <span
-              className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white leading-tight"
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white leading-tight shadow-sm"
               style={{ backgroundColor: categoryColor }}
             >
               {business.category.icon} {business.category.name}
             </span>
-            {business.verified && (
-              <span className="flex items-center gap-0.5 text-[11px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
-                <Shield size={10} />
-                Verificado
-              </span>
-            )}
           </div>
+        </div>
+      ) : (
+        <div className="relative">
+          {/* Barra de color como acento visual */}
+          <div className="h-1.5" style={{ backgroundColor: categoryColor }} />
+          {/* Close button */}
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0"
+            className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
           >
             <X size={14} className="text-gray-500" />
           </button>
+          {/* Header con ícono de categoría grande */}
+          <div className="flex items-center gap-3 px-4 pt-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg flex-shrink-0 shadow-sm"
+              style={{ backgroundColor: categoryColor }}
+            >
+              {business.category.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white leading-tight"
+                style={{ backgroundColor: categoryColor }}
+              >
+                {business.category.name}
+              </span>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Name */}
+      {/* Contenido scrolleable */}
+      <div className="overflow-y-auto max-h-[calc(45vh-140px)] md:max-h-[360px] px-4 pt-2.5 pb-4">
+        {/* Nombre */}
         <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}
         </h2>
 
-        {/* Description — truncated to 2 lines */}
+        {/* Badges: estado + verificado */}
+        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+          {/* Badge Abierto/Cerrado */}
+          <span
+            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              isOpen
+                ? "text-green-700 bg-green-50"
+                : "text-gray-500 bg-gray-100"
+            }`}
+          >
+            <CircleDot size={9} />
+            {openLabel}
+          </span>
+          {business.verified && (
+            <span className="flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+              <Shield size={10} />
+              Verificado
+            </span>
+          )}
+        </div>
+
+        {/* Descripción — truncada a 2 líneas */}
         {business.description && (
-          <p className="mt-1 text-xs text-gray-500 leading-relaxed line-clamp-2">
+          <p className="mt-1.5 text-xs text-gray-500 leading-relaxed line-clamp-2">
             {business.description}
           </p>
         )}
 
-        {/* Info rows — compact */}
+        {/* Info rows — orden: dirección, horario, teléfono, distancia */}
         <div className="mt-2.5 space-y-1.5">
           <div className="flex items-center gap-2">
             <MapPin size={13} className="text-gray-400 flex-shrink-0" />
@@ -148,7 +243,7 @@ export function BusinessDetail({
           )}
         </div>
 
-        {/* Action buttons — compact grid */}
+        {/* Botones de acción — grid 3 columnas */}
         <div className="mt-3 flex gap-2">
           {phoneNumber && (
             <button
