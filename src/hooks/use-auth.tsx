@@ -14,6 +14,8 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  register: (name: string, email: string, password: string, role: string) => Promise<{ success: boolean; error?: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   checkSession: () => Promise<void>;
 }
 
@@ -76,8 +78,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const register = async (name: string, email: string, password: string, role: string) => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: data.error || "Error al registrarse" };
+      }
+    } catch (e) {
+      console.error("Register request failed:", e);
+      return { success: false, error: "Error de conexión" };
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        return { success: true, message: data.message };
+      } else {
+        return { success: false, error: data.error || "Error al solicitar la recuperación" };
+      }
+    } catch (e) {
+      console.error("Forgot password request failed:", e);
+      return { success: false, error: "Error de conexión" };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, checkSession }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, forgotPassword, checkSession }}>
       {children}
     </AuthContext.Provider>
   );
