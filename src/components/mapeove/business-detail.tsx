@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
 import {
@@ -11,29 +12,61 @@ import {
   Clock,
   Shield,
   CircleDot,
+  Footprints,
+  Bike,
+  Car,
 } from "lucide-react";
+
+function MotorcycleIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="M19 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+      <path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+      <path d="M7 16h10" />
+      <path d="M17 16l-3-6H9l-3 6" />
+      <path d="M12 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z" />
+    </svg>
+  );
+}
 
 interface BusinessDetailProps {
   business: Business;
   onClose: () => void;
   userLocation: { lat: number; lng: number } | null;
+  activeRoute?: {
+    distance: number;
+    duration: number;
+    mode: string;
+  } | null;
+  onCalculateRoute?: (mode: string) => Promise<void>;
+  onClearRoute?: () => void;
+  routeError?: string | null;
+  routeLoading?: boolean;
 }
 
 /**
  * Determina si un negocio está "Abierto" o "Cerrado" basado en el campo hours.
- * Parseo simple — mejora futura: soportar rangos por día.
  */
 function getOpenStatus(hours: string | null): { isOpen: boolean; label: string } {
   if (!hours) return { isOpen: false, label: "Sin horario" };
 
   const lower = hours.toLowerCase();
 
-  // Patrones comunes de "abierto ahora"
   if (lower.includes("24") || lower.includes("siempre") || lower.includes("todo el día")) {
     return { isOpen: true, label: "Abierto 24h" };
   }
 
-  // Intentar parsear rangos como "8:00 AM - 6:00 PM" o "8am a 6pm"
   const rangeMatch = lower.match(
     /(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.?)\s*[-–a]\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.?)/
   );
@@ -67,18 +100,28 @@ export function BusinessDetail({
   business,
   onClose,
   userLocation,
+  activeRoute,
+  onCalculateRoute,
+  onClearRoute,
+  routeError,
+  routeLoading,
 }: BusinessDetailProps) {
   const categoryColor = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
   const whatsappNumber = business.whatsapp?.replace(/[^0-9]/g, "") || "";
   const phoneNumber = business.phone?.replace(/[^0-9]/g, "") || "";
 
-  // Distance: solo mostrar si la ubicación del usuario está dentro de Venezuela
+  const [isRoutingActive, setIsRoutingActive] = useState(false);
+
+  // Reset routing UI when selecting another business
+  useEffect(() => {
+    setIsRoutingActive(false);
+  }, [business.id]);
+
   const hasValidDistance =
     business.distance !== undefined &&
     userLocation !== null &&
     isInVenezuela(userLocation.lat, userLocation.lng);
 
-  // Open status
   const { isOpen, label: openLabel } = getOpenStatus(business.hours);
 
   function handleCall() {
@@ -94,30 +137,40 @@ export function BusinessDetail({
     }
   }
 
-  function handleDirections() {
-    const lat = Number(business.latitude);
-    const lng = Number(business.longitude);
-
-    if (
-      userLocation &&
-      isInVenezuela(userLocation.lat, userLocation.lng)
-    ) {
-      // Ubicación válida en Venezuela → Google Maps directions
-      window.open(
-        `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-        "_blank"
-      );
-    } else {
-      // Sin ubicación válida → Google Maps búsqueda del destino
-      window.open(
-        `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
-        "_blank"
-      );
+  const startInternalRouting = async (mode: string) => {
+    setIsRoutingActive(true);
+    if (onCalculateRoute) {
+      await onCalculateRoute(mode);
     }
-  }
+  };
+
+  const handleCancelRouting = () => {
+    setIsRoutingActive(false);
+    if (onClearRoute) {
+      onClearRoute();
+    }
+  };
+
+  // Format routing summary values
+  const formatDistance = (meters: number) => {
+    if (meters >= 1000) {
+      return `${(meters / 1000).toFixed(1)} km`;
+    }
+    return `${Math.round(meters)} m`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.round(seconds / 60);
+    if (minutes >= 60) {
+      const hours = Math.floor(minutes / 60);
+      const remainingMin = minutes % 60;
+      return `${hours} h ${remainingMin} min`;
+    }
+    return `${minutes} min`;
+  };
 
   return (
-    <div className="bg-white rounded-t-2xl shadow-2xl overflow-hidden animate-slide-up max-h-[45vh] md:max-h-none md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3">
+    <div className="bg-white rounded-t-2xl shadow-2xl overflow-hidden animate-slide-up max-h-[50vh] md:max-h-none md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3">
       {/* Drag handle (mobile) */}
       <div className="flex justify-center pt-2 pb-0 md:hidden">
         <div className="w-9 h-1 rounded-full bg-gray-300" />
@@ -181,7 +234,7 @@ export function BusinessDetail({
       )}
 
       {/* Contenido scrolleable */}
-      <div className="overflow-y-auto max-h-[calc(45vh-140px)] md:max-h-[360px] px-4 pt-2.5 pb-4">
+      <div className="overflow-y-auto max-h-[calc(50vh-140px)] md:max-h-[380px] px-4 pt-2.5 pb-4">
         {/* Nombre */}
         <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}
@@ -208,13 +261,6 @@ export function BusinessDetail({
           )}
         </div>
 
-        {/* Descripción — truncada a 2 líneas */}
-        {business.description && (
-          <p className="mt-1.5 text-xs text-gray-500 leading-relaxed line-clamp-2">
-            {business.description}
-          </p>
-        )}
-
         {/* Info rows — orden: dirección, horario, teléfono, distancia */}
         <div className="mt-2.5 space-y-1.5">
           <div className="flex items-center gap-2">
@@ -233,7 +279,7 @@ export function BusinessDetail({
               <span className="text-xs text-gray-600">{business.phone}</span>
             </div>
           )}
-          {hasValidDistance && (
+          {hasValidDistance && !isRoutingActive && (
             <div className="flex items-center gap-2">
               <Navigation size={13} className="text-gray-400 flex-shrink-0" />
               <span className="text-xs font-semibold" style={{ color: BRAND.blue }}>
@@ -243,37 +289,118 @@ export function BusinessDetail({
           )}
         </div>
 
-        {/* Botones de acción — grid 3 columnas */}
-        <div className="mt-3 flex gap-2">
-          {phoneNumber && (
+        {/* Panel de navegación activa */}
+        {isRoutingActive ? (
+          <div className="mt-4 p-3 bg-gray-50 border border-gray-150 rounded-xl space-y-3 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                Navegación Interna
+              </span>
+              <button
+                onClick={handleCancelRouting}
+                className="text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors uppercase"
+              >
+                Salir
+              </button>
+            </div>
+
+            {/* Travel Mode Selector */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { id: "driving-car", label: "Coche", icon: Car },
+                { id: "driving-car-moto", label: "Moto", icon: MotorcycleIcon },
+                { id: "cycling-regular", label: "Bici", icon: Bike },
+                { id: "foot-walking", label: "Caminar", icon: Footprints },
+              ].map((mode) => {
+                const isSelected = activeRoute?.mode === mode.id || 
+                  (mode.id === "driving-car-moto" && activeRoute?.mode === "driving-car-moto");
+                const IconComponent = mode.icon;
+
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => startInternalRouting(mode.id)}
+                    className={`py-2 px-1 rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                      isSelected
+                        ? "bg-blue-600 border-blue-600 text-white shadow-sm"
+                        : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <IconComponent size={16} />
+                    <span className="text-[9px] font-semibold">{mode.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Navigation Summary / Loading / Error */}
+            <div className="pt-1.5 border-t border-gray-200/60 min-h-[42px] flex items-center justify-center">
+              {routeLoading ? (
+                <div className="flex items-center gap-2 py-1">
+                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-gray-500 font-medium">Buscando ruta...</span>
+                </div>
+              ) : routeError ? (
+                <p className="text-xs font-bold text-red-600 text-center py-1">
+                  {routeError}
+                </p>
+              ) : activeRoute ? (
+                <div className="w-full flex justify-around text-center">
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-medium uppercase">Distancia</p>
+                    <p className="text-xs font-black text-gray-800">
+                      {formatDistance(activeRoute.distance)}
+                    </p>
+                  </div>
+                  <div className="border-l border-gray-200" />
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-medium uppercase">Tiempo Estimado</p>
+                    <p className="text-xs font-black text-gray-800">
+                      {formatDuration(activeRoute.duration)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 text-center">
+                  Selecciona un modo para calcular la ruta
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Botones de acción normales */
+          <div className="mt-4 flex gap-2">
+            {phoneNumber && (
+              <button
+                onClick={handleCall}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
+                style={{ backgroundColor: BRAND.blue }}
+              >
+                <Phone size={14} />
+                <span>Llamar</span>
+              </button>
+            )}
+            {whatsappNumber && (
+              <button
+                onClick={handleWhatsApp}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
+                style={{ backgroundColor: "#25D366" }}
+              >
+                <MessageCircle size={14} />
+                <span>WhatsApp</span>
+              </button>
+            )}
             <button
-              onClick={handleCall}
+              onClick={() => startInternalRouting("driving-car")}
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
-              style={{ backgroundColor: BRAND.blue }}
+              style={{ backgroundColor: BRAND.red }}
             >
-              <Phone size={14} />
-              <span>Llamar</span>
+              <Navigation size={14} />
+              <span>Cómo llegar</span>
             </button>
-          )}
-          {whatsappNumber && (
-            <button
-              onClick={handleWhatsApp}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
-              style={{ backgroundColor: "#25D366" }}
-            >
-              <MessageCircle size={14} />
-              <span>WhatsApp</span>
-            </button>
-          )}
-          <button
-            onClick={handleDirections}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
-            style={{ backgroundColor: BRAND.red }}
-          >
-            <Navigation size={14} />
-            <span>Cómo llegar</span>
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

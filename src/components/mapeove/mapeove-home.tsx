@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { SplashOverlay } from "@/components/mapeove/splash-overlay";
 import { SearchBar } from "@/components/mapeove/search-bar";
@@ -11,6 +11,8 @@ import { BRAND } from "@/types/mapeove";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useMapeoveData } from "@/hooks/use-mapeove-data";
 import { MapPin, List, X } from "lucide-react";
+import { AuthButton } from "@/components/mapeove/auth-button";
+import { AdminDashboard } from "@/components/mapeove/admin-dashboard";
 
 // Dynamic import del mapa — ssr: false porque MapLibre GL usa window/document
 const MapeoVEMap = dynamic(
@@ -48,6 +50,86 @@ export function MapeoVEHome() {
   } = useMapeoveData(userLocation);
 
   const [showList, setShowList] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
+
+  // Navegación interna (Directions) states
+  const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
+  const [activeRoute, setActiveRoute] = useState<{
+    distance: number;
+    duration: number;
+    mode: string;
+  } | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+
+  // Limpiar la ruta cuando cambia de negocio o se cierra el detalle
+  useEffect(() => {
+    setRouteGeoJSON(null);
+    setActiveRoute(null);
+    setRouteError(null);
+  }, [selectedBusiness]);
+
+  const calculateRoute = async (mode: string) => {
+    if (!selectedBusiness) return;
+
+    if (!userLocation) {
+      setRouteError("Por favor habilita tu geolocalización para calcular la ruta.");
+      return;
+    }
+
+    setRouteLoading(true);
+    setRouteError(null);
+
+    const start = `${userLocation.lng},${userLocation.lat}`;
+    const end = `${selectedBusiness.longitude},${selectedBusiness.latitude}`;
+
+    try {
+      const res = await fetch(`/api/directions?start=${start}&end=${end}&profile=${mode}`);
+      if (!res.ok) {
+        if (res.status === 501) {
+          setRouteError("La navegación no está configurada todavía");
+        } else {
+          try {
+            const errData = await res.json();
+            setRouteError(errData.error || "No se pudo calcular la ruta.");
+          } catch {
+            setRouteError("Error al calcular la ruta.");
+          }
+        }
+        setRouteGeoJSON(null);
+        setActiveRoute(null);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.features && data.features.length > 0) {
+        const feature = data.features[0];
+        setRouteGeoJSON(data);
+        setActiveRoute({
+          distance: feature.properties.summary.distance,
+          duration: feature.properties.summary.duration,
+          mode,
+        });
+      } else {
+        setRouteError("No se encontró una ruta disponible.");
+        setRouteGeoJSON(null);
+        setActiveRoute(null);
+      }
+    } catch (err) {
+      console.error("Error fetching directions:", err);
+      setRouteError("Error al conectar con el servidor.");
+      setRouteGeoJSON(null);
+      setActiveRoute(null);
+    } finally {
+      setRouteLoading(false);
+    }
+  };
+
+  const clearRoute = () => {
+    setRouteGeoJSON(null);
+    setActiveRoute(null);
+    setRouteError(null);
+  };
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-100"
@@ -68,6 +150,7 @@ export function MapeoVEHome() {
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
         userLocation={userLocation}
+        routeGeoJSON={routeGeoJSON}
       />
 
       {/* Barra superior: Búsqueda + Categorías */}
@@ -75,11 +158,16 @@ export function MapeoVEHome() {
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="px-3 pt-2 pb-1 space-y-2 pointer-events-auto md:px-4 md:pt-3 md:space-y-2.5">
-          <SearchBar
-            onSearch={handleSearch}
-            onSelectBusiness={handleSelectBusinessFromSearch}
-            onClear={handleClearSearch}
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <SearchBar
+                onSearch={handleSearch}
+                onSelectBusiness={handleSelectBusinessFromSearch}
+                onClear={handleClearSearch}
+              />
+            </div>
+            <AuthButton onOpenDashboard={() => setDashboardOpen(true)} />
+          </div>
           <CategoryFilters
             categories={categories}
             activeCategory={activeCategory}
@@ -87,6 +175,13 @@ export function MapeoVEHome() {
           />
         </div>
       </div>
+
+      {/* Panel de administración SUPER_ADMIN */}
+      <AdminDashboard 
+        isOpen={dashboardOpen} 
+        onClose={() => setDashboardOpen(false)} 
+        businesses={businesses}
+      />
 
       {/* Sección inferior */}
       <div className="absolute bottom-0 left-0 right-0 z-20"
@@ -110,8 +205,16 @@ export function MapeoVEHome() {
           <div className="mx-0 mb-0 md:mx-3 md:mb-3">
             <BusinessDetail
               business={selectedBusiness}
-              onClose={handleCloseDetail}
+              onClose={() => {
+                handleCloseDetail();
+                clearRoute();
+              }}
               userLocation={userLocation}
+              activeRoute={activeRoute}
+              onCalculateRoute={calculateRoute}
+              onClearRoute={clearRoute}
+              routeError={routeError}
+              routeLoading={routeLoading}
             />
           </div>
         )}

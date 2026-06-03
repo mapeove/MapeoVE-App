@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Business, CATEGORY_COLORS, BRAND, MAP_CONFIG } from "@/types/mapeove";
 import { isValidVenezuelaCoordinate } from "@/lib/coordinate-validator";
 
@@ -11,6 +11,7 @@ interface MapeoVEMapProps {
   selectedBusiness: Business | null;
   onMarkerClick: (business: Business) => void;
   userLocation: { lat: number; lng: number } | null;
+  routeGeoJSON?: any;
 }
 
 interface BusinessFeatureProperties {
@@ -84,6 +85,7 @@ export function MapeoVEMap({
   selectedBusiness,
   onMarkerClick,
   userLocation,
+  routeGeoJSON,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -197,6 +199,30 @@ export function MapeoVEMap({
       data: geojson,
     });
 
+    // ─── Navegación Interna Source & Layer ─────────────────────────────────
+    map.addSource("route-source", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [],
+      },
+    });
+
+    map.addLayer({
+      id: "route-layer",
+      type: "line",
+      source: "route-source",
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": BRAND.red,
+        "line-width": 5,
+        "line-opacity": 0.8,
+      },
+    });
+
     // ─── FASE 3: Layer business-circles ─────────────────────────────────
     map.addLayer({
       id: CIRCLES_LAYER_ID,
@@ -254,6 +280,46 @@ export function MapeoVEMap({
     const geojson = buildGeoJSON(businesses);
     source.setData(geojson);
   }, [businesses, mapLoaded]);
+
+  // ─── Actualizar capa de ruta ────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !sourcesAddedRef.current) return;
+
+    const source = map.getSource("route-source") as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+
+    if (routeGeoJSON) {
+      source.setData(routeGeoJSON);
+
+      // Enfocar la ruta en el mapa con un fitBounds cómodo
+      try {
+        const feature = routeGeoJSON.features?.[0];
+        const coords = feature?.geometry?.coordinates;
+        if (coords && coords.length > 0) {
+          const maplibregl = maplibreRef.current;
+          if (maplibregl) {
+            const bounds = coords.reduce((acc: any, coord: any) => {
+              return acc.extend(coord);
+            }, new maplibregl.LngLatBounds(coords[0], coords[0]));
+            
+            map.fitBounds(bounds, {
+              padding: { top: 120, bottom: 250, left: 50, right: 50 },
+              maxZoom: 16,
+              duration: 800,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error setting map bounds to route:", err);
+      }
+    } else {
+      source.setData({
+        type: "FeatureCollection",
+        features: [],
+      });
+    }
+  }, [routeGeoJSON, mapLoaded]);
 
   // ─── FASE 5: Selección eficiente con setPaintProperty() ────────────────
   // Cuando selectedBusiness cambie, NO recrear mapa ni layers.
