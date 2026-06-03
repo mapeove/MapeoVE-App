@@ -9,25 +9,28 @@ datasource db {
 }
 
 model Category {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  icon      String
-  slug      String     @unique
-  createdAt DateTime   @default(now()) @map("created_at")
-  businesses Business[]
+  id               String            @id @default(cuid())
+  name             String            @unique
+  icon             String
+  slug             String            @unique
+  createdAt        DateTime          @default(now()) @map("created_at")
+  businesses       Business[]
+  businessRequests BusinessRequest[]
 
   @@map("categories")
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  name      String
-  role      String     @default("VISITANTE") // VISITANTE, OWNER, SUPER_ADMIN
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  businesses Business[]
+  id               String            @id @default(cuid())
+  email            String            @unique
+  password         String
+  name             String
+  role             String            @default("VISITANTE") // VISITANTE, OWNER, SUPER_ADMIN
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  businesses       Business[]
+  businessRequests BusinessRequest[] @relation("userRequests")
+  reviewedRequests BusinessRequest[] @relation("reviewedByRequests")
 
   @@map("users")
 }
@@ -71,4 +74,42 @@ model PasswordResetToken {
 
   @@index([email])
   @@map("password_reset_tokens")
+}
+
+enum PaymentMethod {
+  PAGO_MOVIL
+  TRANSFERENCIA
+  BINANCE
+}
+
+enum BusinessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model BusinessRequest {
+  id               String                @id @default(cuid())
+  userId           String                @map("user_id")
+  user             User                  @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade)
+  businessId       String?               @map("business_id")
+  businessName     String                @map("business_name")
+  categoryId       String                @map("category_id")
+  category         Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  address          String
+  phone            String
+  whatsapp         String
+  description      String?
+  openingHours     String?               @map("opening_hours")
+  note             String?
+  paymentMethod    PaymentMethod         @map("payment_method")
+  paymentReference String                @map("payment_reference")
+  proofImageUrl    String?               @map("proof_image_url")
+  status           BusinessRequestStatus @default(PENDING)
+  createdAt        DateTime              @default(now()) @map("created_at")
+  reviewedAt       DateTime?             @map("reviewed_at")
+  reviewedById     String?               @map("reviewed_by_id")
+  reviewedBy       User?                 @relation("reviewedByRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@map("business_requests")
 }

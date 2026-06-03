@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthModal } from "./auth-modal";
-import { LogIn, LogOut, User, ShieldAlert, LayoutDashboard, ChevronDown } from "lucide-react";
+import { RegisterLocalModal } from "./register-local-modal";
+import { LogIn, LogOut, User, ShieldAlert, LayoutDashboard, ChevronDown, Store } from "lucide-react";
 import { BRAND } from "@/types/mapeove";
 
 interface AuthButtonProps {
@@ -13,6 +14,7 @@ interface AuthButtonProps {
 export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
   const { user, logout, loading } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +91,19 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
             <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
           </div>
 
+          {!isSuperAdmin && (
+            <button
+              onClick={() => {
+                setDropdownOpen(false);
+                setRegisterModalOpen(true);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 text-left transition-colors font-bold"
+            >
+              <Store size={14} className="text-gray-500" />
+              <span>{user.role === "OWNER" ? "Mi local" : "Registrar local"}</span>
+            </button>
+          )}
+
           {isSuperAdmin && (
             <button
               onClick={handleDashboardClick}
@@ -110,6 +125,15 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
             <span>Cerrar Sesión</span>
           </button>
         </div>
+      )}
+
+      {/* Local registration/details Modal */}
+      {!isSuperAdmin && (
+        <RegisterLocalModal 
+          isOpen={registerModalOpen} 
+          onClose={() => setRegisterModalOpen(false)} 
+          user={user}
+        />
       )}
     </div>
   );
