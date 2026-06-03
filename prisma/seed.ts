@@ -357,13 +357,47 @@ async function seed() {
     },
   ];
 
+  // =============================================
+  // USUARIOS
+  // =============================================
+  await db.user.deleteMany({});
+  console.log("🗑️  Cleared existing users");
+
+  // Simple pbkdf2 password hashing inline since importing might have module resolution issues in tsx/prisma seed
+  const crypto = await import("crypto");
+  function hashPassword(password: string): string {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+    return `${salt}:${hash}`;
+  }
+
+  if (!process.env.SUPERADMIN_EMAIL || !process.env.SUPERADMIN_PASSWORD) {
+  throw new Error('SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD must be set');
+}
+const adminUser = await db.user.create({
+  data: {
+    email: process.env.SUPERADMIN_EMAIL,
+    password: hashPassword(process.env.SUPERADMIN_PASSWORD),
+    name: "Administrador MapeoVE",
+    role: "SUPER_ADMIN",
+  },
+});
+
+
+
+  console.log("👤 Created SUPER_ADMIN user from environment variables");
+
+
   // Clear existing businesses first (to avoid duplicates on re-seed)
   await db.business.deleteMany({});
   console.log("🗑️  Cleared existing businesses");
 
   let created = 0;
-  for (const business of businesses) {
-    await db.business.create({ data: business });
+  for (let i = 0; i < businesses.length; i++) {
+    const bizData = businesses[i];
+    // Asignar el primer negocio al usuario OWNER
+
+    const data = bizData;
     created++;
   }
 
@@ -379,3 +413,4 @@ seed()
   .finally(async () => {
     await db.$disconnect();
   });
+
