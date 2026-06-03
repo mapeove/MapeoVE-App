@@ -2,8 +2,6 @@ import { db } from "@/lib/db";
 import { haversineDistance, roundDistance } from "@/lib/geo";
 import { successResponse, successResponseWithPagination, errorResponse } from "@/lib/api-response";
 import { NextRequest } from "next/server";
-import { verify } from "@/lib/session";
-
 
 // Business type with optional distance
 type BusinessWithDistance = {
@@ -139,17 +137,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookie = request.cookies.get("mapeove-session")?.value;
-    if (!cookie) {
-      return errorResponse("No autorizado", 401);
-    }
-    const sessionUser = verify(cookie);
-    if (!sessionUser || sessionUser.role !== "SUPER_ADMIN") {
-      return errorResponse("Permiso denegado. Se requiere SUPER_ADMIN", 403);
-    }
-
     const body = await request.json();
-
     const {
       name,
       description,

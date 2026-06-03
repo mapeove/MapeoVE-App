@@ -19,19 +19,6 @@ model Category {
   @@map("categories")
 }
 
-model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  password  String
-  name      String
-  role      String     @default("VISITANTE") // VISITANTE, OWNER, SUPER_ADMIN
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  businesses Business[]
-
-  @@map("users")
-}
-
 model Business {
   id          String   @id @default(cuid())
   name        String
@@ -47,30 +34,14 @@ model Business {
   latitude    Float
   longitude   Float
   image       String?
-  images      String[] @default([])
   hours       String?
   verified    Boolean  @default(false)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  ownerId     String?  @map("owner_id")
-  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([categoryId])
   @@index([active])
   @@index([city])
   @@map("businesses")
-  businessImages BusinessImage[]
-}
-
-model BusinessImage {
-  id          String   @id @default(cuid())
-  businessId  String   @map("business_id")
-  imageUrl    String
-  storagePath String
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@map("business_images")
 }

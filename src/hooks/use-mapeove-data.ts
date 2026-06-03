@@ -90,37 +90,12 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
           limit: 100,
         });
         setBusinesses(result.businesses);
-        
-        // If the selected business is still active, refresh its details
-        if (selectedBusiness) {
-          const fresh = result.businesses.find(b => b.id === selectedBusiness.id);
-          if (fresh) setSelectedBusiness(fresh);
-        }
       } catch (err) {
         console.error("Error cargando negocios:", err);
       }
     }
     loadByFilter();
   }, [activeCategory, searchQuery, userLocation]);
-
-  const refresh = useCallback(async () => {
-    try {
-      const result = await fetchBusinesses({
-        category: activeCategory || undefined,
-        q: searchQuery || undefined,
-        lat: userLocation?.lat,
-        lng: userLocation?.lng,
-        limit: 100,
-      });
-      setBusinesses(result.businesses);
-      if (selectedBusiness) {
-        const fresh = result.businesses.find(b => b.id === selectedBusiness.id);
-        if (fresh) setSelectedBusiness(fresh);
-      }
-    } catch (err) {
-      console.error("Error al refrescar negocios:", err);
-    }
-  }, [activeCategory, searchQuery, userLocation, selectedBusiness]);
 
   const handleMarkerClick = useCallback((business: Business) => {
     setSelectedBusiness(business);
@@ -155,7 +130,6 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     isLoading,
     searchQuery,
     businessCount: businesses.length,
-    refresh,
     handleMarkerClick,
     handleCategoryChange,
     handleSearch,
@@ -164,4 +138,3 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     handleCloseDetail,
   };
 }
-

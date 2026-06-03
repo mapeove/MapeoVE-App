@@ -23,7 +23,6 @@ export interface Business {
   latitude: number;
   longitude: number;
   image: string | null;
-  images?: string[];
   hours: string | null;
   verified: boolean;
   active: boolean;
@@ -36,9 +35,7 @@ export interface Business {
     icon: string;
   };
   distance?: number;
-  ownerId?: string | null;
 }
-
 
 export interface ApiResponse<T> {
   success: boolean;
