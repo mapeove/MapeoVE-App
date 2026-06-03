@@ -69,7 +69,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.users) {
-            setUsers(data.users);
+            setUsers(Array.isArray(data.users) ? data.users : []);
           } else {
             setUsersError(data.error || "No se pudo cargar la lista de usuarios");
           }
@@ -96,7 +96,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.requests) {
-          setRequests(data.requests);
+          setRequests(Array.isArray(data.requests) ? data.requests : []);
         } else {
           setRequestsError(data.error || "No se pudieron cargar las solicitudes");
         }
@@ -160,7 +160,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
 
   if (!isOpen) return null;
 
-  const pendingRequestsCount = requests.filter(r => r.status === "PENDING").length;
+  const pendingRequestsCount = (Array.isArray(requests) ? requests : []).filter(r => r.status === "PENDING").length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-hidden">
@@ -256,7 +256,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-[11px] sm:text-xs text-gray-700">
-                        {businesses.map((biz) => (
+                        {(Array.isArray(businesses) ? businesses : []).map((biz) => (
                           <tr key={biz.id} className="hover:bg-gray-50/50">
                             <td className="px-4 py-3 sm:py-3.5 font-bold text-gray-900">{biz.name}</td>
                             <td className="px-4 py-3 sm:py-3.5">
@@ -298,7 +298,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
-                    {requests.map((req) => (
+                    {(Array.isArray(requests) ? requests : []).map((req) => (
                       <div key={req.id} className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm space-y-4">
                         {/* Summary Line */}
                         <div className="flex justify-between items-start flex-wrap gap-2 border-b border-gray-100 pb-2">
@@ -402,7 +402,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-[11px] sm:text-xs text-gray-700">
-                          {users.map((u) => (
+                          {(Array.isArray(users) ? users : []).map((u) => (
                             <tr key={u.id} className="hover:bg-gray-50/50">
                               <td className="px-4 py-3.5 font-bold text-gray-900">{u.name}</td>
                               <td className="px-4 py-3.5 text-gray-600">{u.email}</td>

@@ -23,9 +23,11 @@ export function CategoryFilters({
     "comercios",
   ];
 
-  const filteredCategories = orderedSlugs
-    .map((slug) => categories.find((c) => c.slug === slug))
-    .filter((c): c is Category => !!c && c.businessCount > 0);
+  const filteredCategories = Array.isArray(categories)
+    ? orderedSlugs
+        .map((slug) => categories.find((c) => c?.slug === slug))
+        .filter((c): c is Category => !!c && c.businessCount > 0)
+    : [];
 
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-3 px-3 md:mx-0 md:px-0">

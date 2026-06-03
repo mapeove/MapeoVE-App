@@ -13,14 +13,14 @@ export async function GET(_request: NextRequest) {
       },
     });
 
-    const data = categories.map((category) => ({
+    const data = Array.isArray(categories) ? categories.map((category) => ({
       id: category.id,
       name: category.name,
       slug: category.slug,
       icon: category.icon,
-      businessCount: category._count.businesses,
+      businessCount: category._count?.businesses ?? 0,
       createdAt: category.createdAt,
-    }));
+    })) : [];
 
     return successResponse(data);
   } catch (err) {

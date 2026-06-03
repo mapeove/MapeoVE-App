@@ -53,12 +53,18 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       try {
         const res = await fetch("/api/categories");
         if (res.ok) {
-          const data = await res.json();
-          setCategories(data);
-          if (data.length > 0) setCategoryId(data[0].id);
+          const json = await res.json();
+          const cats = json && json.success && Array.isArray(json.data) 
+            ? json.data 
+            : (Array.isArray(json) ? json : []);
+          setCategories(cats);
+          if (cats.length > 0) setCategoryId(cats[0].id);
+        } else {
+          setError("Error al cargar las categorías.");
         }
       } catch (err) {
         console.error("Error loading categories:", err);
+        setError("Error de conexión al cargar las categorías.");
       }
     }
 
@@ -69,12 +75,17 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
         const res = await fetch("/api/business-requests/me");
         if (res.ok) {
           const data = await res.json();
-          if (data.success) {
-            setExistingRequests(data.requests);
+          if (data && data.success) {
+            setExistingRequests(Array.isArray(data.requests) ? data.requests : []);
+          } else {
+            setError("Error al obtener tus solicitudes.");
           }
+        } else {
+          setError("Error de servidor al cargar tus solicitudes.");
         }
       } catch (err) {
         console.error("Error loading my requests:", err);
+        setError("Error de conexión al cargar tus solicitudes.");
       } finally {
         setLoadingRequests(false);
       }
@@ -119,7 +130,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       if (res.ok && data.success) {
         setSuccess(true);
         // Refresh requests list
-        setExistingRequests([data.request, ...existingRequests]);
+        setExistingRequests([data.request, ...(Array.isArray(existingRequests) ? existingRequests : [])]);
       } else {
         setError(data.error || "Ocurrió un error al enviar la solicitud");
       }
@@ -168,18 +179,23 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
 
         {/* Content Container */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {error && (
+            <div className="p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl">
+              {error}
+            </div>
+          )}
           
           {loadingRequests ? (
             <div className="flex items-center justify-center py-10 gap-2">
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-xs text-gray-500">Cargando estado...</span>
             </div>
-          ) : existingRequests.length > 0 && !success ? (
+          ) : (Array.isArray(existingRequests) && existingRequests.length > 0) && !success ? (
             /* Show status of existing requests */
             <div className="space-y-4">
               <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Tus Solicitudes</h4>
               <div className="space-y-2">
-                {existingRequests.map((req) => (
+                {(Array.isArray(existingRequests) ? existingRequests : []).map((req) => (
                   <div key={req.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
                     <div className="flex justify-between items-start">
                       <p className="text-xs font-black text-gray-900">{req.businessName}</p>
@@ -200,7 +216,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               </div>
 
               {/* Allow sending another request if previous is rejected */}
-              {existingRequests.some(r => r.status === "REJECTED") && (
+              {(Array.isArray(existingRequests) ? existingRequests : []).some(r => r.status === "REJECTED") && (
                 <button
                   onClick={() => setExistingRequests([])}
                   className="w-full py-2 border border-blue-600 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-colors"
@@ -208,6 +224,16 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                   Enviar nueva solicitud
                 </button>
               )}
+            </div>
+          ) : user?.role === "OWNER" && (!Array.isArray(existingRequests) || existingRequests.length === 0) && !success ? (
+            /* Show "No tienes solicitudes todavía" for OWNERs without requests */
+            <div className="py-8 text-center space-y-4">
+              <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-400 border border-gray-200">
+                <Store size={24} />
+              </div>
+              <p className="text-xs text-gray-500 font-medium">
+                No tienes solicitudes todavía
+              </p>
             </div>
           ) : success ? (
             /* Success View */
@@ -234,11 +260,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           ) : (
             /* Form View */
             <form onSubmit={handleSubmit} className="space-y-4 pb-4">
-              {error && (
-                <div className="p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl">
-                  {error}
-                </div>
-              )}
 
               {/* Local Details */}
               <div className="space-y-3">
@@ -267,7 +288,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                       onChange={(e) => setCategoryId(e.target.value)}
                       className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 font-medium"
                     >
-                      {categories.map((cat) => (
+                      {(Array.isArray(categories) ? categories : []).map((cat) => (
                         <option key={cat.id} value={cat.id}>
                           {cat.icon} {cat.name}
                         </option>

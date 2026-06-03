@@ -97,12 +97,12 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProp
       </div>
 
       {/* Search Results Dropdown */}
-      {showResults && results.length > 0 && (
+      {showResults && Array.isArray(results) && results.length > 0 && (
         <div
           className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 max-h-64 overflow-y-auto z-50"
           style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }}
         >
-          {results.map((business) => (
+          {(Array.isArray(results) ? results : []).map((business) => (
             <button
               key={business.id}
               onClick={() => handleSelect(business)}

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, requests });
+    return NextResponse.json({ success: true, requests: Array.isArray(requests) ? requests : [] });
   } catch (error) {
     console.error("Error fetching my business requests:", error);
     return NextResponse.json({ error: "Error en el servidor al obtener las solicitudes" }, { status: 500 });

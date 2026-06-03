@@ -22,7 +22,7 @@ export function BusinessList({
     userLocation !== null &&
     isInVenezuela(userLocation.lat, userLocation.lng);
 
-  if (businesses.length === 0) {
+  if (!Array.isArray(businesses) || businesses.length === 0) {
     return (
       <div className="px-4 py-8 text-center">
         <div className="text-4xl mb-3">🔍</div>
@@ -38,7 +38,7 @@ export function BusinessList({
 
   return (
     <div className="space-y-1.5">
-      {businesses.map((business) => {
+      {(Array.isArray(businesses) ? businesses : []).map((business) => {
         const color = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
         const isSelected = selectedId === business.id;
         const shouldShowDistance = showDistances && business.distance !== undefined;
