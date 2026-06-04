@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Check, X } from "lucide-react";
 
@@ -17,7 +18,10 @@ export default function LocationSelectorMap({
   const markerRef = useRef<any>(null);
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     import("maplibre-gl").then((mod) => {
       setMaplibregl(mod.default);
     });
@@ -57,8 +61,10 @@ export default function LocationSelectorMap({
     };
   }, [maplibregl]);
 
-  return (
-    <div className="fixed inset-0 z-[9999] bg-white flex flex-col animate-scale-in">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] bg-white flex flex-col animate-scale-in">
       <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-center shadow-sm relative z-10">
         <div>
           <h3 className="text-sm font-black text-gray-900">Ubicación de tu local</h3>
@@ -69,16 +75,24 @@ export default function LocationSelectorMap({
         </button>
       </div>
       <div ref={mapContainer} className="flex-1 w-full bg-gray-100" />
-      {coords && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[90%] max-w-sm">
-          <button 
-            onClick={() => onSelect(coords.lat, coords.lng)}
-            className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <Check size={18} /> Confirmar Ubicación
-          </button>
-        </div>
-      )}
-    </div>
+      
+      <div 
+        className="fixed left-1/2 -translate-x-1/2 z-[100000] w-[90%] max-w-sm pointer-events-auto"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+      >
+        <button 
+          onClick={() => {
+            if (coords) onSelect(coords.lat, coords.lng);
+          }}
+          disabled={!coords}
+          className={`w-full text-white font-bold py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-transform ${
+            coords ? "bg-blue-600 active:scale-95" : "bg-gray-400 opacity-80 cursor-not-allowed"
+          }`}
+        >
+          <Check size={18} /> Confirmar Ubicación
+        </button>
+      </div>
+    </div>,
+    document.body
   );
 }
