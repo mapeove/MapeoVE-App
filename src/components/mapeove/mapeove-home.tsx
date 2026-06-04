@@ -195,7 +195,7 @@ export function MapeoVEHome() {
               style={{ backgroundColor: BRAND.blue }}
             >
               <MapPin size={12} />
-              {businessCount} negocio{businessCount !== 1 ? "s" : ""} en La Victoria
+              {businessCount} negocio{businessCount !== 1 ? "s" : ""} encontrados
             </div>
           </div>
         )}

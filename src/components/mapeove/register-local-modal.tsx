@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Store, CreditCard, Clock, MessageCircle, Phone, MapPin, CheckCircle, AlertTriangle } from "lucide-react";
 import { BRAND } from "@/types/mapeove";
+import dynamic from "next/dynamic";
+
+const LocationSelectorMap = dynamic(() => import("./location-selector-map"), { ssr: false });
 
 interface RegisterLocalModalProps {
   isOpen: boolean;
@@ -58,6 +61,9 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [plan, setPlan] = useState("MONTHLY");
   const [paymentMethod, setPaymentMethod] = useState("PAGO_MOVIL");
   const [paymentReference, setPaymentReference] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [showMapSelector, setShowMapSelector] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -138,6 +144,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       return;
     }
 
+    if (latitude === null || longitude === null) {
+      setError("Debes seleccionar la ubicación en el mapa");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/business-requests", {
@@ -153,6 +164,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           openingHours,
           note,
           plan,
+          latitude,
+          longitude,
           paymentMethod,
           paymentReference,
         }),
@@ -188,6 +201,17 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      {showMapSelector && (
+        <LocationSelectorMap 
+          onClose={() => setShowMapSelector(false)} 
+          onSelect={(lat, lng) => {
+            setLatitude(lat);
+            setLongitude(lng);
+            setShowMapSelector(false);
+          }} 
+        />
+      )}
+      
       <div 
         className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden border border-gray-100 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
@@ -387,8 +411,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Dirección Exacta (La Victoria) *</label>
-                  <div className="relative">
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Dirección Exacta del local *</label>
+                  <div className="relative mb-2">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
                       <MapPin size={14} />
                     </span>
@@ -401,6 +425,21 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                       className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
                     />
                   </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setShowMapSelector(true)}
+                    className="w-full py-2 border border-blue-200 text-blue-600 bg-blue-50 rounded-xl text-[11px] font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <MapPin size={14} />
+                    {latitude && longitude ? "Cambiar ubicación en el mapa" : "Seleccionar ubicación en el mapa"}
+                  </button>
+                  
+                  {latitude && longitude && (
+                    <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1 font-medium">
+                      <CheckCircle size={10} /> Ubicación seleccionada ({latitude.toFixed(5)}, {longitude.toFixed(5)})
+                    </p>
+                  )}
                 </div>
 
                 <div>

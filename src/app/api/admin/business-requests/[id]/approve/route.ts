@@ -31,6 +31,10 @@ export async function POST(
       return NextResponse.json({ error: "La solicitud ya ha sido revisada" }, { status: 400 });
     }
 
+    if (req.latitude === null || req.longitude === null) {
+      return NextResponse.json({ error: "La solicitud no tiene coordenadas válidas para crear el negocio" }, { status: 400 });
+    }
+
     // Create Business
     const business = await db.business.create({
       data: {
@@ -42,8 +46,8 @@ export async function POST(
         description: req.description,
         hours: req.openingHours,
         ownerId: req.userId,
-        latitude: 10.2268,
-        longitude: -67.3312,
+        latitude: req.latitude,
+        longitude: req.longitude,
         city: "La Victoria",
         state: "Aragua",
         country: "Venezuela",

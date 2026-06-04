@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
       paymentReference,
       proofImageUrl,
       plan,
+      latitude,
+      longitude,
     } = body;
 
     // Validate required fields
@@ -74,6 +76,8 @@ export async function POST(request: NextRequest) {
         paymentMethod,
         paymentReference: paymentReference.trim(),
         proofImageUrl: proofImageUrl || null,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
         status: "PENDING",
       },
     });

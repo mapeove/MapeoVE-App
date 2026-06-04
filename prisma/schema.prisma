@@ -88,6 +88,8 @@ model BusinessRequest {
   description      String?
   openingHours     String?               @map("opening_hours")
   note             String?
+  latitude         Float?
+  longitude        Float?
   paymentReference String                @map("payment_reference")
   proofImageUrl    String?               @map("proof_image_url")
   createdAt        DateTime              @default(now()) @map("created_at")

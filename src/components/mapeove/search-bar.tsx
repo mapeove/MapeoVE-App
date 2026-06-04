@@ -82,7 +82,7 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProp
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          placeholder="Buscar negocios..."
+          placeholder="Buscar negocios, comercios, servicios..."
           className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white shadow-lg border border-gray-100 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
           style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.10)" }}
         />
