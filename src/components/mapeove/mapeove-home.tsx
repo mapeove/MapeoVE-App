@@ -7,6 +7,7 @@ import { SearchBar } from "@/components/mapeove/search-bar";
 import { CategoryFilters } from "@/components/mapeove/category-filters";
 import { BusinessDetail } from "@/components/mapeove/business-detail";
 import { BusinessList } from "@/components/mapeove/business-list";
+import { NavigationPanel } from "@/components/mapeove/navigation-panel";
 import { BRAND } from "@/types/mapeove";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useMapeoveData } from "@/hooks/use-mapeove-data";
@@ -34,7 +35,7 @@ const MapeoVEMap = dynamic(
 );
 
 export function MapeoVEHome() {
-  const { userLocation, isRealLocation } = useUserLocation();
+  const { userLocation } = useUserLocation();
   const {
     categories,
     businesses,
@@ -52,7 +53,12 @@ export function MapeoVEHome() {
   const [showList, setShowList] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
 
-  // Navegación interna (Directions) states
+  // New Navigation / UX States
+  const [isNavigationActive, setIsNavigationActive] = useState(false);
+  const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Directions Backend route states
   const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
   const [activeRoute, setActiveRoute] = useState<{
     distance: number;
@@ -65,23 +71,30 @@ export function MapeoVEHome() {
   const [mapSelectionMode, setMapSelectionMode] = useState<"origin" | "destination" | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
-  // Limpiar la ruta cuando cambia de negocio o se cierra el detalle
+  // Clear route when switching selected business or closing details (when not in navigation mode)
   useEffect(() => {
-    setRouteGeoJSON(null);
-    setActiveRoute(null);
-    setRouteError(null);
-  }, [selectedBusiness]);
+    if (!isNavigationActive) {
+      setRouteGeoJSON(null);
+      setActiveRoute(null);
+      setRouteError(null);
+      setOriginCoords(null);
+      setDestCoords(null);
+      setSelectedMapCoords(null);
+    }
+  }, [selectedBusiness, isNavigationActive]);
 
-  const calculateRoute = async (mode: string, customStart?: {lat: number, lng: number}, customEnd?: {lat: number, lng: number}) => {
-    if (!selectedBusiness && !customEnd) return;
-
+  const calculateRoute = async (
+    mode: string, 
+    customStart?: { lat: number; lng: number }, 
+    customEnd?: { lat: number; lng: number }
+  ) => {
     setRouteLoading(true);
     setRouteError(null);
 
     let startPoint = "";
     if (customStart) {
       startPoint = `${customStart.lng},${customStart.lat}`;
-    } else if (userLocation && isRealLocation) {
+    } else if (userLocation) {
       startPoint = `${userLocation.lng},${userLocation.lat}`;
     } else {
       setRouteError("Activa tu ubicación o escribe un origen.");
@@ -96,7 +109,7 @@ export function MapeoVEHome() {
       const bizLat = Number(selectedBusiness.latitude);
       const bizLng = Number(selectedBusiness.longitude);
       if (!Number.isFinite(bizLat) || !Number.isFinite(bizLng)) {
-        setRouteError('Este negocio no tiene ubicación válida.');
+        setRouteError("Este negocio no tiene ubicación válida.");
         setRouteLoading(false);
         return;
       }
@@ -159,6 +172,20 @@ export function MapeoVEHome() {
     setRouteError(null);
   };
 
+  const getMapMarkers = () => {
+    if (isNavigationActive) {
+      const markers = [];
+      if (originCoords) {
+        markers.push({ ...originCoords, color: "#007AFF" }); // Blue marker for origin
+      }
+      if (destCoords) {
+        markers.push({ ...destCoords, color: BRAND.red }); // Red marker for destination
+      }
+      return markers;
+    }
+    return selectedMapCoords ? [{ ...selectedMapCoords, color: "#10B981" }] : undefined;
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-100"
       style={{
@@ -174,7 +201,7 @@ export function MapeoVEHome() {
 
       {/* Mapa — solo cliente */}
       <MapeoVEMap
-        businesses={businesses}
+        businesses={isNavigationActive ? [] : businesses}
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
         userLocation={userLocation}
@@ -185,31 +212,33 @@ export function MapeoVEHome() {
             setMapSelectionMode(null);
           }
         }}
-        customMarkers={selectedMapCoords ? [{...selectedMapCoords, color: "#10B981"}] : undefined}
+        customMarkers={getMapMarkers()}
       />
 
-      {/* Barra superior: Búsqueda + Categorías */}
-      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
-      >
-        <div className="px-3 pt-2 pb-1 space-y-2 pointer-events-auto md:px-4 md:pt-3 md:space-y-2.5">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <SearchBar
-                onSearch={handleSearch}
-                onSelectBusiness={handleSelectBusinessFromSearch}
-                onClear={handleClearSearch}
-              />
+      {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
+      {!isNavigationActive && (
+        <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
+          <div className="px-3 pt-2 pb-1 space-y-2 pointer-events-auto md:px-4 md:pt-3 md:space-y-2.5">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <SearchBar
+                  onSearch={handleSearch}
+                  onSelectBusiness={handleSelectBusinessFromSearch}
+                  onClear={handleClearSearch}
+                />
+              </div>
+              <AuthButton onOpenDashboard={() => setDashboardOpen(true)} />
             </div>
-            <AuthButton onOpenDashboard={() => setDashboardOpen(true)} />
+            <CategoryFilters
+              categories={categories}
+              activeCategory={activeCategory}
+              onCategoryChange={handleCategoryChange}
+            />
           </div>
-          <CategoryFilters
-            categories={categories}
-            activeCategory={activeCategory}
-            onCategoryChange={handleCategoryChange}
-          />
         </div>
-      </div>
+      )}
 
       {/* Panel de administración SUPER_ADMIN */}
       <AdminDashboard 
@@ -218,90 +247,122 @@ export function MapeoVEHome() {
         businesses={businesses}
       />
 
-      {/* Sección inferior */}
-      <div className="absolute bottom-0 left-0 right-0 z-20"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        {/* Contador de negocios */}
-        {!selectedBusiness && !showList && (
-          <div className="flex justify-center mb-2">
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg text-white text-[11px] font-bold"
-              style={{ backgroundColor: BRAND.blue }}
-            >
-              <MapPin size={12} />
-              {businessCount} negocio{businessCount !== 1 ? "s" : ""} encontrados
-            </div>
-          </div>
-        )}
-
-        {/* Panel de detalle del negocio — bottom sheet */}
-        {selectedBusiness && (
-          <div className={`mx-0 mb-0 md:mx-3 md:mb-3 ${mapSelectionMode ? 'opacity-0 pointer-events-none' : ''}`}>
-            <BusinessDetail
-              business={selectedBusiness}
-              onClose={() => {
-                handleCloseDetail();
-                clearRoute();
-              }}
-              userLocation={userLocation}
-              activeRoute={activeRoute}
-              onCalculateRoute={calculateRoute}
-              onClearRoute={clearRoute}
-              routeError={routeError}
-              routeLoading={routeLoading}
-              onMapSelectionRequest={setMapSelectionMode}
-              mapSelectionCoords={selectedMapCoords}
-            />
-          </div>
-        )}
-
-        {/* Panel de lista de negocios */}
-        {showList && !selectedBusiness && (
-          <div className="bg-white rounded-t-2xl shadow-2xl max-h-[55vh] overflow-hidden">
-            <div className="sticky top-0 bg-white px-4 pt-3 pb-2 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-900">
-                  Negocios cercanos
-                </h3>
-                <button
-                  onClick={() => setShowList(false)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-            <div className="overflow-y-auto max-h-[47vh] p-3">
-              <BusinessList
-                businesses={businesses}
-                onSelectBusiness={handleMarkerClick}
-                selectedId={selectedBusiness?.id || null}
-                userLocation={userLocation}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Botón Ver lista */}
-        {!selectedBusiness && !showList && (
-          <div className="flex justify-center mb-3">
-            <button
-              onClick={() => setShowList(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white shadow-lg text-xs font-bold text-gray-700 hover:shadow-xl transition-all active:scale-95 border border-gray-100"
-            >
-              <List size={14} />
-              Ver lista
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-bold"
+      {/* Sección inferior (Hidden during navigation) */}
+      {!isNavigationActive && (
+        <div className="absolute bottom-0 left-0 right-0 z-20"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          {/* Contador de negocios */}
+          {!selectedBusiness && !showList && (
+            <div className="flex justify-center mb-2">
+              <div
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg text-white text-[11px] font-bold"
                 style={{ backgroundColor: BRAND.blue }}
               >
-                {businessCount}
-              </span>
-            </button>
-          </div>
-        )}
-      </div>
+                <MapPin size={12} />
+                {businessCount} negocio{businessCount !== 1 ? "s" : ""} encontrados
+              </div>
+            </div>
+          )}
+
+          {/* Panel de detalle del negocio — bottom sheet */}
+          {selectedBusiness && (
+            <div className={`mx-0 mb-0 md:mx-3 md:mb-3 ${mapSelectionMode ? "opacity-0 pointer-events-none" : ""}`}>
+              <BusinessDetail
+                business={selectedBusiness}
+                onClose={() => {
+                  handleCloseDetail();
+                  clearRoute();
+                }}
+                userLocation={userLocation}
+                onStartNavigation={() => {
+                  setIsNavigationActive(true);
+                  const start = userLocation || null;
+                  const end = { lat: Number(selectedBusiness.latitude), lng: Number(selectedBusiness.longitude) };
+                  setOriginCoords(start);
+                  setDestCoords(end);
+                  if (start) {
+                    calculateRoute("driving-car", start, end);
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* Panel de lista de negocios */}
+          {showList && !selectedBusiness && (
+            <div className="bg-white rounded-t-2xl shadow-2xl max-h-[55vh] overflow-hidden">
+              <div className="sticky top-0 bg-white px-4 pt-3 pb-2 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Negocios cercanos
+                  </h3>
+                  <button
+                    onClick={() => setShowList(false)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-y-auto max-h-[47vh] p-3">
+                <BusinessList
+                  businesses={businesses}
+                  onSelectBusiness={handleMarkerClick}
+                  selectedId={selectedBusiness?.id || null}
+                  userLocation={userLocation}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Botón Ver lista */}
+          {!selectedBusiness && !showList && (
+            <div className="flex justify-center mb-3">
+              <button
+                onClick={() => setShowList(true)}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white shadow-lg text-xs font-bold text-gray-700 hover:shadow-xl transition-all active:scale-95 border border-gray-100"
+              >
+                <List size={14} />
+                Ver lista
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-bold"
+                  style={{ backgroundColor: BRAND.blue }}
+                >
+                  {businessCount}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* NavigationPanel (Active routing panel) */}
+      {isNavigationActive && (
+        <NavigationPanel
+          business={selectedBusiness}
+          userLocation={userLocation}
+          onClose={() => {
+            setIsNavigationActive(false);
+            setOriginCoords(null);
+            setDestCoords(null);
+            setSelectedMapCoords(null);
+            clearRoute();
+          }}
+          onCalculateRoute={calculateRoute}
+          onClearRoute={clearRoute}
+          activeRoute={activeRoute}
+          routeError={routeError}
+          routeLoading={routeLoading}
+          mapSelectionMode={mapSelectionMode}
+          onMapSelectionRequest={setMapSelectionMode}
+          selectedMapCoords={selectedMapCoords}
+          originCoords={originCoords}
+          setOriginCoords={setOriginCoords}
+          destCoords={destCoords}
+          setDestCoords={setDestCoords}
+        />
+      )}
 
       {mapSelectionMode && (
         <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-2 rounded-2xl shadow-lg border-2 border-blue-500 pointer-events-auto">

@@ -471,12 +471,13 @@ export function MapeoVEMap({
       customMarkers.forEach(cm => {
         const markerRoot = document.createElement("div");
         markerRoot.style.cssText = `
-          width: 14px;
-          height: 14px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           background: ${cm.color};
-          border: 2px solid white;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+          cursor: pointer;
         `;
         const m = new maplibregl.Marker({ element: markerRoot, anchor: "center" })
           .setLngLat([cm.lng, cm.lat])

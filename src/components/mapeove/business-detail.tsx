@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
 import {
@@ -13,48 +12,13 @@ import {
   Clock,
   Shield,
   CircleDot,
-  Footprints,
-  Bike,
-  Car,
 } from "lucide-react";
-
-function MotorcycleIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M19 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-      <path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-      <path d="M7 16h10" />
-      <path d="M17 16l-3-6H9l-3 6" />
-      <path d="M12 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z" />
-    </svg>
-  );
-}
 
 interface BusinessDetailProps {
   business: Business;
   onClose: () => void;
   userLocation: { lat: number; lng: number } | null;
-  activeRoute?: {
-    distance: number;
-    duration: number;
-    mode: string;
-    isFallback?: boolean;
-  } | null;
-  onCalculateRoute?: (mode: string) => Promise<void>;
-  onClearRoute?: () => void;
-  routeError?: string | null;
-  routeLoading?: boolean;
+  onStartNavigation: () => void;
 }
 
 /**
@@ -102,51 +66,16 @@ export function BusinessDetail({
   business,
   onClose,
   userLocation,
-  activeRoute,
-  onCalculateRoute,
-  onClearRoute,
-  routeError,
-  routeLoading,
+  onStartNavigation,
 }: BusinessDetailProps) {
   const categoryColor = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
   const whatsappNumber = business.whatsapp?.replace(/[^0-9]/g, "") || "";
   const phoneNumber = business.phone?.replace(/[^0-9]/g, "") || "";
 
-  const [isRoutingActive, setIsRoutingActive] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  // Advanced routing states
-  const [routeMode, setRouteMode] = useState("driving-car");
-  const [originType, setOriginType] = useState<"gps"|"custom"|"map">("gps");
-  const [originQuery, setOriginQuery] = useState("");
-  const [originCoords, setOriginCoords] = useState<{lat: number, lng: number}|null>(null);
-  const [destType, setDestType] = useState<"business"|"custom"|"map">("business");
-  const [destQuery, setDestQuery] = useState("");
-  const [destCoords, setDestCoords] = useState<{lat: number, lng: number}|null>(null);
-  const [geocoding, setGeocoding] = useState(false);
-
-  // Sync map selection
+  // Reset expanded status when switching businesses
   useEffect(() => {
-    if (mapSelectionCoords) {
-      if (mapSelectionCoords.type === "origin") {
-        setOriginType("map");
-        setOriginCoords({lat: mapSelectionCoords.lat, lng: mapSelectionCoords.lng});
-      } else {
-        setDestType("map");
-        setDestCoords({lat: mapSelectionCoords.lat, lng: mapSelectionCoords.lng});
-      }
-      setIsRoutingActive(true);
-    }
-  }, [mapSelectionCoords]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Reset routing UI when selecting another business
-  useEffect(() => {
-    setIsRoutingActive(false);
     setIsExpanded(false);
   }, [business.id]);
 
@@ -170,255 +99,9 @@ export function BusinessDetail({
     }
   }
 
-  const handleOpenRouting = () => {
-    setIsRoutingActive(true);
-    setOriginType("gps");
-    setDestType("business");
-    if (onClearRoute) onClearRoute();
-  };
-
-  const handleCalculateClick = async () => {
-    if (!onCalculateRoute) return;
-    setGeocoding(true);
-    try {
-      let finalOrigin = originType === "gps" ? undefined : originCoords;
-      let finalDest = destType === "business" ? undefined : destCoords;
-
-      if (originType === "custom" && originQuery && (!originCoords || originCoords.lat === 0)) {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(originQuery)}`);
-        const data = await res.json();
-        if (data.features?.length > 0) {
-          const c = data.features[0].geometry.coordinates;
-          finalOrigin = {lng: c[0], lat: c[1]};
-          setOriginCoords(finalOrigin);
-        } else {
-          alert("Origen no encontrado.");
-          return;
-        }
-      }
-
-      if (destType === "custom" && destQuery && (!destCoords || destCoords.lat === 0)) {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(destQuery)}`);
-        const data = await res.json();
-        if (data.features?.length > 0) {
-          const c = data.features[0].geometry.coordinates;
-          finalDest = {lng: c[0], lat: c[1]};
-          setDestCoords(finalDest);
-        } else {
-          alert("Destino no encontrado.");
-          return;
-        }
-      }
-
-      await onCalculateRoute(routeMode, finalOrigin || undefined, finalDest || undefined);
-    } finally {
-      setGeocoding(false);
-    }
-  };
-
-  const renderRoutingForm = () => (
-    <div className="flex flex-col gap-2 mt-2 mb-3">
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] text-gray-500 uppercase font-bold">Origen</label>
-        <div className="flex gap-1">
-          <select value={originType} onChange={e => {setOriginType(e.target.value as any); setOriginCoords(null);}} className="text-xs p-1.5 border rounded-lg bg-gray-50">
-            <option value="gps">GPS (Mi ubicación)</option>
-            <option value="custom">Escribir dirección</option>
-            <option value="map">En el mapa</option>
-          </select>
-          {originType === "custom" && (
-            <input type="text" className="flex-1 border rounded-lg text-xs p-1.5" placeholder="Ej. Caracas" value={originQuery} onChange={e => {setOriginQuery(e.target.value); setOriginCoords(null);}} />
-          )}
-          {originType === "map" && onMapSelectionRequest && (
-            <button onClick={() => onMapSelectionRequest("origin")} className="text-[10px] px-2 py-1 bg-blue-100 text-blue-600 font-bold rounded-lg whitespace-nowrap">
-              {originCoords ? "Ubicación lista" : "Seleccionar"}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] text-gray-500 uppercase font-bold">Destino</label>
-        <div className="flex gap-1">
-          <select value={destType} onChange={e => {setDestType(e.target.value as any); setDestCoords(null);}} className="text-xs p-1.5 border rounded-lg bg-gray-50">
-            <option value="business">{business.name}</option>
-            <option value="custom">Escribir dirección</option>
-            <option value="map">En el mapa</option>
-          </select>
-          {destType === "custom" && (
-            <input type="text" className="flex-1 border rounded-lg text-xs p-1.5" placeholder="Ej. Valencia" value={destQuery} onChange={e => {setDestQuery(e.target.value); setDestCoords(null);}} />
-          )}
-          {destType === "map" && onMapSelectionRequest && (
-            <button onClick={() => onMapSelectionRequest("destination")} className="text-[10px] px-2 py-1 bg-blue-100 text-blue-600 font-bold rounded-lg whitespace-nowrap">
-              {destCoords ? "Ubicación lista" : "Seleccionar"}
-            </button>
-          )}
-        </div>
-      </div>
-      
-      <button onClick={handleCalculateClick} disabled={geocoding || routeLoading} className="mt-1 w-full bg-blue-600 text-white font-bold text-xs py-2 rounded-xl flex justify-center items-center gap-2 disabled:opacity-50">
-        {(geocoding || routeLoading) ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Navigation size={14} />}
-        {geocoding ? "Buscando..." : routeLoading ? "Calculando ruta..." : "Calcular ruta"}
-      </button>
-    </div>
-  );
-
-  const handleCancelRouting = () => {
-    setIsRoutingActive(false);
-    if (onClearRoute) {
-      onClearRoute();
-    }
-  };
-
-  // Format routing summary values
-  const formatDistance = (meters: number) => {
-    if (meters >= 1000) {
-      return `${(meters / 1000).toFixed(1)} km`;
-    }
-    return `${Math.round(meters)} m`;
-  };
-
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.round(seconds / 60);
-    if (minutes >= 60) {
-      const hours = Math.floor(minutes / 60);
-      const remainingMin = minutes % 60;
-      return `${hours} h ${remainingMin} min`;
-    }
-    return `${minutes} min`;
-  };
-
   return (
-    <>
-    {/* ── PORTAL: barra de acciones móvil — renderizado en document.body ─────────
-        Se usa createPortal para escapar completamente de:
-        - overflow-hidden del sheet
-        - max-height variable
-        - bugs de vh en Chrome Android
-        En escritorio (md:) se oculta con hidden/md:hidden y las acciones
-        se muestran dentro del sheet normalmente.
-    ──────────────────────────────────────────────────────────────────────────── */}
-    {mounted && createPortal(
-      <div
-        className="fixed bottom-0 left-0 right-0 z-[99999] bg-white border-t border-gray-100 shadow-[0_-8px_24px_-4px_rgba(0,0,0,0.12)] md:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="px-3 pt-3 pb-2">
-          {isRoutingActive ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Navegación</span>
-                <button
-                  onClick={handleCancelRouting}
-                  className="text-[10px] font-bold text-red-600 uppercase"
-                >
-                  Salir
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { id: "driving-car", label: "Coche", icon: Car },
-                  { id: "driving-car-moto", label: "Moto", icon: MotorcycleIcon },
-                  { id: "cycling-regular", label: "Bici", icon: Bike },
-                  { id: "foot-walking", label: "Caminar", icon: Footprints },
-                ].map((mode) => {
-                  const isSelected = routeMode === mode.id;
-                  const IconComponent = mode.icon;
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => {
-                        setRouteMode(mode.id);
-                        if (activeRoute) handleCalculateClick();
-                      }}
-                      className={`py-2 px-1 rounded-lg border flex flex-col items-center gap-1 ${
-                        isSelected
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "bg-white border-gray-200 text-gray-600"
-                      }`}
-                    >
-                      <IconComponent size={16} />
-                      <span className="text-[9px] font-semibold">{mode.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              
-              {renderRoutingForm()}
-              {(routeLoading || routeError || activeRoute) && (
-                <div className="pt-1 border-t border-gray-100 text-center min-h-[28px] flex items-center justify-center">
-                  {routeLoading && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs text-gray-500">Buscando ruta...</span>
-                    </div>
-                  )}
-                  {!routeLoading && !geocoding && routeError && (
-                    <p className="text-xs font-bold text-red-600">{routeError}</p>
-                  )}
-                  {!routeLoading && !geocoding && !routeError && activeRoute && (
-                    <div className="flex flex-col items-center gap-0.5 w-full">
-                      {activeRoute.isFallback ? (
-                        <>
-                          <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mt-1">Mostrando ruta aproximada</p>
-                          <p className="text-[11px] font-black text-gray-700">Distancia: {formatDistance(activeRoute.distance)}</p>
-                        </>
-                      ) : (
-                        <div className="flex gap-6 mt-1">
-                          <div className="text-center">
-                            <p className="text-[9px] text-gray-400 uppercase">Distancia</p>
-                            <p className="text-xs font-black">{formatDistance(activeRoute.distance)}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[9px] text-gray-400 uppercase">Tiempo</p>
-                            <p className="text-xs font-black">{formatDuration(activeRoute.duration)}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={phoneNumber ? handleCall : undefined}
-                disabled={!phoneNumber}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform disabled:opacity-40"
-                style={{ backgroundColor: BRAND.blue }}
-              >
-                <Phone size={15} />
-                <span>Llamar</span>
-              </button>
-              <button
-                onClick={whatsappNumber ? handleWhatsApp : undefined}
-                disabled={!whatsappNumber}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform disabled:opacity-40"
-                style={{ backgroundColor: "#25D366" }}
-              >
-                <MessageCircle size={15} />
-                <span>WhatsApp</span>
-              </button>
-              <button
-                onClick={handleOpenRouting}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform"
-                style={{ backgroundColor: BRAND.red }}
-              >
-                <Navigation size={15} />
-                <span>Cómo llegar</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </div>,
-      document.body
-    )}
-
-    {/* ── SHEET ─────────────────────────────────────────────────────────────── */}
     <div className={`relative bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
-      isExpanded ? "h-[85vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
+      isExpanded ? "h-[80vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
     }`}>
       {/* Drag handle (mobile) */}
       <div 
@@ -430,7 +113,7 @@ export function BusinessDetail({
 
       {/* Imagen o placeholder */}
       {business.image ? (
-        <div className="relative h-28 md:h-32 overflow-hidden">
+        <div className="relative h-28 md:h-32 overflow-hidden flex-shrink-0">
           <img
             src={business.image}
             alt={business.name}
@@ -455,7 +138,7 @@ export function BusinessDetail({
           </div>
         </div>
       ) : (
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           {/* Barra de color como acento visual */}
           <div className="h-1.5" style={{ backgroundColor: categoryColor }} />
           {/* Close button */}
@@ -485,18 +168,18 @@ export function BusinessDetail({
         </div>
       )}
 
-      {/* Contenido scrolleable — pb-24 en móvil para no quedar tapado por el portal */}
-      <div className={`overflow-y-auto px-4 pt-2.5 pb-24 md:pb-4 flex-1 min-h-0 ${isExpanded ? "" : "md:max-h-[380px]"}`}>
+      {/* Contenido scrolleable */}
+      <div className="overflow-y-auto px-4 pt-3 pb-4 flex-1 min-h-0">
         {/* Nombre */}
-        <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
+        <h2 className="text-base font-extrabold text-gray-900 leading-tight pr-6">
           {business.name}
         </h2>
 
         {/* Badges: estado + verificado */}
-        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           {/* Badge Abierto/Cerrado */}
           <span
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+            className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
               isOpen
                 ? "text-green-700 bg-green-50"
                 : "text-gray-500 bg-gray-100"
@@ -513,125 +196,66 @@ export function BusinessDetail({
           )}
         </div>
 
-        {/* Info rows — orden: dirección, horario, teléfono, distancia */}
-        <div className="mt-2.5 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <MapPin size={13} className="text-gray-400 flex-shrink-0" />
-            <span className="text-xs text-gray-600 truncate">{business.address}</span>
+        {/* Info rows ── dirección, horario, teléfono, distancia */}
+        <div className="mt-3.5 space-y-2">
+          <div className="flex items-start gap-2">
+            <MapPin size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+            <span className="text-xs text-gray-650 font-medium leading-relaxed">{business.address}</span>
           </div>
           {business.hours && (
             <div className="flex items-center gap-2">
-              <Clock size={13} className="text-gray-400 flex-shrink-0" />
-              <span className="text-xs text-gray-600">{business.hours}</span>
+              <Clock size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-650 font-medium">{business.hours}</span>
             </div>
           )}
           {phoneNumber && (
             <div className="flex items-center gap-2">
-              <Phone size={13} className="text-gray-400 flex-shrink-0" />
-              <span className="text-xs text-gray-600">{business.phone}</span>
+              <Phone size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-650 font-medium">{business.phone}</span>
             </div>
           )}
-          {hasValidDistance && !isRoutingActive && (
+          {hasValidDistance && (
             <div className="flex items-center gap-2">
-              <Navigation size={13} className="text-gray-400 flex-shrink-0" />
-              <span className="text-xs font-semibold" style={{ color: BRAND.blue }}>
+              <Navigation size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="text-xs font-bold" style={{ color: BRAND.blue }}>
                 {business.distance} km de distancia
               </span>
             </div>
           )}
         </div>
       </div>
-{/* Acciones dentro del sheet — solo escritorio (md:) */}
-      <div className="hidden md:block px-4 pb-4 border-t border-gray-100">
-          {isRoutingActive ? (
-            <div className="pt-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Navegación Interna</span>
-                <button onClick={handleCancelRouting} className="text-[10px] font-bold text-red-600 uppercase">Salir</button>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { id: "driving-car", label: "Coche", icon: Car },
-                  { id: "driving-car-moto", label: "Moto", icon: MotorcycleIcon },
-                  { id: "cycling-regular", label: "Bici", icon: Bike },
-                  { id: "foot-walking", label: "Caminar", icon: Footprints },
-                ].map((mode) => {
-                  const isSelected = routeMode === mode.id;
-                  const IconComponent = mode.icon;
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => {
-                        setRouteMode(mode.id);
-                        if (activeRoute) handleCalculateClick();
-                      }}
-                      className={`py-2 px-1 rounded-lg border flex flex-col items-center gap-1 transition-colors ${
-                        isSelected
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
-                      }`}
-                    >
-                      <IconComponent size={14} />
-                      <span className="text-[10px] font-semibold">{mode.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
 
-              {renderRoutingForm()}
-
-              <div className="pt-1.5 border-t border-gray-200/60 min-h-[42px] flex items-center justify-center">
-                {(routeLoading || geocoding) ? (
-                  <div className="flex items-center gap-2 py-1">
-                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-gray-500 font-medium">{geocoding ? "Geocodificando..." : "Buscando ruta..."}</span>
-                  </div>
-                ) : routeError ? (
-                  <p className="text-xs font-bold text-red-600 text-center py-1">{routeError}</p>
-                ) : activeRoute ? (
-                  <div className="w-full">
-                    {activeRoute.isFallback ? (
-                      <div className="flex flex-col items-center gap-0.5 pt-1">
-                        <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Mostrando ruta aproximada</p>
-                        <p className="text-xs font-black text-gray-800">Distancia: {formatDistance(activeRoute.distance)}</p>
-                      </div>
-                    ) : (
-                      <div className="flex justify-around text-center w-full">
-                        <div>
-                          <p className="text-[10px] text-gray-400 font-medium uppercase">Distancia</p>
-                          <p className="text-xs font-black text-gray-800">{formatDistance(activeRoute.distance)}</p>
-                        </div>
-                        <div className="border-l border-gray-200" />
-                        <div>
-                          <p className="text-[10px] text-gray-400 font-medium uppercase">Tiempo Estimado</p>
-                          <p className="text-xs font-black text-gray-800">{formatDuration(activeRoute.duration)}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2 mt-3">
-              {phoneNumber && (
-                <button onClick={handleCall} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: BRAND.blue }}>
-                  <Phone size={14} /><span>Llamar</span>
-                </button>
-              )}
-              {whatsappNumber && (
-                <button onClick={handleWhatsApp} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: "#25D366" }}>
-                  <MessageCircle size={14} /><span>WhatsApp</span>
-                </button>
-              )}
-              <button onClick={handleOpenRouting} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: BRAND.red }}>
-                <Navigation size={14} /><span>Cómo llegar</span>
-              </button>
-            </div>
-          )}
+      {/* Acciones principales ── Siempre fijas abajo, tanto en móvil como en escritorio */}
+      <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-white flex-shrink-0">
+        <div className="flex gap-2">
+          <button
+            onClick={handleCall}
+            disabled={!phoneNumber}
+            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow disabled:opacity-40"
+            style={{ backgroundColor: BRAND.blue }}
+          >
+            <Phone size={14} />
+            <span>Llamar</span>
+          </button>
+          <button
+            onClick={handleWhatsApp}
+            disabled={!whatsappNumber}
+            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow disabled:opacity-40"
+            style={{ backgroundColor: "#25D366" }}
+          >
+            <MessageCircle size={14} />
+            <span>WhatsApp</span>
+          </button>
+          <button
+            onClick={onStartNavigation}
+            className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow-lg hover:shadow-red-500/10"
+            style={{ backgroundColor: BRAND.red }}
+          >
+            <Navigation size={14} />
+            <span>Cómo llegar</span>
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
