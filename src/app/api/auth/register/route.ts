@@ -32,14 +32,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate role is either VISITANTE or OWNER
-    const cleanRole = role.toUpperCase();
-    if (cleanRole !== "VISITANTE" && cleanRole !== "OWNER") {
-      return NextResponse.json(
-        { success: false, error: "Rol no permitido" },
-        { status: 400 }
-      );
-    }
+    // All new registrations are VISITANTE by default
+    const cleanRole = "VISITANTE";
 
     const normalizedEmail = email.toLowerCase().trim();
 

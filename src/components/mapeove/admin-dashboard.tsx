@@ -39,12 +39,13 @@ interface BusinessRequestData {
   note: string | null;
   paymentMethod: string;
   paymentReference: string;
+  plan: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
 }
 
 export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes">("negocios");
+  const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "pagos">("negocios");
   
   // Users Data
   const [users, setUsers] = useState<UserData[]>([]);
@@ -56,6 +57,19 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
+
+  // Payment Settings Data
+  const [paymentSettings, setPaymentSettings] = useState({
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    currency: "USD",
+    pagoMovilInfo: "",
+    transferInfo: "",
+    binanceInfo: "",
+  });
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState({ type: "", text: "" });
 
   // Fetch Users
   useEffect(() => {
@@ -115,6 +129,52 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
     if (!isOpen || activeTab !== "solicitudes") return;
     loadRequests();
   }, [isOpen, activeTab]);
+
+  // Fetch Payment Settings
+  useEffect(() => {
+    if (!isOpen || activeTab !== "pagos") return;
+    
+    async function loadSettings() {
+      setLoadingSettings(true);
+      try {
+        const res = await fetch("/api/payment-settings");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.settings) {
+            setPaymentSettings(data.settings);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading settings:", err);
+      } finally {
+        setLoadingSettings(false);
+      }
+    }
+    loadSettings();
+  }, [isOpen, activeTab]);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    setSettingsMessage({ type: "", text: "" });
+    try {
+      const res = await fetch("/api/admin/payment-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentSettings),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSettingsMessage({ type: "success", text: "Configuración guardada correctamente." });
+      } else {
+        setSettingsMessage({ type: "error", text: data.error || "Error al guardar la configuración." });
+      }
+    } catch (err) {
+      setSettingsMessage({ type: "error", text: "Error de conexión." });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const handleApprove = async (id: string) => {
     setActioningId(id);
@@ -229,6 +289,17 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
               <Users size={16} />
               <span>Usuarios</span>
             </button>
+            <button
+              onClick={() => setActiveTab("pagos")}
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2.5 px-3 py-2 sm:py-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
+                activeTab === "pagos"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <Store size={16} />
+              <span>Pagos</span>
+            </button>
           </div>
 
           {/* Main Workspace */}
@@ -244,36 +315,22 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                   </span>
                 </div>
 
-                <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[500px] sm:min-w-0">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-100 text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                          <th className="px-4 py-3">Nombre</th>
-                          <th className="px-4 py-3">Categoría</th>
-                          <th className="px-4 py-3">Dirección</th>
-                          <th className="px-4 py-3">Verificado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 text-[11px] sm:text-xs text-gray-700">
-                        {(Array.isArray(businesses) ? businesses : []).map((biz) => (
-                          <tr key={biz.id} className="hover:bg-gray-50/50">
-                            <td className="px-4 py-3 sm:py-3.5 font-bold text-gray-900">{biz.name}</td>
-                            <td className="px-4 py-3 sm:py-3.5">
-                              <span className="inline-flex items-center gap-1 bg-gray-100 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold">
-                                <span>{biz.category.icon}</span>
-                                <span>{biz.category.name}</span>
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 sm:py-3.5 text-gray-500 truncate max-w-[200px]">{biz.address}</td>
-                            <td className="px-4 py-3 sm:py-3.5">
-                              <span className={`inline-block w-2 h-2 rounded-full ${biz.verified ? "bg-blue-500" : "bg-gray-300"}`} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {(Array.isArray(businesses) ? businesses : []).map((biz) => (
+                    <div key={biz.id} className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm flex flex-col gap-2">
+                      <div className="flex justify-between items-start">
+                        <h5 className="text-xs sm:text-sm font-black text-gray-900 truncate pr-2">{biz.name}</h5>
+                        <span className={`shrink-0 inline-block w-2 h-2 rounded-full mt-1 ${biz.verified ? "bg-blue-500" : "bg-gray-300"}`} />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 bg-gray-100 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold">
+                          <span>{biz.category.icon}</span>
+                          <span>{biz.category.name}</span>
+                        </span>
+                      </div>
+                      <p className="text-[10px] sm:text-[11px] text-gray-500 truncate">{biz.address}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -332,6 +389,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                           
                           <div className="space-y-1.5 p-3 bg-gray-50 border border-gray-200/60 rounded-xl">
                             <p className="text-gray-400 font-bold text-[9px] uppercase tracking-wider">Detalles de Suscripción Manual</p>
+                            <p><strong>Plan Elegido:</strong> {req.plan === "MONTHLY" ? "Mensual" : req.plan === "YEARLY" ? "Anual" : "No especificado"}</p>
                             <p><strong>Método de pago:</strong> {req.paymentMethod}</p>
                             <p><strong>Referencia:</strong> {req.paymentReference}</p>
                             <p><strong>Fecha Solicitud:</strong> {new Date(req.createdAt).toLocaleString()}</p>
@@ -390,45 +448,131 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                     <span className="text-xs text-gray-500">Cargando usuarios...</span>
                   </div>
                 ) : (
-                  <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse min-w-[450px] sm:min-w-0">
-                        <thead>
-                          <tr className="bg-gray-50 border-b border-gray-100 text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                            <th className="px-4 py-3">Nombre</th>
-                            <th className="px-4 py-3">Correo</th>
-                            <th className="px-4 py-3">Rol</th>
-                            <th className="px-4 py-3">Registro</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-[11px] sm:text-xs text-gray-700">
-                          {(Array.isArray(users) ? users : []).map((u) => (
-                            <tr key={u.id} className="hover:bg-gray-50/50">
-                              <td className="px-4 py-3.5 font-bold text-gray-900">{u.name}</td>
-                              <td className="px-4 py-3.5 text-gray-600">{u.email}</td>
-                              <td className="px-4 py-3.5">
-                                <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${
-                                  u.role === "SUPER_ADMIN" ? "bg-red-500" : u.role === "OWNER" ? "bg-blue-500" : "bg-green-500"
-                                }`}>
-                                  {u.role}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3.5 text-gray-500">
-                                {new Date(u.createdAt).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
-                          {users.length === 0 && !usersError && (
-                            <tr>
-                              <td colSpan={4} className="px-4 py-8 text-center text-xs text-gray-500">
-                                No hay usuarios registrados.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {(Array.isArray(users) ? users : []).map((u) => (
+                      <div key={u.id} className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <h5 className="text-xs sm:text-sm font-black text-gray-900 truncate">{u.name}</h5>
+                          <span className={`shrink-0 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${
+                            u.role === "SUPER_ADMIN" ? "bg-red-500" : u.role === "OWNER" ? "bg-blue-500" : "bg-green-500"
+                          }`}>
+                            {u.role}
+                          </span>
+                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-gray-600 truncate">{u.email}</p>
+                        <p className="text-[9px] text-gray-400">
+                          Registrado: {new Date(u.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                    {users.length === 0 && !usersError && (
+                      <p className="text-xs text-gray-500 text-center col-span-full py-6">
+                        No hay usuarios registrados.
+                      </p>
+                    )}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: PAGOS */}
+            {activeTab === "pagos" && (
+              <div className="space-y-4 max-w-2xl">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs sm:text-sm font-black text-gray-800">Configuración de Pagos</h4>
+                </div>
+
+                {settingsMessage.text && (
+                  <div className={`p-3 text-xs rounded-xl border ${settingsMessage.type === "success" ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+                    {settingsMessage.text}
+                  </div>
+                )}
+
+                {loadingSettings ? (
+                  <div className="flex items-center justify-center py-8 gap-2">
+                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-500">Cargando...</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveSettings} className="space-y-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-100 shadow-sm">
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Precio Mensual</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={paymentSettings.monthlyPrice}
+                          onChange={e => setPaymentSettings({...paymentSettings, monthlyPrice: parseFloat(e.target.value)})}
+                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Precio Anual</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          value={paymentSettings.yearlyPrice}
+                          onChange={e => setPaymentSettings({...paymentSettings, yearlyPrice: parseFloat(e.target.value)})}
+                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Moneda (Ej. USD)</label>
+                      <input
+                        type="text"
+                        required
+                        value={paymentSettings.currency}
+                        onChange={e => setPaymentSettings({...paymentSettings, currency: e.target.value})}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones Pago Móvil</label>
+                      <textarea
+                        required
+                        value={paymentSettings.pagoMovilInfo}
+                        onChange={e => setPaymentSettings({...paymentSettings, pagoMovilInfo: e.target.value})}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                        rows={2}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones Transferencia Bancaria</label>
+                      <textarea
+                        required
+                        value={paymentSettings.transferInfo}
+                        onChange={e => setPaymentSettings({...paymentSettings, transferInfo: e.target.value})}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                        rows={2}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones Binance Pay</label>
+                      <textarea
+                        required
+                        value={paymentSettings.binanceInfo}
+                        onChange={e => setPaymentSettings({...paymentSettings, binanceInfo: e.target.value})}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                        rows={2}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingSettings}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      {savingSettings ? "Guardando..." : "Guardar Configuración"}
+                    </button>
+                  </form>
                 )}
               </div>
             )}

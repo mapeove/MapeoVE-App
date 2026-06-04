@@ -30,7 +30,7 @@ export function CategoryFilters({
     : [];
 
   return (
-    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide -mx-3 px-3 md:mx-0 md:px-0">
+    <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-3 px-4 md:mx-0 md:px-0 snap-x snap-mandatory touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
       {filteredCategories.map((category) => {
         const isActive = activeCategory === category.slug;
         const color = CATEGORY_COLORS[category.slug] || BRAND.blue;
@@ -41,7 +41,7 @@ export function CategoryFilters({
             onClick={() =>
               onCategoryChange(isActive ? null : category.slug)
             }
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 border flex-shrink-0 ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 border flex-shrink-0 snap-start ${
               isActive
                 ? "text-white shadow-md scale-[1.03]"
                 : "bg-white text-gray-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"

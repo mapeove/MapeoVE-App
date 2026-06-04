@@ -14,8 +14,8 @@ model Category {
   icon             String
   slug             String            @unique
   createdAt        DateTime          @default(now()) @map("created_at")
-  businesses       Business[]
   businessRequests BusinessRequest[]
+  businesses       Business[]
 
   @@map("categories")
 }
@@ -25,12 +25,12 @@ model User {
   email            String            @unique
   password         String
   name             String
-  role             String            @default("VISITANTE") // VISITANTE, OWNER, SUPER_ADMIN
+  role             String            @default("VISITANTE")
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
-  businesses       Business[]
-  businessRequests BusinessRequest[] @relation("userRequests")
   reviewedRequests BusinessRequest[] @relation("reviewedByRequests")
+  businessRequests BusinessRequest[] @relation("userRequests")
+  businesses       Business[]
 
   @@map("users")
 }
@@ -40,7 +40,6 @@ model Business {
   name        String
   description String?
   categoryId  String   @map("category_id")
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   phone       String?
   whatsapp    String?
   address     String
@@ -50,14 +49,15 @@ model Business {
   latitude    Float
   longitude   Float
   image       String?
-  images      String[] @default([])
   hours       String?
   verified    Boolean  @default(false)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  images      String[] @default([])
   ownerId     String?  @map("owner_id")
-  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  category    Category @relation(fields: [categoryId], references: [id])
+  owner       User?    @relation(fields: [ownerId], references: [id])
 
   @@index([categoryId])
   @@index([active])
@@ -76,6 +76,46 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model BusinessRequest {
+  id               String                @id @default(cuid())
+  userId           String                @map("user_id")
+  businessId       String?               @map("business_id")
+  businessName     String                @map("business_name")
+  categoryId       String                @map("category_id")
+  address          String
+  phone            String
+  whatsapp         String
+  description      String?
+  openingHours     String?               @map("opening_hours")
+  note             String?
+  paymentReference String                @map("payment_reference")
+  proofImageUrl    String?               @map("proof_image_url")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  reviewedAt       DateTime?             @map("reviewed_at")
+  reviewedById     String?               @map("reviewed_by_id")
+  paymentMethod    PaymentMethod         @map("payment_method")
+  status           BusinessRequestStatus @default(PENDING)
+  plan             SubscriptionPlan?
+  category         Category              @relation(fields: [categoryId], references: [id])
+  reviewedBy       User?                 @relation("reviewedByRequests", fields: [reviewedById], references: [id])
+  user             User                  @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("business_requests")
+}
+
+model PaymentSettings {
+  id            String   @id @default(cuid())
+  monthlyPrice  Float    @map("monthly_price")
+  yearlyPrice   Float    @map("yearly_price")
+  currency      String   @default("USD")
+  pagoMovilInfo String   @map("pago_movil_info")
+  transferInfo  String   @map("transfer_info")
+  binanceInfo   String   @map("binance_info")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_settings")
+}
+
 enum PaymentMethod {
   PAGO_MOVIL
   TRANSFERENCIA
@@ -88,28 +128,7 @@ enum BusinessRequestStatus {
   REJECTED
 }
 
-model BusinessRequest {
-  id               String                @id @default(cuid())
-  userId           String                @map("user_id")
-  user             User                  @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade)
-  businessId       String?               @map("business_id")
-  businessName     String                @map("business_name")
-  categoryId       String                @map("category_id")
-  category         Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  address          String
-  phone            String
-  whatsapp         String
-  description      String?
-  openingHours     String?               @map("opening_hours")
-  note             String?
-  paymentMethod    PaymentMethod         @map("payment_method")
-  paymentReference String                @map("payment_reference")
-  proofImageUrl    String?               @map("proof_image_url")
-  status           BusinessRequestStatus @default(PENDING)
-  createdAt        DateTime              @default(now()) @map("created_at")
-  reviewedAt       DateTime?             @map("reviewed_at")
-  reviewedById     String?               @map("reviewed_by_id")
-  reviewedBy       User?                 @relation("reviewedByRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
-
-  @@map("business_requests")
+enum SubscriptionPlan {
+  MONTHLY
+  YEARLY
 }

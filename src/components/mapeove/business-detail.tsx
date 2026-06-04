@@ -111,10 +111,12 @@ export function BusinessDetail({
   const phoneNumber = business.phone?.replace(/[^0-9]/g, "") || "";
 
   const [isRoutingActive, setIsRoutingActive] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Reset routing UI when selecting another business
   useEffect(() => {
     setIsRoutingActive(false);
+    setIsExpanded(false);
   }, [business.id]);
 
   const hasValidDistance =
@@ -170,10 +172,15 @@ export function BusinessDetail({
   };
 
   return (
-    <div className="bg-white rounded-t-2xl shadow-2xl overflow-hidden animate-slide-up max-h-[50vh] md:max-h-none md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3">
+    <div className={`bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
+      isExpanded ? "h-[85vh]" : "max-h-[45vh] md:h-auto md:max-h-none"
+    }`}>
       {/* Drag handle (mobile) */}
-      <div className="flex justify-center pt-2 pb-0 md:hidden">
-        <div className="w-9 h-1 rounded-full bg-gray-300" />
+      <div 
+        className="flex justify-center pt-3 pb-2 md:hidden cursor-pointer hover:bg-gray-50 active:bg-gray-100"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="w-12 h-1.5 rounded-full bg-gray-300" />
       </div>
 
       {/* Imagen o placeholder */}
@@ -234,7 +241,7 @@ export function BusinessDetail({
       )}
 
       {/* Contenido scrolleable */}
-      <div className="overflow-y-auto max-h-[calc(50vh-140px)] md:max-h-[380px] px-4 pt-2.5 pb-4">
+      <div className={`overflow-y-auto px-4 pt-2.5 pb-4 ${isExpanded ? "flex-1" : "max-h-[calc(45vh-140px)] md:max-h-[380px]"}`}>
         {/* Nombre */}
         <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}

@@ -129,7 +129,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div 
-        className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100 animate-scale-in"
+        className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden border border-gray-100 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -163,7 +163,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         </div>
 
         {/* Form Body */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto">
           {error && (
             <div className="mb-4 p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
               <ShieldAlert size={14} className="shrink-0 mt-0.5" />
@@ -314,19 +314,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Tipo de Cuenta
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-800 font-medium"
-                >
-                  <option value="VISITANTE">Visitante (Descubrir negocios)</option>
-                  <option value="OWNER">Propietario (Registrar negocio)</option>
-                </select>
-              </div>
+
 
               <div className="pt-2">
                 <button

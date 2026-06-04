@@ -233,8 +233,8 @@ export function MapeoVEMap({
         "circle-radius": [
           "case",
           ["boolean", ["feature-state", "selected"], false],
-          10,
-          7,
+          8,
+          5,
         ],
         // Color de categoría
         "circle-color": ["get", "color"],
@@ -254,7 +254,7 @@ export function MapeoVEMap({
       minzoom: 14,
       layout: {
         "text-field": ["get", "icon"],
-        "text-size": 12,
+        "text-size": 10,
         "text-anchor": "center",
         "text-allow-overlap": true,
         "text-ignore-placement": true,
@@ -331,12 +331,12 @@ export function MapeoVEMap({
     const selectedId = selectedBusiness?.id ?? null;
 
     // Actualizar circle-radius con expresión MapLibre
-    // Si el feature tiene el ID del negocio seleccionado → radio 10, sino → 7
+    // Si el feature tiene el ID del negocio seleccionado → radio 8, sino → 5
     map.setPaintProperty(CIRCLES_LAYER_ID, "circle-radius", [
       "case",
       ["==", ["get", "id"], selectedId],
-      10,
-      7,
+      8,
+      5,
     ]);
 
     // Actualizar circle-stroke-width: más grueso para el seleccionado

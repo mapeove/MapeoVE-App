@@ -25,6 +25,15 @@ interface RequestData {
   createdAt: string;
 }
 
+interface PaymentSettings {
+  monthlyPrice: number;
+  yearlyPrice: number;
+  currency: string;
+  pagoMovilInfo: string;
+  transferInfo: string;
+  binanceInfo: string;
+}
+
 export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModalProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [existingRequests, setExistingRequests] = useState<RequestData[]>([]);
@@ -32,6 +41,10 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [forceShowForm, setForceShowForm] = useState(false);
+
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
   // Form Fields
   const [businessName, setBusinessName] = useState("");
@@ -42,6 +55,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [description, setDescription] = useState("");
   const [openingHours, setOpeningHours] = useState("");
   const [note, setNote] = useState("");
+  const [plan, setPlan] = useState("MONTHLY");
   const [paymentMethod, setPaymentMethod] = useState("PAGO_MOVIL");
   const [paymentReference, setPaymentReference] = useState("");
 
@@ -91,8 +105,25 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       }
     }
 
+    async function loadPaymentSettings() {
+      try {
+        const res = await fetch("/api/payment-settings");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.settings) {
+            setPaymentSettings(data.settings);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading payment settings:", err);
+      } finally {
+        setLoadingSettings(false);
+      }
+    }
+
     loadCategories();
     loadRequests();
+    loadPaymentSettings();
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -121,6 +152,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           description,
           openingHours,
           note,
+          plan,
           paymentMethod,
           paymentReference,
         }),
@@ -157,7 +189,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
       <div 
-        className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[80vh] overflow-hidden border border-gray-100 animate-scale-in"
+        className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden border border-gray-100 animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -190,7 +222,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-xs text-gray-500">Cargando estado...</span>
             </div>
-          ) : (Array.isArray(existingRequests) && existingRequests.length > 0) && !success ? (
+          ) : !forceShowForm && (Array.isArray(existingRequests) && existingRequests.length > 0) && !success ? (
             /* Show status of existing requests */
             <div className="space-y-4">
               <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Tus Solicitudes</h4>
@@ -225,7 +257,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                 </button>
               )}
             </div>
-          ) : user?.role === "OWNER" && (!Array.isArray(existingRequests) || existingRequests.length === 0) && !success ? (
+          ) : !forceShowForm && user?.role === "OWNER" && (!Array.isArray(existingRequests) || existingRequests.length === 0) && !success ? (
             /* Show "No tienes solicitudes todavía" for OWNERs without requests */
             <div className="py-8 text-center space-y-4">
               <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-400 border border-gray-200">
@@ -234,6 +266,12 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               <p className="text-xs text-gray-500 font-medium">
                 No tienes solicitudes todavía
               </p>
+              <button
+                onClick={() => setForceShowForm(true)}
+                className="mt-2 px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 active:scale-95 transition-all w-full max-w-xs mx-auto"
+              >
+                Registrar mi local
+              </button>
             </div>
           ) : success ? (
             /* Success View */
@@ -395,15 +433,56 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                   <span>Método de Pago Manual</span>
                 </h4>
 
-                {/* Instructions */}
-                <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-2 text-[10px] text-blue-800">
-                  <p className="font-bold">Realiza el pago y coloca la referencia abajo:</p>
-                  <div className="grid grid-cols-1 gap-1 divide-y divide-blue-200/50">
-                    <p className="pt-1"><strong>Pago Móvil:</strong> Banco Mercantil (0105), 0424-1234567, RIF V-12345678-9</p>
-                    <p className="pt-1"><strong>Transferencia:</strong> Bco Mercantil, Cta Cte 0105-0123-45-0123456789, RIF V-12345678-9 (MapeoVE C.A.)</p>
-                    <p className="pt-1"><strong>Binance Pay (USDT):</strong> ID: 123456789 (pagos@mapeove.com)</p>
+                {loadingSettings ? (
+                  <p className="text-xs text-gray-500">Cargando métodos de pago...</p>
+                ) : !paymentSettings ? (
+                  <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium">
+                    Los métodos de pago aún no están configurados. No puedes enviar la solicitud.
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPlan("MONTHLY")}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          plan === "MONTHLY"
+                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">Mensual</p>
+                        <p className="text-lg font-black text-gray-900 mt-0.5">
+                          {paymentSettings.monthlyPrice} <span className="text-xs">{paymentSettings.currency}</span>
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlan("YEARLY")}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          plan === "YEARLY"
+                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <p className="text-[10px] font-bold text-gray-500 uppercase">Anual</p>
+                        <p className="text-lg font-black text-gray-900 mt-0.5">
+                          {paymentSettings.yearlyPrice} <span className="text-xs">{paymentSettings.currency}</span>
+                        </p>
+                      </button>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-2 text-[10px] text-blue-800">
+                      <p className="font-bold">Realiza el pago por el monto seleccionado y coloca la referencia abajo:</p>
+                      <div className="grid grid-cols-1 gap-1 divide-y divide-blue-200/50">
+                        <p className="pt-1"><strong>Pago Móvil:</strong> {paymentSettings.pagoMovilInfo}</p>
+                        <p className="pt-1"><strong>Transferencia:</strong> {paymentSettings.transferInfo}</p>
+                        <p className="pt-1"><strong>Binance Pay (USDT):</strong> {paymentSettings.binanceInfo}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -436,7 +515,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !paymentSettings}
                   className="w-full py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center justify-center"
                   style={{ backgroundColor: BRAND.blue }}
                 >

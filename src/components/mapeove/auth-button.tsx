@@ -97,9 +97,9 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
                 setDropdownOpen(false);
                 setRegisterModalOpen(true);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 text-left transition-colors font-bold"
+              className="w-full flex items-center gap-2.5 px-4 py-3.5 text-sm sm:text-xs sm:py-2 text-gray-700 hover:bg-gray-50 text-left transition-colors font-bold"
             >
-              <Store size={14} className="text-gray-500" />
+              <Store size={16} className="text-gray-500" />
               <span>{user.role === "OWNER" ? "Mi local" : "Registrar local"}</span>
             </button>
           )}
@@ -107,9 +107,9 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
           {isSuperAdmin && (
             <button
               onClick={handleDashboardClick}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 text-left transition-colors font-bold"
+              className="w-full flex items-center gap-2.5 px-4 py-3.5 text-sm sm:text-xs sm:py-2 text-gray-700 hover:bg-gray-50 text-left transition-colors font-bold"
             >
-              <LayoutDashboard size={14} className="text-gray-500" />
+              <LayoutDashboard size={16} className="text-gray-500" />
               <span>Panel de Admin</span>
             </button>
           )}
@@ -119,9 +119,9 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
               logout();
               setDropdownOpen(false);
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 text-left transition-colors font-bold"
+            className="w-full flex items-center gap-2.5 px-4 py-3.5 text-sm sm:text-xs sm:py-2 text-red-600 hover:bg-red-50 text-left transition-colors font-bold"
           >
-            <LogOut size={14} />
+            <LogOut size={16} />
             <span>Cerrar Sesión</span>
           </button>
         </div>

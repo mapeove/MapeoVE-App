@@ -26,12 +26,20 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       paymentReference,
       proofImageUrl,
+      plan,
     } = body;
 
     // Validate required fields
-    if (!businessName || !categoryId || !address || !phone || !whatsapp || !paymentMethod || !paymentReference) {
+    if (!businessName || !categoryId || !address || !phone || !whatsapp || !paymentMethod || !paymentReference || !plan) {
       return NextResponse.json(
         { error: "Faltan campos obligatorios para la solicitud" },
+        { status: 400 }
+      );
+    }
+    // Validate plan
+    if (plan !== "MONTHLY" && plan !== "YEARLY") {
+      return NextResponse.json(
+        { error: "Plan no válido" },
         { status: 400 }
       );
     }
@@ -62,6 +70,7 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || null,
         openingHours: openingHours?.trim() || null,
         note: note?.trim() || null,
+        plan,
         paymentMethod,
         paymentReference: paymentReference.trim(),
         proofImageUrl: proofImageUrl || null,
