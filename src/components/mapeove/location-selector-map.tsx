@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Check, X } from "lucide-react";
+import { Check, X, Map as MapIcon } from "lucide-react";
 
 export default function LocationSelectorMap({ 
   onSelect, 
@@ -17,8 +17,12 @@ export default function LocationSelectorMap({
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
-
   const [mounted, setMounted] = useState(false);
+  const [isSatellite, setIsSatellite] = useState(false);
+
+  const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
+  const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
+  const SATELLITE_STYLE = `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`;
 
   useEffect(() => {
     setMounted(true);
@@ -32,7 +36,7 @@ export default function LocationSelectorMap({
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+      style: isSatellite ? SATELLITE_STYLE : MAP_STYLE,
       center: [-67.3312, 10.2268], // Base coordinates (can be any)
       zoom: 14,
       attributionControl: false,
@@ -59,7 +63,12 @@ export default function LocationSelectorMap({
     return () => {
       map.remove();
     };
-  }, [maplibregl]);
+  }, [maplibregl]); // Run only once when maplibre loads
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.setStyle(isSatellite ? SATELLITE_STYLE : MAP_STYLE);
+  }, [isSatellite]);
 
   if (!mounted) return null;
 
@@ -74,7 +83,16 @@ export default function LocationSelectorMap({
           <X size={16} />
         </button>
       </div>
-      <div ref={mapContainer} className="flex-1 w-full bg-gray-100" />
+      <div className="relative flex-1 w-full bg-gray-100">
+        <div ref={mapContainer} className="absolute inset-0" />
+        <button
+          onClick={() => setIsSatellite(!isSatellite)}
+          className="absolute top-4 left-4 z-[10000] p-2 bg-white rounded-xl shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 active:scale-95 transition-transform"
+        >
+          <MapIcon size={16} />
+          {isSatellite ? "Mapa Normal" : "Satélite"}
+        </button>
+      </div>
       
       <div 
         className="fixed left-1/2 -translate-x-1/2 z-[100000] w-[90%] max-w-sm pointer-events-auto"
