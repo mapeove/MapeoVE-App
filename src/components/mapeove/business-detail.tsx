@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
 import {
@@ -112,6 +113,11 @@ export function BusinessDetail({
 
   const [isRoutingActive, setIsRoutingActive] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Reset routing UI when selecting another business
   useEffect(() => {
@@ -172,6 +178,120 @@ export function BusinessDetail({
   };
 
   return (
+    <>
+    {/* ── PORTAL: barra de acciones móvil — renderizado en document.body ─────────
+        Se usa createPortal para escapar completamente de:
+        - overflow-hidden del sheet
+        - max-height variable
+        - bugs de vh en Chrome Android
+        En escritorio (md:) se oculta con hidden/md:hidden y las acciones
+        se muestran dentro del sheet normalmente.
+    ──────────────────────────────────────────────────────────────────────────── */}
+    {mounted && createPortal(
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[99999] bg-white border-t border-gray-100 shadow-[0_-8px_24px_-4px_rgba(0,0,0,0.12)] md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="px-3 pt-3 pb-2">
+          {isRoutingActive ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Navegación</span>
+                <button
+                  onClick={handleCancelRouting}
+                  className="text-[10px] font-bold text-red-600 uppercase"
+                >
+                  Salir
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { id: "driving-car", label: "Coche", icon: Car },
+                  { id: "driving-car-moto", label: "Moto", icon: MotorcycleIcon },
+                  { id: "cycling-regular", label: "Bici", icon: Bike },
+                  { id: "foot-walking", label: "Caminar", icon: Footprints },
+                ].map((mode) => {
+                  const isSelected = activeRoute?.mode === mode.id;
+                  const IconComponent = mode.icon;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => startInternalRouting(mode.id)}
+                      className={`py-2 px-1 rounded-lg border flex flex-col items-center gap-1 ${
+                        isSelected
+                          ? "bg-blue-600 border-blue-600 text-white"
+                          : "bg-white border-gray-200 text-gray-600"
+                      }`}
+                    >
+                      <IconComponent size={16} />
+                      <span className="text-[9px] font-semibold">{mode.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {(routeLoading || routeError || activeRoute) && (
+                <div className="pt-1 border-t border-gray-100 text-center min-h-[28px] flex items-center justify-center">
+                  {routeLoading && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-gray-500">Buscando ruta...</span>
+                    </div>
+                  )}
+                  {!routeLoading && routeError && (
+                    <p className="text-xs font-bold text-red-600">{routeError}</p>
+                  )}
+                  {!routeLoading && !routeError && activeRoute && (
+                    <div className="flex gap-6">
+                      <div className="text-center">
+                        <p className="text-[9px] text-gray-400 uppercase">Distancia</p>
+                        <p className="text-xs font-black">{formatDistance(activeRoute.distance)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[9px] text-gray-400 uppercase">Tiempo</p>
+                        <p className="text-xs font-black">{formatDuration(activeRoute.duration)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={phoneNumber ? handleCall : undefined}
+                disabled={!phoneNumber}
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform disabled:opacity-40"
+                style={{ backgroundColor: BRAND.blue }}
+              >
+                <Phone size={15} />
+                <span>Llamar</span>
+              </button>
+              <button
+                onClick={whatsappNumber ? handleWhatsApp : undefined}
+                disabled={!whatsappNumber}
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform disabled:opacity-40"
+                style={{ backgroundColor: "#25D366" }}
+              >
+                <MessageCircle size={15} />
+                <span>WhatsApp</span>
+              </button>
+              <button
+                onClick={() => startInternalRouting("driving-car")}
+                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform"
+                style={{ backgroundColor: BRAND.red }}
+              >
+                <Navigation size={15} />
+                <span>Cómo llegar</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>,
+      document.body
+    )}
+
+    {/* ── SHEET ─────────────────────────────────────────────────────────────── */}
     <div className={`relative bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
       isExpanded ? "h-[85vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
     }`}>
@@ -240,8 +360,8 @@ export function BusinessDetail({
         </div>
       )}
 
-      {/* Contenido scrolleable con padding extra en móvil para la barra absoluta */}
-      <div className={`overflow-y-auto px-4 pt-2.5 pb-[100px] md:pb-4 flex-1 min-h-0 ${isExpanded ? "" : "md:max-h-[380px]"}`}>
+      {/* Contenido scrolleable — pb-24 en móvil para no quedar tapado por el portal */}
+      <div className={`overflow-y-auto px-4 pt-2.5 pb-24 md:pb-4 flex-1 min-h-0 ${isExpanded ? "" : "md:max-h-[380px]"}`}>
         {/* Nombre */}
         <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}
@@ -297,120 +417,82 @@ export function BusinessDetail({
         </div>
       </div>
 
-      {/* Barra de acciones pegajosa al fondo (Mobile First: Absolute para evitar bugs de flex/overflow) */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 bg-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:static md:pb-4 border-t border-gray-100 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.08)] md:shadow-none">
-        {isRoutingActive ? (
-          <div className="p-3 bg-gray-50 border border-gray-150 rounded-xl space-y-3 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Navegación Interna
-              </span>
-              <button
-                onClick={handleCancelRouting}
-                className="text-[10px] font-bold text-red-600 hover:text-red-700 transition-colors uppercase"
-              >
-                Salir
-              </button>
-            </div>
-
-            {/* Travel Mode Selector */}
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                { id: "driving-car", label: "Coche", icon: Car },
-                { id: "driving-car-moto", label: "Moto", icon: MotorcycleIcon },
-                { id: "cycling-regular", label: "Bici", icon: Bike },
-                { id: "foot-walking", label: "Caminar", icon: Footprints },
-              ].map((mode) => {
-                const isSelected = activeRoute?.mode === mode.id || 
-                  (mode.id === "driving-car-moto" && activeRoute?.mode === "driving-car-moto");
-                const IconComponent = mode.icon;
-
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => startInternalRouting(mode.id)}
-                    className={`py-2 px-1 rounded-lg border transition-all flex flex-col items-center gap-1 ${
-                      isSelected
-                        ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                        : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    <IconComponent size={16} />
-                    <span className="text-[9px] font-semibold">{mode.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Navigation Summary / Loading / Error */}
-            <div className="pt-1.5 border-t border-gray-200/60 min-h-[42px] flex items-center justify-center">
-              {routeLoading ? (
-                <div className="flex items-center gap-2 py-1">
-                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs text-gray-500 font-medium">Buscando ruta...</span>
-                </div>
-              ) : routeError ? (
-                <p className="text-xs font-bold text-red-600 text-center py-1">
-                  {routeError}
-                </p>
-              ) : activeRoute ? (
-                <div className="w-full flex justify-around text-center">
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-medium uppercase">Distancia</p>
-                    <p className="text-xs font-black text-gray-800">
-                      {formatDistance(activeRoute.distance)}
-                    </p>
+      {/* Acciones dentro del sheet — solo escritorio (md:) */}
+      <div className="hidden md:block px-4 pb-4 border-t border-gray-100">
+          {isRoutingActive ? (
+            <div className="pt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Navegación Interna</span>
+                <button onClick={handleCancelRouting} className="text-[10px] font-bold text-red-600 uppercase">Salir</button>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { id: "driving-car", label: "Coche", icon: Car },
+                  { id: "driving-car-moto", label: "Moto", icon: MotorcycleIcon },
+                  { id: "cycling-regular", label: "Bici", icon: Bike },
+                  { id: "foot-walking", label: "Caminar", icon: Footprints },
+                ].map((mode) => {
+                  const isSelected = activeRoute?.mode === mode.id;
+                  const IconComponent = mode.icon;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => startInternalRouting(mode.id)}
+                      className={`py-2 px-1 rounded-lg border transition-all flex flex-col items-center gap-1 ${
+                        isSelected ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      <IconComponent size={16} />
+                      <span className="text-[9px] font-semibold">{mode.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="pt-1.5 border-t border-gray-200/60 min-h-[42px] flex items-center justify-center">
+                {routeLoading ? (
+                  <div className="flex items-center gap-2 py-1">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-500 font-medium">Buscando ruta...</span>
                   </div>
-                  <div className="border-l border-gray-200" />
-                  <div>
-                    <p className="text-[10px] text-gray-400 font-medium uppercase">Tiempo Estimado</p>
-                    <p className="text-xs font-black text-gray-800">
-                      {formatDuration(activeRoute.duration)}
-                    </p>
+                ) : routeError ? (
+                  <p className="text-xs font-bold text-red-600 text-center py-1">{routeError}</p>
+                ) : activeRoute ? (
+                  <div className="w-full flex justify-around text-center">
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-medium uppercase">Distancia</p>
+                      <p className="text-xs font-black text-gray-800">{formatDistance(activeRoute.distance)}</p>
+                    </div>
+                    <div className="border-l border-gray-200" />
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-medium uppercase">Tiempo Estimado</p>
+                      <p className="text-xs font-black text-gray-800">{formatDuration(activeRoute.duration)}</p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500 text-center">
-                  Selecciona un modo para calcular la ruta
-                </p>
+                ) : (
+                  <p className="text-xs text-gray-500 text-center">Selecciona un modo para calcular la ruta</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2 mt-3">
+              {phoneNumber && (
+                <button onClick={handleCall} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: BRAND.blue }}>
+                  <Phone size={14} /><span>Llamar</span>
+                </button>
               )}
+              {whatsappNumber && (
+                <button onClick={handleWhatsApp} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: "#25D366" }}>
+                  <MessageCircle size={14} /><span>WhatsApp</span>
+                </button>
+              )}
+              <button onClick={() => startInternalRouting("driving-car")} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: BRAND.red }}>
+                <Navigation size={14} /><span>Cómo llegar</span>
+              </button>
             </div>
-          </div>
-        ) : (
-          /* Botones de acción normales */
-          <div className="flex gap-2">
-            {phoneNumber && (
-              <button
-                onClick={handleCall}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
-                style={{ backgroundColor: BRAND.blue }}
-              >
-                <Phone size={14} />
-                <span>Llamar</span>
-              </button>
-            )}
-            {whatsappNumber && (
-              <button
-                onClick={handleWhatsApp}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
-                style={{ backgroundColor: "#25D366" }}
-              >
-                <MessageCircle size={14} />
-                <span>WhatsApp</span>
-              </button>
-            )}
-            <button
-              onClick={() => startInternalRouting("driving-car")}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95"
-              style={{ backgroundColor: BRAND.red }}
-            >
-              <Navigation size={14} />
-              <span>Cómo llegar</span>
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
