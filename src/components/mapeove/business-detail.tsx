@@ -172,7 +172,7 @@ export function BusinessDetail({
   };
 
   return (
-    <div className={`bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
+    <div className={`relative bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
       isExpanded ? "h-[85vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
     }`}>
       {/* Drag handle (mobile) */}
@@ -240,8 +240,8 @@ export function BusinessDetail({
         </div>
       )}
 
-      {/* Contenido scrolleable */}
-      <div className={`overflow-y-auto px-4 pt-2.5 pb-4 flex-1 min-h-0 ${isExpanded ? "" : "md:max-h-[380px]"}`}>
+      {/* Contenido scrolleable con padding extra en móvil para la barra absoluta */}
+      <div className={`overflow-y-auto px-4 pt-2.5 pb-[100px] md:pb-4 flex-1 min-h-0 ${isExpanded ? "" : "md:max-h-[380px]"}`}>
         {/* Nombre */}
         <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}
@@ -297,8 +297,8 @@ export function BusinessDetail({
         </div>
       </div>
 
-      {/* Barra de acciones pegajosa al fondo (Mobile First) */}
-      <div className="bg-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:pb-4 border-t border-gray-100 flex-shrink-0 shadow-[0_-4px_10px_-4px_rgba(0,0,0,0.05)] z-10">
+      {/* Barra de acciones pegajosa al fondo (Mobile First: Absolute para evitar bugs de flex/overflow) */}
+      <div className="absolute bottom-0 left-0 right-0 z-50 bg-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:static md:pb-4 border-t border-gray-100 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.08)] md:shadow-none">
         {isRoutingActive ? (
           <div className="p-3 bg-gray-50 border border-gray-150 rounded-xl space-y-3 animate-fade-in">
             <div className="flex items-center justify-between">
