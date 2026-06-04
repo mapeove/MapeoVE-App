@@ -87,8 +87,25 @@ export function MapeoVEHome() {
     setRouteLoading(true);
     setRouteError(null);
 
+    // Validate business coordinates
+    const bizLat = Number(selectedBusiness.latitude);
+    const bizLng = Number(selectedBusiness.longitude);
+    if (!Number.isFinite(bizLat) || !Number.isFinite(bizLng)) {
+      console.warn('Business missing or invalid coordinates');
+      setRouteError('Este negocio no tiene ubicación válida.');
+      setRouteLoading(false);
+      return;
+    }
+    // Venezuela bounds validation
+    const venezuelaLatMin = 0, venezuelaLatMax = 13, venezuelaLngMin = -74, venezuelaLngMax = -59;
+    if (bizLat < venezuelaLatMin || bizLat > venezuelaLatMax || bizLng < venezuelaLngMin || bizLng > venezuelaLngMax) {
+      console.warn('Business coordinates out of Venezuela bounds');
+      setRouteError('Este negocio no tiene ubicación válida.');
+      setRouteLoading(false);
+      return;
+    }
     const start = `${userLocation.lng},${userLocation.lat}`;
-    const end = `${selectedBusiness.longitude},${selectedBusiness.latitude}`;
+    const end = `${bizLng},${bizLat}`;
 
     try {
       const res = await fetch(`/api/directions?start=${start}&end=${end}&profile=${mode}`);

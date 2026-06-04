@@ -65,8 +65,46 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Validate generic ranges
+  const [startLng, startLat] = startCoord;
+  const [endLng, endLat] = endCoord;
+
+  const isLatValid = (lat: number) => lat >= -90 && lat <= 90;
+  const isLngValid = (lng: number) => lng >= -180 && lng <= 180;
+  if (!isLatValid(startLat) || !isLngValid(startLng) || !isLatValid(endLat) || !isLngValid(endLng)) {
+    console.warn('ORS request denied: coordenadas fuera de rango global');
+    return NextResponse.json(
+      { error: "Las coordenadas están fuera de los rangos permitidos (lat -90..90, lng -180..180)." },
+      { status: 400 }
+    );
+  }
+
+  // Venezuela specific validation (approximate bounds)
+  const venezuelaLatMin = 0;
+  const venezuelaLatMax = 13;
+  const venezuelaLngMin = -74;
+  const venezuelaLngMax = -59;
+  const inVenezuela = (lat: number, lng: number) =>
+    lat >= venezuelaLatMin && lat <= venezuelaLatMax && lng >= venezuelaLngMin && lng <= venezuelaLngMax;
+  if (!inVenezuela(startLat, startLng) || !inVenezuela(endLat, endLng)) {
+    console.warn('ORS request denied: coordenadas fuera de Venezuela');
+    return NextResponse.json(
+      { error: "Las coordenadas de origen o destino no son válidas para Venezuela." },
+      { status: 400 }
+    );
+  }
+
   // 4. Map profile to valid ORS profile
   const orsProfile = ORS_MODE_MAP[profile] || "driving-car";
+
+  // ── LOG TEMPORAL DE DIAGNÓSTICO ───────────────────────────────────────────
+  console.log("[ORS DEBUG] ─────────────────────────────────────────────────");
+  console.log("[ORS DEBUG] startLng  :", startLng,  " | startLat  :", startLat);
+  console.log("[ORS DEBUG] endLng    :", endLng,    " | endLat    :", endLat);
+  console.log("[ORS DEBUG] orsProfile:", orsProfile);
+  console.log("[ORS DEBUG] URL (sin API key):", `https://api.openrouteservice.org/v2/directions/${orsProfile}?start=${start}&end=${end}`);
+  console.log("[ORS DEBUG] ─────────────────────────────────────────────────");
+  // ── FIN LOG TEMPORAL ──────────────────────────────────────────────────────
 
   // 5. Call ORS
   try {
@@ -134,6 +172,15 @@ export async function GET(request: NextRequest) {
         { status: 502 }
       );
     }
+
+    // ── LOG RESULTADO ORS ────────────────────────────────────────────────────
+    console.log("[ORS DEBUG] RESULTADO ───────────────────────────────────────");
+    console.log("[ORS DEBUG] distanceMeters :", summary.distance);
+    console.log("[ORS DEBUG] durationSeconds:", summary.duration);
+    console.log("[ORS DEBUG] distanceText   :", formatDistance(summary.distance));
+    console.log("[ORS DEBUG] durationText   :", formatDuration(summary.duration));
+    console.log("[ORS DEBUG] ─────────────────────────────────────────────────");
+    // ── FIN LOG RESULTADO ────────────────────────────────────────────────────
 
     return NextResponse.json({
       // raw GeoJSON for drawing the route on the map
