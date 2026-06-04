@@ -116,6 +116,30 @@ export function BusinessDetail({
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  // Advanced routing states
+  const [routeMode, setRouteMode] = useState("driving-car");
+  const [originType, setOriginType] = useState<"gps"|"custom"|"map">("gps");
+  const [originQuery, setOriginQuery] = useState("");
+  const [originCoords, setOriginCoords] = useState<{lat: number, lng: number}|null>(null);
+  const [destType, setDestType] = useState<"business"|"custom"|"map">("business");
+  const [destQuery, setDestQuery] = useState("");
+  const [destCoords, setDestCoords] = useState<{lat: number, lng: number}|null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+
+  // Sync map selection
+  useEffect(() => {
+    if (mapSelectionCoords) {
+      if (mapSelectionCoords.type === "origin") {
+        setOriginType("map");
+        setOriginCoords({lat: mapSelectionCoords.lat, lng: mapSelectionCoords.lng});
+      } else {
+        setDestType("map");
+        setDestCoords({lat: mapSelectionCoords.lat, lng: mapSelectionCoords.lng});
+      }
+      setIsRoutingActive(true);
+    }
+  }, [mapSelectionCoords]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -146,12 +170,98 @@ export function BusinessDetail({
     }
   }
 
-  const startInternalRouting = async (mode: string) => {
+  const handleOpenRouting = () => {
     setIsRoutingActive(true);
-    if (onCalculateRoute) {
-      await onCalculateRoute(mode);
+    setOriginType("gps");
+    setDestType("business");
+    if (onClearRoute) onClearRoute();
+  };
+
+  const handleCalculateClick = async () => {
+    if (!onCalculateRoute) return;
+    setGeocoding(true);
+    try {
+      let finalOrigin = originType === "gps" ? undefined : originCoords;
+      let finalDest = destType === "business" ? undefined : destCoords;
+
+      if (originType === "custom" && originQuery && (!originCoords || originCoords.lat === 0)) {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(originQuery)}`);
+        const data = await res.json();
+        if (data.features?.length > 0) {
+          const c = data.features[0].geometry.coordinates;
+          finalOrigin = {lng: c[0], lat: c[1]};
+          setOriginCoords(finalOrigin);
+        } else {
+          alert("Origen no encontrado.");
+          return;
+        }
+      }
+
+      if (destType === "custom" && destQuery && (!destCoords || destCoords.lat === 0)) {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(destQuery)}`);
+        const data = await res.json();
+        if (data.features?.length > 0) {
+          const c = data.features[0].geometry.coordinates;
+          finalDest = {lng: c[0], lat: c[1]};
+          setDestCoords(finalDest);
+        } else {
+          alert("Destino no encontrado.");
+          return;
+        }
+      }
+
+      await onCalculateRoute(routeMode, finalOrigin || undefined, finalDest || undefined);
+    } finally {
+      setGeocoding(false);
     }
   };
+
+  const renderRoutingForm = () => (
+    <div className="flex flex-col gap-2 mt-2 mb-3">
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] text-gray-500 uppercase font-bold">Origen</label>
+        <div className="flex gap-1">
+          <select value={originType} onChange={e => {setOriginType(e.target.value as any); setOriginCoords(null);}} className="text-xs p-1.5 border rounded-lg bg-gray-50">
+            <option value="gps">GPS (Mi ubicación)</option>
+            <option value="custom">Escribir dirección</option>
+            <option value="map">En el mapa</option>
+          </select>
+          {originType === "custom" && (
+            <input type="text" className="flex-1 border rounded-lg text-xs p-1.5" placeholder="Ej. Caracas" value={originQuery} onChange={e => {setOriginQuery(e.target.value); setOriginCoords(null);}} />
+          )}
+          {originType === "map" && onMapSelectionRequest && (
+            <button onClick={() => onMapSelectionRequest("origin")} className="text-[10px] px-2 py-1 bg-blue-100 text-blue-600 font-bold rounded-lg whitespace-nowrap">
+              {originCoords ? "Ubicación lista" : "Seleccionar"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] text-gray-500 uppercase font-bold">Destino</label>
+        <div className="flex gap-1">
+          <select value={destType} onChange={e => {setDestType(e.target.value as any); setDestCoords(null);}} className="text-xs p-1.5 border rounded-lg bg-gray-50">
+            <option value="business">{business.name}</option>
+            <option value="custom">Escribir dirección</option>
+            <option value="map">En el mapa</option>
+          </select>
+          {destType === "custom" && (
+            <input type="text" className="flex-1 border rounded-lg text-xs p-1.5" placeholder="Ej. Valencia" value={destQuery} onChange={e => {setDestQuery(e.target.value); setDestCoords(null);}} />
+          )}
+          {destType === "map" && onMapSelectionRequest && (
+            <button onClick={() => onMapSelectionRequest("destination")} className="text-[10px] px-2 py-1 bg-blue-100 text-blue-600 font-bold rounded-lg whitespace-nowrap">
+              {destCoords ? "Ubicación lista" : "Seleccionar"}
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <button onClick={handleCalculateClick} disabled={geocoding || routeLoading} className="mt-1 w-full bg-blue-600 text-white font-bold text-xs py-2 rounded-xl flex justify-center items-center gap-2 disabled:opacity-50">
+        {(geocoding || routeLoading) ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Navigation size={14} />}
+        {geocoding ? "Buscando..." : routeLoading ? "Calculando ruta..." : "Calcular ruta"}
+      </button>
+    </div>
+  );
 
   const handleCancelRouting = () => {
     setIsRoutingActive(false);
@@ -212,13 +322,16 @@ export function BusinessDetail({
                   { id: "cycling-regular", label: "Bici", icon: Bike },
                   { id: "foot-walking", label: "Caminar", icon: Footprints },
                 ].map((mode) => {
-                  const isSelected = activeRoute?.mode === mode.id;
+                  const isSelected = routeMode === mode.id;
                   const IconComponent = mode.icon;
                   return (
                     <button
                       key={mode.id}
                       type="button"
-                      onClick={() => startInternalRouting(mode.id)}
+                      onClick={() => {
+                        setRouteMode(mode.id);
+                        if (activeRoute) handleCalculateClick();
+                      }}
                       className={`py-2 px-1 rounded-lg border flex flex-col items-center gap-1 ${
                         isSelected
                           ? "bg-blue-600 border-blue-600 text-white"
@@ -231,6 +344,8 @@ export function BusinessDetail({
                   );
                 })}
               </div>
+              
+              {renderRoutingForm()}
               {(routeLoading || routeError || activeRoute) && (
                 <div className="pt-1 border-t border-gray-100 text-center min-h-[28px] flex items-center justify-center">
                   {routeLoading && (
@@ -239,10 +354,10 @@ export function BusinessDetail({
                       <span className="text-xs text-gray-500">Buscando ruta...</span>
                     </div>
                   )}
-                  {!routeLoading && routeError && (
+                  {!routeLoading && !geocoding && routeError && (
                     <p className="text-xs font-bold text-red-600">{routeError}</p>
                   )}
-                  {!routeLoading && !routeError && activeRoute && (
+                  {!routeLoading && !geocoding && !routeError && activeRoute && (
                     <div className="flex flex-col items-center gap-0.5 w-full">
                       {activeRoute.isFallback ? (
                         <>
@@ -287,7 +402,7 @@ export function BusinessDetail({
                 <span>WhatsApp</span>
               </button>
               <button
-                onClick={() => startInternalRouting("driving-car")}
+                onClick={handleOpenRouting}
                 className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-transform"
                 style={{ backgroundColor: BRAND.red }}
               >
@@ -426,8 +541,7 @@ export function BusinessDetail({
           )}
         </div>
       </div>
-
-      {/* Acciones dentro del sheet — solo escritorio (md:) */}
+{/* Acciones dentro del sheet — solo escritorio (md:) */}
       <div className="hidden md:block px-4 pb-4 border-t border-gray-100">
           {isRoutingActive ? (
             <div className="pt-3 space-y-3">
@@ -442,28 +556,36 @@ export function BusinessDetail({
                   { id: "cycling-regular", label: "Bici", icon: Bike },
                   { id: "foot-walking", label: "Caminar", icon: Footprints },
                 ].map((mode) => {
-                  const isSelected = activeRoute?.mode === mode.id;
+                  const isSelected = routeMode === mode.id;
                   const IconComponent = mode.icon;
                   return (
                     <button
                       key={mode.id}
                       type="button"
-                      onClick={() => startInternalRouting(mode.id)}
-                      className={`py-2 px-1 rounded-lg border transition-all flex flex-col items-center gap-1 ${
-                        isSelected ? "bg-blue-600 border-blue-600 text-white shadow-sm" : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
+                      onClick={() => {
+                        setRouteMode(mode.id);
+                        if (activeRoute) handleCalculateClick();
+                      }}
+                      className={`py-2 px-1 rounded-lg border flex flex-col items-center gap-1 transition-colors ${
+                        isSelected
+                          ? "bg-blue-600 border-blue-600 text-white"
+                          : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
                       }`}
                     >
-                      <IconComponent size={16} />
-                      <span className="text-[9px] font-semibold">{mode.label}</span>
+                      <IconComponent size={14} />
+                      <span className="text-[10px] font-semibold">{mode.label}</span>
                     </button>
                   );
                 })}
               </div>
+
+              {renderRoutingForm()}
+
               <div className="pt-1.5 border-t border-gray-200/60 min-h-[42px] flex items-center justify-center">
-                {routeLoading ? (
+                {(routeLoading || geocoding) ? (
                   <div className="flex items-center gap-2 py-1">
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-gray-500 font-medium">Buscando ruta...</span>
+                    <span className="text-xs text-gray-500 font-medium">{geocoding ? "Geocodificando..." : "Buscando ruta..."}</span>
                   </div>
                 ) : routeError ? (
                   <p className="text-xs font-bold text-red-600 text-center py-1">{routeError}</p>
@@ -488,9 +610,7 @@ export function BusinessDetail({
                       </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-xs text-gray-500 text-center">Selecciona un modo para calcular la ruta</p>
-                )}
+                ) : null}
               </div>
             </div>
           ) : (
@@ -505,7 +625,7 @@ export function BusinessDetail({
                   <MessageCircle size={14} /><span>WhatsApp</span>
                 </button>
               )}
-              <button onClick={() => startInternalRouting("driving-car")} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: BRAND.red }}>
+              <button onClick={handleOpenRouting} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-90 active:scale-95" style={{ backgroundColor: BRAND.red }}>
                 <Navigation size={14} /><span>Cómo llegar</span>
               </button>
             </div>

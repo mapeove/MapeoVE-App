@@ -12,6 +12,8 @@ interface MapeoVEMapProps {
   onMarkerClick: (business: Business) => void;
   userLocation: { lat: number; lng: number } | null;
   routeGeoJSON?: any;
+  onMapClick?: (coords: {lat: number, lng: number}) => void;
+  customMarkers?: {lat: number, lng: number, color: string}[];
 }
 
 interface BusinessFeatureProperties {
@@ -86,6 +88,8 @@ export function MapeoVEMap({
   onMarkerClick,
   userLocation,
   routeGeoJSON,
+  onMapClick,
+  customMarkers,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -388,8 +392,16 @@ export function MapeoVEMap({
       map.getCanvas().style.cursor = "";
     });
 
+    map.on("click", (e) => {
+      // Ignore clicks on circles
+      const features = map.queryRenderedFeatures(e.point, { layers: [CIRCLES_LAYER_ID] });
+      if (features.length === 0 && onMapClick) {
+        onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      }
+    });
+
     clickHandlerSetRef.current = true;
-  }, [mapLoaded, businesses, onMarkerClick]);
+  }, [mapLoaded, businesses, onMarkerClick, onMapClick]);
 
   // ─── Marcador del usuario (DOM Marker — se mantiene) ───────────────────
   useEffect(() => {
@@ -444,6 +456,35 @@ export function MapeoVEMap({
         .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
     }
   }, [userLocation, mapLoaded]);
+
+  // ─── Custom Markers (for origin/destination) ──────────────────────────
+  const customMarkersRefs = useRef<maplibregl.Marker[]>([]);
+  useEffect(() => {
+    const maplibregl = maplibreRef.current;
+    if (!mapRef.current || !mapLoaded || !maplibregl) return;
+
+    // Remove old markers
+    customMarkersRefs.current.forEach(m => m.remove());
+    customMarkersRefs.current = [];
+
+    if (customMarkers) {
+      customMarkers.forEach(cm => {
+        const markerRoot = document.createElement("div");
+        markerRoot.style.cssText = `
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: ${cm.color};
+          border: 2px solid white;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        `;
+        const m = new maplibregl.Marker({ element: markerRoot, anchor: "center" })
+          .setLngLat([cm.lng, cm.lat])
+          .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
+        customMarkersRefs.current.push(m);
+      });
+    }
+  }, [customMarkers, mapLoaded]);
 
   // ─── Fly to selected business ──────────────────────────────────────────
   useEffect(() => {

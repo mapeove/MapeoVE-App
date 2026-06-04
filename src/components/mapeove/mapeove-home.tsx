@@ -62,6 +62,8 @@ export function MapeoVEHome() {
   } | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [mapSelectionMode, setMapSelectionMode] = useState<"origin" | "destination" | null>(null);
+  const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
   // Limpiar la ruta cuando cambia de negocio o se cierra el detalle
   useEffect(() => {
@@ -70,35 +72,43 @@ export function MapeoVEHome() {
     setRouteError(null);
   }, [selectedBusiness]);
 
-  const calculateRoute = async (mode: string) => {
-    if (!selectedBusiness) return;
-
-    if (!userLocation || !isRealLocation) {
-      setRouteError("Activa tu ubicación para calcular la ruta. Toca el botón de ubicación en el mapa.");
-      // Also trigger a fresh geolocation request
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          () => {}, // location will update via hook
-          () => setRouteError("No se pudo obtener tu ubicación. Activa el GPS y vuelve a intentarlo.")
-        );
-      }
-      return;
-    }
+  const calculateRoute = async (mode: string, customStart?: {lat: number, lng: number}, customEnd?: {lat: number, lng: number}) => {
+    if (!selectedBusiness && !customEnd) return;
 
     setRouteLoading(true);
     setRouteError(null);
 
-    // Validate business coordinates
-    const bizLat = Number(selectedBusiness.latitude);
-    const bizLng = Number(selectedBusiness.longitude);
-    if (!Number.isFinite(bizLat) || !Number.isFinite(bizLng)) {
-      console.warn('Business missing or invalid coordinates');
-      setRouteError('Este negocio no tiene ubicación válida.');
+    let startPoint = "";
+    if (customStart) {
+      startPoint = `${customStart.lng},${customStart.lat}`;
+    } else if (userLocation && isRealLocation) {
+      startPoint = `${userLocation.lng},${userLocation.lat}`;
+    } else {
+      setRouteError("Activa tu ubicación o escribe un origen.");
       setRouteLoading(false);
       return;
     }
-    const start = `${userLocation.lng},${userLocation.lat}`;
-    const end = `${bizLng},${bizLat}`;
+
+    let endPoint = "";
+    if (customEnd) {
+      endPoint = `${customEnd.lng},${customEnd.lat}`;
+    } else if (selectedBusiness) {
+      const bizLat = Number(selectedBusiness.latitude);
+      const bizLng = Number(selectedBusiness.longitude);
+      if (!Number.isFinite(bizLat) || !Number.isFinite(bizLng)) {
+        setRouteError('Este negocio no tiene ubicación válida.');
+        setRouteLoading(false);
+        return;
+      }
+      endPoint = `${bizLng},${bizLat}`;
+    } else {
+      setRouteError("Falta destino para calcular ruta.");
+      setRouteLoading(false);
+      return;
+    }
+
+    const start = startPoint;
+    const end = endPoint;
 
     try {
       const res = await fetch(`/api/directions?start=${start}&end=${end}&profile=${mode}`);
@@ -169,6 +179,13 @@ export function MapeoVEHome() {
         onMarkerClick={handleMarkerClick}
         userLocation={userLocation}
         routeGeoJSON={routeGeoJSON}
+        onMapClick={(coords) => {
+          if (mapSelectionMode) {
+            setSelectedMapCoords({ type: mapSelectionMode, lat: coords.lat, lng: coords.lng });
+            setMapSelectionMode(null);
+          }
+        }}
+        customMarkers={selectedMapCoords ? [{...selectedMapCoords, color: "#10B981"}] : undefined}
       />
 
       {/* Barra superior: Búsqueda + Categorías */}
@@ -220,7 +237,7 @@ export function MapeoVEHome() {
 
         {/* Panel de detalle del negocio — bottom sheet */}
         {selectedBusiness && (
-          <div className="mx-0 mb-0 md:mx-3 md:mb-3">
+          <div className={`mx-0 mb-0 md:mx-3 md:mb-3 ${mapSelectionMode ? 'opacity-0 pointer-events-none' : ''}`}>
             <BusinessDetail
               business={selectedBusiness}
               onClose={() => {
@@ -233,6 +250,8 @@ export function MapeoVEHome() {
               onClearRoute={clearRoute}
               routeError={routeError}
               routeLoading={routeLoading}
+              onMapSelectionRequest={setMapSelectionMode}
+              mapSelectionCoords={selectedMapCoords}
             />
           </div>
         )}
@@ -283,6 +302,20 @@ export function MapeoVEHome() {
           </div>
         )}
       </div>
+
+      {mapSelectionMode && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-2 rounded-2xl shadow-lg border-2 border-blue-500 pointer-events-auto">
+          <p className="text-sm font-bold text-blue-600">
+            Toca el mapa para seleccionar {mapSelectionMode === "origin" ? "Origen" : "Destino"}
+          </p>
+          <button 
+            onClick={() => setMapSelectionMode(null)}
+            className="text-xs text-red-500 w-full text-center mt-1 font-bold"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
