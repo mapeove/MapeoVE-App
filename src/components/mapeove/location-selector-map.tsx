@@ -37,9 +37,10 @@ export default function LocationSelectorMap({
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: isSatellite ? SATELLITE_STYLE : MAP_STYLE,
-      center: [-67.3312, 10.2268], // Base coordinates (can be any)
-      zoom: 14,
-      attributionControl: false,
+      center: [-67.3312, 10.2268], // Base coordinates
+      zoom: 16, // Start closer for detail
+      maxZoom: 19, // Prevent aggressive pixelation in satellite view
+      attributionControl: true, // Keep provider visible
     });
     
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
