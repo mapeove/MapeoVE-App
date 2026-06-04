@@ -18,11 +18,11 @@ export default function LocationSelectorMap({
   const markerRef = useRef<any>(null);
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [isSatellite, setIsSatellite] = useState(false);
-
   const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
   const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
-  const SATELLITE_STYLE = `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`;
+  const SATELLITE_STYLE = `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`;
+  
+  const [isSatellite, setIsSatellite] = useState(!!MAPTILER_KEY);
 
   useEffect(() => {
     setMounted(true);
