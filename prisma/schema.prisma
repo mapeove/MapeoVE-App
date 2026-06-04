@@ -112,8 +112,12 @@ model PaymentSettings {
   currency      String   @default("USD")
   pagoMovilInfo String   @map("pago_movil_info")
   transferInfo  String   @map("transfer_info")
-  binanceInfo   String   @map("binance_info")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  binanceInfo     String   @map("binance_info")
+  binanceNetwork  String?         @map("binance_network")
+  binanceWallet   String?         @map("binance_wallet")
+  binanceFeeType  BinanceFeeType? @map("binance_fee_type") // FIXED or PERCENTAGE
+  binanceFeeValue Float?   @map("binance_fee_value")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("payment_settings")
 }
@@ -133,4 +137,9 @@ enum BusinessRequestStatus {
 enum SubscriptionPlan {
   MONTHLY
   YEARLY
+}
+
+enum BinanceFeeType {
+  FIXED
+  PERCENTAGE
 }

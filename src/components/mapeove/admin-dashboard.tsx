@@ -66,6 +66,10 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
     pagoMovilInfo: "",
     transferInfo: "",
     binanceInfo: "",
+    binanceNetwork: "TRC20",
+    binanceWallet: "",
+    binanceFeeType: "FIXED",
+    binanceFeeValue: 0,
   });
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -563,6 +567,58 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                         className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
                         rows={2}
                       />
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100">
+                      <h5 className="text-[11px] font-bold text-gray-800 mb-2">Configuración Avanzada Binance</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Red Binance *</label>
+                          <select
+                            required
+                            value={paymentSettings.binanceNetwork}
+                            onChange={e => setPaymentSettings({...paymentSettings, binanceNetwork: e.target.value})}
+                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          >
+                            <option value="TRC20">Tron (TRC20)</option>
+                            <option value="BEP20">BNB Smart Chain (BEP20)</option>
+                            <option value="ERC20">Ethereum (ERC20)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Wallet (Dirección) *</label>
+                          <input
+                            type="text"
+                            required
+                            value={paymentSettings.binanceWallet}
+                            onChange={e => setPaymentSettings({...paymentSettings, binanceWallet: e.target.value})}
+                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tipo de Comisión *</label>
+                          <select
+                            required
+                            value={paymentSettings.binanceFeeType}
+                            onChange={e => setPaymentSettings({...paymentSettings, binanceFeeType: e.target.value})}
+                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          >
+                            <option value="FIXED">Fija (USD)</option>
+                            <option value="PERCENTAGE">Porcentaje (%)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Valor Comisión *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            value={paymentSettings.binanceFeeValue}
+                            onChange={e => setPaymentSettings({...paymentSettings, binanceFeeValue: parseFloat(e.target.value)})}
+                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <button

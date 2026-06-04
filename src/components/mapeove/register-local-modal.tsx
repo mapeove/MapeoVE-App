@@ -35,6 +35,10 @@ interface PaymentSettings {
   pagoMovilInfo: string;
   transferInfo: string;
   binanceInfo: string;
+  binanceNetwork?: string;
+  binanceWallet?: string;
+  binanceFeeType?: string;
+  binanceFeeValue?: number;
 }
 
 export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModalProps) {
@@ -185,6 +189,26 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       setSubmitting(false);
     }
   };
+
+  const getBasePrice = () => {
+    if (!paymentSettings) return 0;
+    return plan === "MONTHLY" ? paymentSettings.monthlyPrice : paymentSettings.yearlyPrice;
+  };
+
+  const calculateBinanceTotal = (base: number) => {
+    if (!paymentSettings || paymentMethod !== "BINANCE") return base;
+    if (!paymentSettings.binanceFeeType || paymentSettings.binanceFeeValue == null) return base;
+
+    if (paymentSettings.binanceFeeType === "FIXED") {
+      return base + paymentSettings.binanceFeeValue;
+    } else if (paymentSettings.binanceFeeType === "PERCENTAGE") {
+      return base / (1 - paymentSettings.binanceFeeValue / 100);
+    }
+    return base;
+  };
+
+  const basePrice = getBasePrice();
+  const totalToPay = calculateBinanceTotal(basePrice);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -520,6 +544,22 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                         <p className="pt-1"><strong>Binance Pay (USDT):</strong> {paymentSettings.binanceInfo}</p>
                       </div>
                     </div>
+
+                    {paymentMethod === "BINANCE" && paymentSettings.binanceWallet && (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-900 text-[10px] space-y-1.5 animate-fade-in mt-2">
+                        <p className="font-bold flex items-center gap-1"><AlertTriangle size={12} /> Pago vía Binance ({paymentSettings.binanceNetwork})</p>
+                        <p><strong>Wallet a transferir:</strong> <span className="select-all font-mono bg-yellow-100 px-1 py-0.5 rounded">{paymentSettings.binanceWallet}</span></p>
+                        {paymentSettings.binanceFeeValue != null && paymentSettings.binanceFeeValue > 0 && (
+                          <div className="pt-1 mt-1 border-t border-yellow-200/50 text-[9px] opacity-80">
+                            <p>Precio Base: {basePrice} {paymentSettings.currency}</p>
+                            <p>Comisión Estimada: {(totalToPay - basePrice).toFixed(2)} {paymentSettings.currency}</p>
+                          </div>
+                        )}
+                        <p className="text-[11px] font-black mt-2 pt-1 border-t border-yellow-200">
+                          Debes enviar exactamente {totalToPay.toFixed(2)} USDT para que lleguen netos {basePrice} USDT.
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
 
