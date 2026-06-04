@@ -173,7 +173,7 @@ export function BusinessDetail({
 
   return (
     <div className={`bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
-      isExpanded ? "h-[85vh]" : "max-h-[45vh] md:h-auto md:max-h-none"
+      isExpanded ? "h-[85vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
     }`}>
       {/* Drag handle (mobile) */}
       <div 
@@ -241,7 +241,7 @@ export function BusinessDetail({
       )}
 
       {/* Contenido scrolleable */}
-      <div className={`overflow-y-auto px-4 pt-2.5 pb-4 ${isExpanded ? "flex-1" : "max-h-[calc(45vh-140px)] md:max-h-[380px]"}`}>
+      <div className={`overflow-y-auto px-4 pt-2.5 pb-4 flex-1 min-h-0 ${isExpanded ? "" : "md:max-h-[380px]"}`}>
         {/* Nombre */}
         <h2 className="text-base font-bold text-gray-900 leading-tight pr-6">
           {business.name}
@@ -295,10 +295,12 @@ export function BusinessDetail({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Panel de navegación activa */}
+      {/* Barra de acciones pegajosa al fondo (Mobile First) */}
+      <div className="bg-white px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] md:pb-4 border-t border-gray-100 flex-shrink-0 shadow-[0_-4px_10px_-4px_rgba(0,0,0,0.05)] z-10">
         {isRoutingActive ? (
-          <div className="mt-4 p-3 bg-gray-50 border border-gray-150 rounded-xl space-y-3 animate-fade-in">
+          <div className="p-3 bg-gray-50 border border-gray-150 rounded-xl space-y-3 animate-fade-in">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                 Navegación Interna
@@ -377,7 +379,7 @@ export function BusinessDetail({
           </div>
         ) : (
           /* Botones de acción normales */
-          <div className="mt-4 flex gap-2">
+          <div className="flex gap-2">
             {phoneNumber && (
               <button
                 onClick={handleCall}
