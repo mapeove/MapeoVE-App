@@ -97,6 +97,7 @@ export function MapeoVEMap({
   const userMarkerRef = useRef<unknown>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [layersReady, setLayersReady] = useState(false);
 
   // Refs para rastrear si source/layers ya fueron creados
   const sourcesAddedRef = useRef(false);
@@ -269,6 +270,7 @@ export function MapeoVEMap({
     });
 
     sourcesAddedRef.current = true;
+    setLayersReady(true);
   }, [mapLoaded, businesses]);
 
   // ─── FASE 7: Actualización eficiente con source.setData() ──────────────
@@ -378,16 +380,13 @@ export function MapeoVEMap({
     businessesRef.current = businesses;
   }, [businesses]);
 
-  const clickHandlerSetRef = useRef(false);
-
+  // Circles specific clicks and cursor
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded || !sourcesAddedRef.current || clickHandlerSetRef.current) return;
+    if (!map || !mapLoaded || !layersReady) return;
 
-    // Click en business-circles → obtener feature.properties.id → onMarkerClick
-    map.on("click", CIRCLES_LAYER_ID, (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
+    const handleCircleClick = (e: any) => {
       if (!e.features || e.features.length === 0) return;
-
       const feature = e.features[0];
       const businessId = feature.properties?.id as string | undefined;
       if (!businessId) return;
@@ -396,27 +395,51 @@ export function MapeoVEMap({
       if (business && onMarkerClickRef.current) {
         onMarkerClickRef.current(business);
       }
-    });
+    };
 
-    // Cursor: pointer al pasar sobre un círculo
-    map.on("mouseenter", CIRCLES_LAYER_ID, () => {
+    const handleMouseEnter = () => {
       map.getCanvas().style.cursor = "pointer";
-    });
+    };
 
-    // Cursor: default al salir
-    map.on("mouseleave", CIRCLES_LAYER_ID, () => {
+    const handleMouseLeave = () => {
       map.getCanvas().style.cursor = "";
-    });
+    };
 
-    map.on("click", (e) => {
-      // Ignore clicks on circles
-      const features = map.queryRenderedFeatures(e.point, { layers: [CIRCLES_LAYER_ID] });
+    map.on("click", CIRCLES_LAYER_ID, handleCircleClick);
+    map.on("mouseenter", CIRCLES_LAYER_ID, handleMouseEnter);
+    map.on("mouseleave", CIRCLES_LAYER_ID, handleMouseLeave);
+
+    return () => {
+      map.off("click", CIRCLES_LAYER_ID, handleCircleClick);
+      map.off("mouseenter", CIRCLES_LAYER_ID, handleMouseEnter);
+      map.off("mouseleave", CIRCLES_LAYER_ID, handleMouseLeave);
+    };
+  }, [mapLoaded, layersReady]);
+
+  // General map clicks
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const handleMapClick = (e: any) => {
+      let features: any[] = [];
+      try {
+        if (map.getLayer(CIRCLES_LAYER_ID)) {
+          features = map.queryRenderedFeatures(e.point, { layers: [CIRCLES_LAYER_ID] });
+        }
+      } catch (err) {
+        // Safe query fallback
+      }
       if (features.length === 0 && onMapClickRef.current) {
         onMapClickRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
       }
-    });
+    };
 
-    clickHandlerSetRef.current = true;
+    map.on("click", handleMapClick);
+
+    return () => {
+      map.off("click", handleMapClick);
+    };
   }, [mapLoaded]);
 
   // ─── Marcador del usuario (DOM Marker — se mantiene) ───────────────────
