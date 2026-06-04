@@ -34,7 +34,7 @@ const MapeoVEMap = dynamic(
 );
 
 export function MapeoVEHome() {
-  const { userLocation } = useUserLocation();
+  const { userLocation, isRealLocation } = useUserLocation();
   const {
     categories,
     businesses,
@@ -72,8 +72,15 @@ export function MapeoVEHome() {
   const calculateRoute = async (mode: string) => {
     if (!selectedBusiness) return;
 
-    if (!userLocation) {
-      setRouteError("Por favor habilita tu geolocalización para calcular la ruta.");
+    if (!userLocation || !isRealLocation) {
+      setRouteError("Activa tu ubicación para calcular la ruta. Toca el botón de ubicación en el mapa.");
+      // Also trigger a fresh geolocation request
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          () => {}, // location will update via hook
+          () => setRouteError("No se pudo obtener tu ubicación. Activa el GPS y vuelve a intentarlo.")
+        );
+      }
       return;
     }
 
