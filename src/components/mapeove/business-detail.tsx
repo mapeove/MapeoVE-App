@@ -49,6 +49,7 @@ interface BusinessDetailProps {
     distance: number;
     duration: number;
     mode: string;
+    isFallback?: boolean;
   } | null;
   onCalculateRoute?: (mode: string) => Promise<void>;
   onClearRoute?: () => void;
@@ -242,15 +243,24 @@ export function BusinessDetail({
                     <p className="text-xs font-bold text-red-600">{routeError}</p>
                   )}
                   {!routeLoading && !routeError && activeRoute && (
-                    <div className="flex gap-6">
-                      <div className="text-center">
-                        <p className="text-[9px] text-gray-400 uppercase">Distancia</p>
-                        <p className="text-xs font-black">{formatDistance(activeRoute.distance)}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[9px] text-gray-400 uppercase">Tiempo</p>
-                        <p className="text-xs font-black">{formatDuration(activeRoute.duration)}</p>
-                      </div>
+                    <div className="flex flex-col items-center gap-0.5 w-full">
+                      {activeRoute.isFallback ? (
+                        <>
+                          <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mt-1">Mostrando ruta aproximada</p>
+                          <p className="text-[11px] font-black text-gray-700">Distancia: {formatDistance(activeRoute.distance)}</p>
+                        </>
+                      ) : (
+                        <div className="flex gap-6 mt-1">
+                          <div className="text-center">
+                            <p className="text-[9px] text-gray-400 uppercase">Distancia</p>
+                            <p className="text-xs font-black">{formatDistance(activeRoute.distance)}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[9px] text-gray-400 uppercase">Tiempo</p>
+                            <p className="text-xs font-black">{formatDuration(activeRoute.duration)}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -458,16 +468,25 @@ export function BusinessDetail({
                 ) : routeError ? (
                   <p className="text-xs font-bold text-red-600 text-center py-1">{routeError}</p>
                 ) : activeRoute ? (
-                  <div className="w-full flex justify-around text-center">
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-medium uppercase">Distancia</p>
-                      <p className="text-xs font-black text-gray-800">{formatDistance(activeRoute.distance)}</p>
-                    </div>
-                    <div className="border-l border-gray-200" />
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-medium uppercase">Tiempo Estimado</p>
-                      <p className="text-xs font-black text-gray-800">{formatDuration(activeRoute.duration)}</p>
-                    </div>
+                  <div className="w-full">
+                    {activeRoute.isFallback ? (
+                      <div className="flex flex-col items-center gap-0.5 pt-1">
+                        <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">Mostrando ruta aproximada</p>
+                        <p className="text-xs font-black text-gray-800">Distancia: {formatDistance(activeRoute.distance)}</p>
+                      </div>
+                    ) : (
+                      <div className="flex justify-around text-center w-full">
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-medium uppercase">Distancia</p>
+                          <p className="text-xs font-black text-gray-800">{formatDistance(activeRoute.distance)}</p>
+                        </div>
+                        <div className="border-l border-gray-200" />
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-medium uppercase">Tiempo Estimado</p>
+                          <p className="text-xs font-black text-gray-800">{formatDuration(activeRoute.duration)}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-xs text-gray-500 text-center">Selecciona un modo para calcular la ruta</p>

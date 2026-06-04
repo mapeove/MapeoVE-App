@@ -58,6 +58,7 @@ export function MapeoVEHome() {
     distance: number;
     duration: number;
     mode: string;
+    isFallback?: boolean;
   } | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
@@ -96,14 +97,6 @@ export function MapeoVEHome() {
       setRouteLoading(false);
       return;
     }
-    // Venezuela bounds validation
-    const venezuelaLatMin = 0, venezuelaLatMax = 13, venezuelaLngMin = -74, venezuelaLngMax = -59;
-    if (bizLat < venezuelaLatMin || bizLat > venezuelaLatMax || bizLng < venezuelaLngMin || bizLng > venezuelaLngMax) {
-      console.warn('Business coordinates out of Venezuela bounds');
-      setRouteError('Este negocio no tiene ubicación válida.');
-      setRouteLoading(false);
-      return;
-    }
     const start = `${userLocation.lng},${userLocation.lat}`;
     const end = `${bizLng},${bizLat}`;
 
@@ -133,6 +126,7 @@ export function MapeoVEHome() {
           distance: feature.properties.summary.distance,
           duration: feature.properties.summary.duration,
           mode,
+          isFallback: data.isFallback
         });
       } else {
         setRouteError("No se encontró una ruta disponible.");

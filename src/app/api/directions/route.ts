@@ -79,20 +79,53 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Venezuela specific validation (approximate bounds)
-  const venezuelaLatMin = 0;
-  const venezuelaLatMax = 13;
-  const venezuelaLngMin = -74;
-  const venezuelaLngMax = -59;
-  const inVenezuela = (lat: number, lng: number) =>
-    lat >= venezuelaLatMin && lat <= venezuelaLatMax && lng >= venezuelaLngMin && lng <= venezuelaLngMax;
-  if (!inVenezuela(startLat, startLng) || !inVenezuela(endLat, endLng)) {
-    console.warn('ORS request denied: coordenadas fuera de Venezuela');
-    return NextResponse.json(
-      { error: "Las coordenadas de origen o destino no son válidas para Venezuela." },
-      { status: 400 }
-    );
+  // Removed Venezuela specific validation to allow global routing
+
+  // Helper for Haversine distance
+  function calculateHaversine(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371e3; // metres
+    const toRad = (val: number) => val * Math.PI / 180;
+    const phi1 = toRad(lat1);
+    const phi2 = toRad(lat2);
+    const deltaPhi = toRad(lat2 - lat1);
+    const deltaLambda = toRad(lon2 - lon1);
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
+
+  const createFallbackResponse = () => {
+    const dist = calculateHaversine(startLat, startLng, endLat, endLng);
+    return NextResponse.json({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [startLng, startLat],
+              [endLng, endLat]
+            ]
+          },
+          properties: {
+            summary: {
+              distance: dist,
+              duration: 0
+            }
+          }
+        }
+      ],
+      distanceMeters: dist,
+      durationSeconds: 0,
+      distanceText: formatDistance(dist),
+      durationText: "", // Empty duration for fallback
+      isFallback: true
+    });
+  };
 
   // 4. Map profile to valid ORS profile
   const orsProfile = ORS_MODE_MAP[profile] || "driving-car";
@@ -119,58 +152,21 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error("ORS error response:", response.status, body);
-
-      let orsMsg = "";
-      try {
-        const parsed = JSON.parse(body);
-        orsMsg = parsed?.error?.message || parsed?.message || "";
-      } catch {
-        orsMsg = body.substring(0, 200);
-      }
-
-      if (response.status === 403) {
-        return NextResponse.json(
-          { error: "ORS_API_KEY inválida o sin permisos" },
-          { status: 403 }
-        );
-      }
-      if (response.status === 429) {
-        return NextResponse.json(
-          { error: "Límite de peticiones de ORS alcanzado. Intenta en unos minutos." },
-          { status: 429 }
-        );
-      }
-      if (orsMsg.toLowerCase().includes("could not find") || orsMsg.toLowerCase().includes("no route")) {
-        return NextResponse.json(
-          { error: "ORS no encontró ruta entre esos puntos" },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: `ORS error ${response.status}: ${orsMsg || "sin detalles"}` },
-        { status: response.status }
-      );
+      return createFallbackResponse();
     }
 
     const data = JSON.parse(body);
 
     // 6. Extract summary and return structured response
     if (!data.features || data.features.length === 0) {
-      return NextResponse.json(
-        { error: "ORS no encontró ruta disponible entre esos puntos" },
-        { status: 404 }
-      );
+      return createFallbackResponse();
     }
 
     const feature = data.features[0];
     const summary = feature.properties?.summary;
 
     if (!summary) {
-      return NextResponse.json(
-        { error: "ORS devolvió respuesta incompleta (sin summary)" },
-        { status: 502 }
-      );
+      return createFallbackResponse();
     }
 
     // ── LOG RESULTADO ORS ────────────────────────────────────────────────────
@@ -190,12 +186,10 @@ export async function GET(request: NextRequest) {
       durationSeconds: summary.duration,
       distanceText: formatDistance(summary.distance),
       durationText: formatDuration(summary.duration),
+      isFallback: false
     });
   } catch (error) {
     console.error("Error calling ORS:", error);
-    return NextResponse.json(
-      { error: "Error interno al conectar con OpenRouteService" },
-      { status: 500 }
-    );
+    return createFallbackResponse();
   }
 }
