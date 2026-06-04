@@ -194,7 +194,7 @@ export function MapeoVEHome() {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-100"
+    <div className="relative w-full h-screen h-[100dvh] overflow-hidden bg-gray-100"
       style={{
         // Safe areas para iPhone con notch/dynamic island
         paddingTop: "env(safe-area-inset-top)",
