@@ -189,12 +189,12 @@ export function MapeoVEMap({
   }, []);
 
   // ─── FASE 3 & 4: Crear source GeoJSON + layers (circles + labels) ──────
-  // Se ejecuta UNA vez cuando el mapa carga y hay datos disponibles.
+  // Se ejecuta UNA vez cuando el mapa carga.
+  // No se guarda por businesses.length para que los layers existan siempre.
   useEffect(() => {
     const map = mapRef.current;
     const maplibregl = maplibreRef.current;
     if (!map || !mapLoaded || !maplibregl || sourcesAddedRef.current) return;
-    if (businesses.length === 0) return;
 
     const geojson = buildGeoJSON(businesses);
 
@@ -298,7 +298,7 @@ export function MapeoVEMap({
     if (routeGeoJSON) {
       source.setData(routeGeoJSON);
 
-      // Enfocar la ruta en el mapa con un fitBounds cómodo
+      // Enfocar la ruta en el mapa — animación suave, sin zoom agresivo
       try {
         const feature = routeGeoJSON.features?.[0];
         const coords = feature?.geometry?.coordinates;
@@ -309,10 +309,13 @@ export function MapeoVEMap({
               return acc.extend(coord);
             }, new maplibregl.LngLatBounds(coords[0], coords[0]));
             
+            // padding generoso para dejar el mapa visible por encima del panel
+            // maxZoom bajo para no hacer zoom excesivo en rutas cortas
+            // duration alto para transición suave sin sensación de "reset"
             map.fitBounds(bounds, {
-              padding: { top: 120, bottom: 250, left: 50, right: 50 },
-              maxZoom: 16,
-              duration: 800,
+              padding: { top: 100, bottom: 220, left: 40, right: 40 },
+              maxZoom: 15,
+              duration: 1200,
             });
           }
         }

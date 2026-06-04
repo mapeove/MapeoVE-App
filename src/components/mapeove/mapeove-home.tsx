@@ -208,7 +208,7 @@ export function MapeoVEHome() {
 
       {/* Mapa — solo cliente */}
       <MapeoVEMap
-        businesses={isNavigationActive ? [] : businesses}
+        businesses={businesses}
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
         userLocation={userLocation}
