@@ -292,7 +292,7 @@ export function NavigationPanel({
           </div>
 
           {/* Form Content */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-20">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-36">
             {/* ORIGIN SECTION */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
@@ -625,7 +625,7 @@ export function NavigationPanel({
           </div>
 
           {/* Action button at bottom */}
-          <div className="absolute bottom-0 inset-x-0 p-4 border-t border-gray-100 bg-white">
+          <div className="absolute bottom-0 inset-x-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-gray-100 bg-white flex-shrink-0 z-30">
             <button
               onClick={() => handleCalculateRoute()}
               disabled={geocoding || routeLoading}
@@ -674,29 +674,29 @@ export function NavigationPanel({
             </button>
           </div>
 
-          {/* Bottom Floating Card */}
-          <div className="absolute bottom-4 left-4 right-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-[999] pointer-events-auto flex flex-col gap-3">
+          {/* Bottom Floating Card / Sheet */}
+          <div className="absolute bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 p-4 pt-5 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-4 z-[999] pointer-events-auto flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                <span className="p-2 rounded-xl bg-blue-50 text-blue-600 flex-shrink-0">
                   {routeMode === "driving-car" && <Car size={20} />}
                   {routeMode === "driving-car-moto" && <MotorcycleIcon size={20} />}
                   {routeMode === "cycling-regular" && <Bike size={20} />}
                   {routeMode === "foot-walking" && <Footprints size={20} />}
                 </span>
                 <div>
-                  <h3 className="text-sm font-black text-gray-900 leading-none">Ruta calculada</h3>
-                  <p className="text-[10px] font-semibold text-gray-500 mt-1">
+                  <h3 className="text-xs font-black text-gray-900 leading-none">Ruta calculada</h3>
+                  <p className="text-[9px] font-semibold text-gray-500 mt-1 leading-none">
                     Modo: {routeMode === "driving-car" ? "Coche" : routeMode === "driving-car-moto" ? "Moto" : routeMode === "cycling-regular" ? "Bicicleta" : "Caminar"}
                   </p>
                 </div>
               </div>
 
               {activeRoute && (
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-end flex-shrink-0">
                   {activeRoute.isFallback ? (
                     <span className="text-[9px] font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full flex items-center gap-0.5 uppercase tracking-wide">
-                      <AlertTriangle size={8} /> Ruta aproximada
+                      <AlertTriangle size={8} /> Ruta aprox.
                     </span>
                   ) : (
                     <span className="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wide">
@@ -709,61 +709,78 @@ export function NavigationPanel({
 
             {/* Route Stats */}
             {activeRoute && (
-              <div className="grid grid-cols-2 gap-4 border-y border-gray-100 py-3 my-1">
-                <div className="text-center">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Distancia</p>
-                  <p className="text-lg font-black text-gray-800">{formatDistance(activeRoute.distance)}</p>
+              <div className="flex items-center justify-between border-y border-gray-50 py-3 my-1">
+                <div className="flex-1 text-center">
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Distancia</p>
+                  <p className="text-base font-black text-gray-900 leading-tight mt-0.5">{formatDistance(activeRoute.distance)}</p>
                 </div>
-                <div className="text-center border-l border-gray-100">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Tiempo Estimado</p>
-                  <p className="text-lg font-black text-gray-800">
+                <div className="w-px h-8 bg-gray-100" />
+                <div className="flex-1 text-center">
+                  <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Tiempo Estimado</p>
+                  <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
                     {activeRoute.isFallback ? "—" : formatDuration(activeRoute.duration)}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Mode switch bar at bottom for quick switching */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex gap-1.5">
-                {[
-                  { id: "driving-car", icon: Car },
-                  { id: "driving-car-moto", icon: MotorcycleIcon },
-                  { id: "cycling-regular", icon: Bike },
-                  { id: "foot-walking", icon: Footprints },
-                ].map((mode) => {
-                  const isSelected = routeMode === mode.id;
-                  const IconC = mode.icon;
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => {
-                        setRouteMode(mode.id);
-                        handleCalculateRoute(mode.id);
-                      }}
-                      className={`p-2 rounded-xl border transition-all ${
-                        isSelected 
-                          ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105" 
-                          : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
-                      }`}
-                    >
-                      <IconC size={14} />
-                    </button>
-                  );
-                })}
+            {/* Transport modes & Actions Row */}
+            <div className="flex flex-col gap-3">
+              {/* Transport mode selector */}
+              <div className="flex items-center justify-between gap-2 border-b border-gray-50 pb-2">
+                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Cambiar Transporte</span>
+                <div className="flex gap-1.5">
+                  {[
+                    { id: "driving-car", icon: Car },
+                    { id: "driving-car-moto", icon: MotorcycleIcon },
+                    { id: "cycling-regular", icon: Bike },
+                    { id: "foot-walking", icon: Footprints },
+                  ].map((mode) => {
+                    const isSelected = routeMode === mode.id;
+                    const IconC = mode.icon;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => {
+                          setRouteMode(mode.id);
+                          handleCalculateRoute(mode.id);
+                        }}
+                        className={`p-2 rounded-xl border transition-all ${
+                          isSelected 
+                            ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105" 
+                            : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                        }`}
+                      >
+                        <IconC size={15} />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="flex gap-2">
+              {/* Action buttons row */}
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => handleCalculateRoute()}
+                  disabled={geocoding || routeLoading}
+                  className="py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1 border border-blue-100"
+                >
+                  {geocoding || routeLoading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    "Recalcular"
+                  )}
+                </button>
                 <button
                   onClick={() => setIsConfiguring(true)}
-                  className="px-3.5 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl active:scale-95 transition-all"
+                  className="py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl active:scale-95 transition-all text-center"
                 >
                   Editar
                 </button>
                 <button
                   onClick={handleExit}
-                  className="px-3.5 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl active:scale-95 shadow-sm hover:shadow transition-all"
+                  className="py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl active:scale-95 shadow-sm hover:shadow transition-all text-center"
                 >
                   Salir
                 </button>
