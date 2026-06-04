@@ -71,6 +71,13 @@ export function MapeoVEHome() {
   const [mapSelectionMode, setMapSelectionMode] = useState<"origin" | "destination" | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
+  // Clear map selection coords when entering a selection mode to ensure fresh tap coordinates
+  useEffect(() => {
+    if (mapSelectionMode) {
+      setSelectedMapCoords(null);
+    }
+  }, [mapSelectionMode]);
+
   // Clear route when switching selected business or closing details (when not in navigation mode)
   useEffect(() => {
     if (!isNavigationActive) {
@@ -339,29 +346,31 @@ export function MapeoVEHome() {
 
       {/* NavigationPanel (Active routing panel) */}
       {isNavigationActive && (
-        <NavigationPanel
-          business={selectedBusiness}
-          userLocation={userLocation}
-          onClose={() => {
-            setIsNavigationActive(false);
-            setOriginCoords(null);
-            setDestCoords(null);
-            setSelectedMapCoords(null);
-            clearRoute();
-          }}
-          onCalculateRoute={calculateRoute}
-          onClearRoute={clearRoute}
-          activeRoute={activeRoute}
-          routeError={routeError}
-          routeLoading={routeLoading}
-          mapSelectionMode={mapSelectionMode}
-          onMapSelectionRequest={setMapSelectionMode}
-          selectedMapCoords={selectedMapCoords}
-          originCoords={originCoords}
-          setOriginCoords={setOriginCoords}
-          destCoords={destCoords}
-          setDestCoords={setDestCoords}
-        />
+        <div className={mapSelectionMode ? "opacity-0 pointer-events-none" : ""}>
+          <NavigationPanel
+            business={selectedBusiness}
+            userLocation={userLocation}
+            onClose={() => {
+              setIsNavigationActive(false);
+              setOriginCoords(null);
+              setDestCoords(null);
+              setSelectedMapCoords(null);
+              clearRoute();
+            }}
+            onCalculateRoute={calculateRoute}
+            onClearRoute={clearRoute}
+            activeRoute={activeRoute}
+            routeError={routeError}
+            routeLoading={routeLoading}
+            mapSelectionMode={mapSelectionMode}
+            onMapSelectionRequest={setMapSelectionMode}
+            selectedMapCoords={selectedMapCoords}
+            originCoords={originCoords}
+            setOriginCoords={setOriginCoords}
+            destCoords={destCoords}
+            setDestCoords={setDestCoords}
+          />
+        </div>
       )}
 
       {mapSelectionMode && (

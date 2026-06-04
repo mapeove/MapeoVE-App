@@ -362,6 +362,22 @@ export function MapeoVEMap({
 
   // ─── FASE 6: Click nativo MapLibre + cursor pointer ────────────────────
   // Registra listeners una sola vez cuando los layers están listos.
+  const onMapClickRef = useRef(onMapClick);
+  const onMarkerClickRef = useRef(onMarkerClick);
+  const businessesRef = useRef(businesses);
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
+
+  useEffect(() => {
+    onMarkerClickRef.current = onMarkerClick;
+  }, [onMarkerClick]);
+
+  useEffect(() => {
+    businessesRef.current = businesses;
+  }, [businesses]);
+
   const clickHandlerSetRef = useRef(false);
 
   useEffect(() => {
@@ -376,9 +392,9 @@ export function MapeoVEMap({
       const businessId = feature.properties?.id as string | undefined;
       if (!businessId) return;
 
-      const business = businesses.find((b) => b.id === businessId);
-      if (business) {
-        onMarkerClick(business);
+      const business = businessesRef.current.find((b) => b.id === businessId);
+      if (business && onMarkerClickRef.current) {
+        onMarkerClickRef.current(business);
       }
     });
 
@@ -395,13 +411,13 @@ export function MapeoVEMap({
     map.on("click", (e) => {
       // Ignore clicks on circles
       const features = map.queryRenderedFeatures(e.point, { layers: [CIRCLES_LAYER_ID] });
-      if (features.length === 0 && onMapClick) {
-        onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      if (features.length === 0 && onMapClickRef.current) {
+        onMapClickRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
       }
     });
 
     clickHandlerSetRef.current = true;
-  }, [mapLoaded, businesses, onMarkerClick, onMapClick]);
+  }, [mapLoaded]);
 
   // ─── Marcador del usuario (DOM Marker — se mantiene) ───────────────────
   useEffect(() => {
