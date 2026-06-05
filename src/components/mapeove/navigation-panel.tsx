@@ -65,6 +65,19 @@ interface NavigationPanelProps {
   setOriginCoords: (coords: { lat: number; lng: number } | null) => void;
   destCoords: { lat: number; lng: number } | null;
   setDestCoords: (coords: { lat: number; lng: number } | null) => void;
+  /** Live GPS navigation state (tracking, deviation, remaining distance) */
+  liveNav?: {
+    livePosition: { lat: number; lng: number } | null;
+    remainingDistance: number | null;
+    remainingTime: number | null;
+    isDeviated: boolean;
+    isRecalculating: boolean;
+    gpsError: string | null;
+  };
+  /** Whether the map camera is currently following the user */
+  isFollowing?: boolean;
+  /** Toggle camera follow on/off */
+  onToggleFollowing?: () => void;
 }
 
 export function NavigationPanel({
@@ -82,7 +95,10 @@ export function NavigationPanel({
   originCoords,
   setOriginCoords,
   destCoords,
-  setDestCoords
+  setDestCoords,
+  liveNav,
+  isFollowing,
+  onToggleFollowing,
 }: NavigationPanelProps) {
   const [isConfiguring, setIsConfiguring] = useState(true);
   
@@ -683,6 +699,34 @@ export function NavigationPanel({
 
             {/* Scrollable content — pb-20 on mobile so content is not hidden behind fixed action bar */}
             <div className="overflow-y-auto flex-1 px-3 pt-2 pb-20 md:pb-4 md:p-4 md:pt-5 flex flex-col gap-2.5 md:gap-3">
+
+              {/* ── Live Nav Banners ─────────────────────────────────────── */}
+
+              {/* GPS error */}
+              {liveNav?.gpsError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-100 rounded-xl">
+                  <AlertTriangle size={13} className="text-red-500 flex-shrink-0" />
+                  <p className="text-[10px] font-bold text-red-700 leading-tight">{liveNav.gpsError}</p>
+                </div>
+              )}
+
+              {/* Recalculating */}
+              {liveNav?.isRecalculating && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-xl">
+                  <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <p className="text-[10px] font-bold text-blue-700">Recalculando ruta...</p>
+                </div>
+              )}
+
+              {/* Deviation warning */}
+              {liveNav?.isDeviated && !liveNav.isRecalculating && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-100 rounded-xl">
+                  <AlertTriangle size={13} className="text-orange-500 flex-shrink-0" />
+                  <p className="text-[10px] font-bold text-orange-700">Te has desviado de la ruta</p>
+                </div>
+              )}
+
+              {/* ── Route header ──────────────────────────────────────────── */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="p-2 rounded-xl bg-blue-50 text-blue-600 flex-shrink-0">
@@ -707,31 +751,43 @@ export function NavigationPanel({
                       </span>
                     ) : (
                       <span className="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                        Ruta óptima
+                        {liveNav?.livePosition ? "En ruta" : "Ruta óptima"}
                       </span>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Route Stats */}
+              {/* ── Route Stats (remaining when live, totals otherwise) ─── */}
               {activeRoute && (
                 <div className="flex items-center justify-between border-y border-gray-50 py-2.5 my-0.5">
                   <div className="flex-1 text-center">
-                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Distancia</p>
-                    <p className="text-base font-black text-gray-900 leading-tight mt-0.5">{formatDistance(activeRoute.distance)}</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                      {liveNav?.remainingDistance != null ? "Restante" : "Distancia"}
+                    </p>
+                    <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
+                      {liveNav?.remainingDistance != null
+                        ? formatDistance(liveNav.remainingDistance)
+                        : formatDistance(activeRoute.distance)}
+                    </p>
                   </div>
                   <div className="w-px h-8 bg-gray-100" />
                   <div className="flex-1 text-center">
-                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Tiempo Estimado</p>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                      {liveNav?.remainingTime != null ? "Tiempo rest." : "Tiempo est."}
+                    </p>
                     <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
-                      {activeRoute.isFallback ? "—" : formatDuration(activeRoute.duration)}
+                      {liveNav?.remainingTime != null
+                        ? formatDuration(liveNav.remainingTime)
+                        : activeRoute.isFallback
+                        ? "—"
+                        : formatDuration(activeRoute.duration)}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Transport mode selector */}
+              {/* ── Transport mode selector ───────────────────────────────── */}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Cambiar Transporte</span>
                 <div className="flex gap-1.5">
@@ -763,6 +819,22 @@ export function NavigationPanel({
                   })}
                 </div>
               </div>
+
+              {/* ── Follow location toggle ─────────────────────────────── */}
+              {onToggleFollowing && (
+                <button
+                  type="button"
+                  onClick={onToggleFollowing}
+                  className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border text-[11px] font-black transition-all active:scale-95 ${
+                    isFollowing
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <Locate size={13} />
+                  {isFollowing ? "Siguiendo mi ubicación" : "Seguir mi ubicación"}
+                </button>
+              )}
 
               {/* Desktop-only action buttons (inside scroll) */}
               <div className="hidden md:grid grid-cols-3 gap-2 pt-1">

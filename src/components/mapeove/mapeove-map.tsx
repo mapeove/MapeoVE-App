@@ -14,6 +14,10 @@ interface MapeoVEMapProps {
   routeGeoJSON?: any;
   onMapClick?: (coords: {lat: number, lng: number}) => void;
   customMarkers?: {lat: number, lng: number, color: string}[];
+  /** When true, camera follows userLocation changes smoothly */
+  followUserLocation?: boolean;
+  /** Called when the user manually drags the map (so parent can disable following) */
+  onStopFollowing?: () => void;
 }
 
 interface BusinessFeatureProperties {
@@ -90,6 +94,8 @@ export function MapeoVEMap({
   routeGeoJSON,
   onMapClick,
   customMarkers,
+  followUserLocation = false,
+  onStopFollowing,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -544,6 +550,42 @@ export function MapeoVEMap({
       duration: 800,
     });
   }, [selectedBusiness, mapLoaded]);
+
+  // ─── Follow user location (live navigation camera tracking) ───────────────
+  // Uses easeTo for smooth continuous following without jarring jumps.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !followUserLocation || !userLocation) return;
+
+    const lat = Number(userLocation.lat);
+    const lng = Number(userLocation.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    (map as any).easeTo({
+      center: [lng, lat],
+      zoom: Math.max((map as any).getZoom?.() ?? 15, 15),
+      duration: 800,
+    });
+  }, [userLocation, followUserLocation, mapLoaded]);
+
+  // ─── Detect user map drag → stop following ─────────────────────────────
+  const onStopFollowingRef = useRef(onStopFollowing);
+  useEffect(() => { onStopFollowingRef.current = onStopFollowing; }, [onStopFollowing]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const handleMoveStart = (e: any) => {
+      // originalEvent is set only when triggered by user interaction (touch/mouse)
+      if (e.originalEvent && onStopFollowingRef.current) {
+        onStopFollowingRef.current();
+      }
+    };
+
+    map.on("movestart", handleMoveStart);
+    return () => map.off("movestart", handleMoveStart);
+  }, [mapLoaded]);
 
   // ─── Error state ───────────────────────────────────────────────────────
   if (mapError) {

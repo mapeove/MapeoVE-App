@@ -11,6 +11,7 @@ import { NavigationPanel } from "@/components/mapeove/navigation-panel";
 import { BRAND } from "@/types/mapeove";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useMapeoveData } from "@/hooks/use-mapeove-data";
+import { useLiveNavigation } from "@/hooks/use-live-navigation";
 import { MapPin, List, X } from "lucide-react";
 import { AuthButton } from "@/components/mapeove/auth-button";
 import { AdminDashboard } from "@/components/mapeove/admin-dashboard";
@@ -53,12 +54,13 @@ export function MapeoVEHome() {
   const [showList, setShowList] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
 
-  // New Navigation / UX States
+  // Navigation / UX states
   const [isNavigationActive, setIsNavigationActive] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(true); // camera follows user GPS
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Directions Backend route states
+  // Route states
   const [routeGeoJSON, setRouteGeoJSON] = useState<any>(null);
   const [activeRoute, setActiveRoute] = useState<{
     distance: number;
@@ -70,6 +72,18 @@ export function MapeoVEHome() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [mapSelectionMode, setMapSelectionMode] = useState<"origin" | "destination" | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
+
+  // Live navigation (GPS tracking, deviation, auto-recalc)
+  const liveNav = useLiveNavigation({
+    isActive: isNavigationActive,
+    routeGeoJSON,
+    destCoords,
+    transportMode: activeRoute?.mode ?? "driving-car",
+    isFallback: activeRoute?.isFallback ?? false,
+    onRecalculate: async (mode, start, end) => {
+      await calculateRoute(mode, start, end);
+    },
+  });
 
   // Clear map selection coords when entering a selection mode to ensure fresh tap coordinates
   useEffect(() => {
@@ -211,7 +225,7 @@ export function MapeoVEHome() {
         businesses={businesses}
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
-        userLocation={userLocation}
+        userLocation={isNavigationActive && liveNav.livePosition ? liveNav.livePosition : userLocation}
         routeGeoJSON={routeGeoJSON}
         onMapClick={(coords) => {
           if (mapSelectionMode) {
@@ -220,6 +234,8 @@ export function MapeoVEHome() {
           }
         }}
         customMarkers={getMapMarkers()}
+        followUserLocation={isNavigationActive && isFollowing}
+        onStopFollowing={() => setIsFollowing(false)}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
@@ -284,6 +300,7 @@ export function MapeoVEHome() {
                 userLocation={userLocation}
                 onStartNavigation={() => {
                   setIsNavigationActive(true);
+                  setIsFollowing(true); // reset camera following when navigation starts
                   const start = userLocation || null;
                   const end = { lat: Number(selectedBusiness.latitude), lng: Number(selectedBusiness.longitude) };
                   setOriginCoords(start);
@@ -351,7 +368,9 @@ export function MapeoVEHome() {
             business={selectedBusiness}
             userLocation={userLocation}
             onClose={() => {
+              liveNav.stopTracking();
               setIsNavigationActive(false);
+              setIsFollowing(true);
               setOriginCoords(null);
               setDestCoords(null);
               setSelectedMapCoords(null);
@@ -369,6 +388,9 @@ export function MapeoVEHome() {
             setOriginCoords={setOriginCoords}
             destCoords={destCoords}
             setDestCoords={setDestCoords}
+            liveNav={liveNav}
+            isFollowing={isFollowing}
+            onToggleFollowing={() => setIsFollowing((f) => !f)}
           />
         </div>
       )}
