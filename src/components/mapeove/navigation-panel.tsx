@@ -790,17 +790,19 @@ export function NavigationPanel({
       {!isConfiguring && (
         <>
           {/* Top Floating Bar */}
-          <div className="absolute top-4 left-4 right-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 z-[9998] pointer-events-auto flex items-center gap-3">
-            <button 
-              onClick={() => {
-                setIsConfiguring(true);
-                onClearRoute();
-              }}
-              className="p-1.5 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
-              title="Volver a configurar"
-            >
-              <ArrowLeft size={18} className="text-gray-700" />
-            </button>
+          <div className="absolute top-4 left-4 right-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-3.5 z-[9998] pointer-events-auto flex items-center gap-3">
+            {!isActiveNavigation && (
+              <button 
+                onClick={() => {
+                  setIsConfiguring(true);
+                  onClearRoute();
+                }}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
+                title="Volver a configurar"
+              >
+                <ArrowLeft size={18} className="text-gray-700" />
+              </button>
+            )}
             {isActiveNavigation && liveNav?.nextManeuver && (
               <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-sm">
                 <ManeuverIcon type={liveNav.nextManeuver.type ?? 6} className="w-6 h-6 text-blue-600" />
@@ -823,17 +825,20 @@ export function NavigationPanel({
                 </>
               )}
             </div>
-            <button 
-              onClick={handleExit}
-              className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0"
-              title="Cerrar navegación"
-            >
-              <X size={14} className="text-gray-600" />
-            </button>
+            {!isActiveNavigation && (
+              <button 
+                onClick={handleExit}
+                className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0"
+                title="Cerrar navegación"
+              >
+                <X size={14} className="text-gray-600" />
+              </button>
+            )}
           </div>
 
           {/* Bottom Floating Card — scrollable route info. Bottom padding reserves space for the fixed mobile action bar. */}
-          <div className="absolute bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 z-[9997] pointer-events-auto flex flex-col" style={{maxHeight: "50vh"}}>
+          {!isActiveNavigation && (
+            <div className="absolute bottom-0 left-0 right-0 md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 z-[9997] pointer-events-auto flex flex-col" style={{maxHeight: "50vh"}}>
             {/* Pull handle (mobile only) */}
             <div className="flex justify-center pt-2 pb-0 md:hidden flex-shrink-0">
               <div className="w-8 h-1 bg-gray-200 rounded-full" />
@@ -1084,18 +1089,20 @@ export function NavigationPanel({
                     </button>
                   </>
                 )}
-              </div>
             </div>
           </div>
+        </div>
+      )}
 
           {/* ══════════════════════════════════════════════════════
               MOBILE FIXED ACTION BAR
               3 states: no-route | route-ready | active-navigation
           ══════════════════════════════════════════════════════ */}
-          <div
-            className="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-white border-t-2 border-gray-200 pointer-events-auto"
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          >
+          {!isActiveNavigation && (
+            <div
+              className="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-white border-t-2 border-gray-200 pointer-events-auto"
+              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+            >
             <div className="grid grid-cols-3 gap-2 px-3 py-2">
               {isActiveNavigation ? (
                 /* Active navigation: Detener / Recentrar / Salir */
@@ -1178,6 +1185,51 @@ export function NavigationPanel({
               )}
             </div>
           </div>
+          )}
+
+          {/* Compact Bottom Bar (Navigation Mode) */}
+          {isActiveNavigation && (
+            <div
+              className="fixed bottom-0 left-0 right-0 md:absolute md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 z-[9999] pointer-events-auto p-4 flex items-center justify-between"
+              style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+            >
+              {/* Left: Time and Distance Remaining */}
+              <div className="flex flex-col">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-black text-green-600">
+                    {liveNav?.remainingTime != null ? formatDuration(liveNav.remainingTime) : "—"}
+                  </span>
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Restante</span>
+                </div>
+                <span className="text-xs font-black text-gray-500 mt-0.5">
+                  {liveNav?.remainingDistance != null ? formatDistance(liveNav.remainingDistance) : "—"}
+                </span>
+              </div>
+
+              {/* Right: Actions (Recentrar, Detener) */}
+              <div className="flex items-center gap-2">
+                {/* Recentrar if not following */}
+                {!isFollowing && onRecenter && (
+                  <button
+                    onClick={onRecenter}
+                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-black rounded-xl active:scale-95 transition-all border border-blue-100 flex items-center gap-1"
+                  >
+                    <Locate size={13} />
+                    <span>Recentrar</span>
+                  </button>
+                )}
+                
+                {/* Detener/Salir button */}
+                <button
+                  onClick={onStopNavigation}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <X size={14} />
+                  <span>Detener</span>
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </>

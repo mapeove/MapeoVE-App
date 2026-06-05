@@ -511,7 +511,16 @@ export function useLiveNavigation({
     }
 
     setRemainingDistance(finalDistToDest);
-    setRemainingTime(finalDistToDest / speedForMode(mode));
+    
+    let finalTimeToDest = finalDistToDest / speedForMode(mode);
+    if (!isFallback && route) {
+      const totalRouteDistance = route?.features?.[0]?.properties?.summary?.distance;
+      const totalRouteDuration = route?.features?.[0]?.properties?.summary?.duration;
+      if (typeof totalRouteDistance === "number" && totalRouteDistance > 0 && typeof totalRouteDuration === "number") {
+        finalTimeToDest = totalRouteDuration * (finalDistToDest / totalRouteDistance);
+      }
+    }
+    setRemainingTime(finalTimeToDest);
 
     // ── Arrival detection: stop tracking when within 15m of destination ─────
     if (finalDistToDest <= ARRIVAL_RADIUS_METERS) {
