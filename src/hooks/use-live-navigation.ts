@@ -79,6 +79,7 @@ const DEVIATION_METERS = 80;
 const MIN_MOVE_METERS = 10;
 const RECALC_COOLDOWN_MS = 10_000; // max 1 recalculation every 10 seconds
 const DEVIATION_GRACE_MS = 3_000; // wait 3s of sustained deviation before recalculating
+const ARRIVAL_RADIUS_METERS = 50; // consider arrived when within 50m of destination
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 export interface LiveNavState {
@@ -88,6 +89,7 @@ export interface LiveNavState {
   isDeviated: boolean;
   isRecalculating: boolean;
   gpsError: string | null;
+  hasArrived: boolean; // true when within 50m of destination
   stopTracking: () => void;
 }
 
@@ -130,6 +132,7 @@ export function useLiveNavigation({
   const [isDeviated, setIsDeviated] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [hasArrived, setHasArrived] = useState(false);
 
   // Refs for values used inside the stable GPS callback.
   // Using refs avoids re-registering watchPosition on every render.
@@ -176,6 +179,7 @@ export function useLiveNavigation({
     setIsRecalculating(false);
     isRecalculatingRef.current = false;
     lastPosRef.current = null;
+    setHasArrived(false);
   }, []);
 
   // ─── GPS position handler — STABLE (all mutable values via refs) ──────────
@@ -198,12 +202,23 @@ export function useLiveNavigation({
     setLivePosition({ lat, lng });
     setGpsError(null);
 
-    // ── Update remaining distance and time estimate ──────────────────────────
+    // ── Update remaining distance and time estimate ──────────────────────────────────
     const dest = destRef.current;
     if (dest) {
       const dist = haversineDistance(lat, lng, dest.lat, dest.lng);
       setRemainingDistance(dist);
       setRemainingTime(dist / speedForMode(modeRef.current));
+
+      // ── Arrival detection: stop tracking when within 50m of destination ─────
+      if (dist <= ARRIVAL_RADIUS_METERS) {
+        setHasArrived(true);
+        // Stop the watchPosition — user has arrived, no more tracking needed
+        if (watchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+        return; // skip deviation check
+      }
     }
 
     // ── Route deviation check (ORS routes only, skip straight-line fallback) ──
@@ -307,6 +322,7 @@ export function useLiveNavigation({
     isDeviated,
     isRecalculating,
     gpsError,
+    hasArrived,
     stopTracking,
   };
 }

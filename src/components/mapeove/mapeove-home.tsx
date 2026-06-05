@@ -56,6 +56,7 @@ export function MapeoVEHome() {
 
   // Navigation / UX states
   const [isNavigationActive, setIsNavigationActive] = useState(false);
+  const [isActiveNavigation, setIsActiveNavigation] = useState(false); // GPS tracking started
   const [isFollowing, setIsFollowing] = useState(true); // camera follows user GPS
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -74,8 +75,9 @@ export function MapeoVEHome() {
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
   // Live navigation (GPS tracking, deviation, auto-recalc)
+  // isActive is isActiveNavigation: tracking starts ONLY when user presses "Iniciar"
   const liveNav = useLiveNavigation({
-    isActive: isNavigationActive,
+    isActive: isActiveNavigation,
     routeGeoJSON,
     destCoords,
     transportMode: activeRoute?.mode ?? "driving-car",
@@ -237,7 +239,7 @@ export function MapeoVEHome() {
           }
         }}
         customMarkers={getMapMarkers()}
-        followUserLocation={isNavigationActive && isFollowing}
+        followUserLocation={isActiveNavigation && isFollowing}
         onStopFollowing={() => setIsFollowing(false)}
       />
 
@@ -372,6 +374,7 @@ export function MapeoVEHome() {
             userLocation={userLocation}
             onClose={() => {
               liveNav.stopTracking();
+              setIsActiveNavigation(false);
               setIsNavigationActive(false);
               setIsFollowing(true);
               setOriginCoords(null);
@@ -394,6 +397,18 @@ export function MapeoVEHome() {
             liveNav={liveNav}
             isFollowing={isFollowing}
             onToggleFollowing={() => setIsFollowing((f) => !f)}
+            isActiveNavigation={isActiveNavigation}
+            hasArrived={liveNav.hasArrived}
+            onInitNavigation={() => {
+              setIsActiveNavigation(true);
+              setIsFollowing(true); // re-center camera when starting
+            }}
+            onStopNavigation={() => {
+              liveNav.stopTracking();
+              setIsActiveNavigation(false);
+              setIsFollowing(true);
+            }}
+            onRecenter={() => setIsFollowing(true)}
           />
         </div>
       )}
