@@ -57,6 +57,7 @@ export function MapeoVEHome() {
   // Navigation / UX states
   const [isNavigationActive, setIsNavigationActive] = useState(false);
   const [isActiveNavigation, setIsActiveNavigation] = useState(false); // GPS tracking started
+  const [isGpsOrigin, setIsGpsOrigin] = useState(true); // true when origin is user's real GPS
   const [isFollowing, setIsFollowing] = useState(true); // camera follows user GPS
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -75,9 +76,11 @@ export function MapeoVEHome() {
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
   // Live navigation (GPS tracking, deviation, auto-recalc)
-  // isActive is isActiveNavigation: tracking starts ONLY when user presses "Iniciar"
+  // isActive is isActiveNavigation AND isGpsOrigin:
+  // — GPS tracking only makes sense when the user IS at the origin point.
+  // — If origin was manually selected (map/address), skip watchPosition entirely.
   const liveNav = useLiveNavigation({
-    isActive: isActiveNavigation,
+    isActive: isActiveNavigation && isGpsOrigin,
     routeGeoJSON,
     destCoords,
     transportMode: activeRoute?.mode ?? "driving-car",
@@ -230,7 +233,7 @@ export function MapeoVEHome() {
         businesses={businesses}
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
-        userLocation={isNavigationActive && liveNav.livePosition ? liveNav.livePosition : userLocation}
+        userLocation={isActiveNavigation && isGpsOrigin && liveNav.livePosition ? liveNav.livePosition : userLocation}
         routeGeoJSON={routeGeoJSON}
         onMapClick={(coords) => {
           if (mapSelectionMode) {
@@ -239,8 +242,9 @@ export function MapeoVEHome() {
           }
         }}
         customMarkers={getMapMarkers()}
-        followUserLocation={isActiveNavigation && isFollowing}
+        followUserLocation={isActiveNavigation && isGpsOrigin && isFollowing}
         onStopFollowing={() => setIsFollowing(false)}
+        isSelecting={!!mapSelectionMode}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
@@ -399,16 +403,19 @@ export function MapeoVEHome() {
             onToggleFollowing={() => setIsFollowing((f) => !f)}
             isActiveNavigation={isActiveNavigation}
             hasArrived={liveNav.hasArrived}
-            onInitNavigation={() => {
+            onInitNavigation={(gpsOrigin) => {
+              setIsGpsOrigin(gpsOrigin);
               setIsActiveNavigation(true);
-              setIsFollowing(true); // re-center camera when starting
+              setIsFollowing(true);
             }}
             onStopNavigation={() => {
               liveNav.stopTracking();
               setIsActiveNavigation(false);
+              setIsGpsOrigin(true); // reset for next time
               setIsFollowing(true);
             }}
             onRecenter={() => setIsFollowing(true)}
+            onOriginTypeChange={(isGps) => setIsGpsOrigin(isGps)}
           />
         </div>
       )}

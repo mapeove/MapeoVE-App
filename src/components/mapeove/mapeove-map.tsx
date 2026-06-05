@@ -18,6 +18,9 @@ interface MapeoVEMapProps {
   followUserLocation?: boolean;
   /** Called when the user manually drags the map (so parent can disable following) */
   onStopFollowing?: () => void;
+  /** When true, any map click should be captured as a coordinate selection.
+   *  Circles (business markers) will not consume the click; the general map click fires instead. */
+  isSelecting?: boolean;
 }
 
 interface BusinessFeatureProperties {
@@ -96,6 +99,7 @@ export function MapeoVEMap({
   customMarkers,
   followUserLocation = false,
   onStopFollowing,
+  isSelecting = false,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -389,12 +393,20 @@ export function MapeoVEMap({
     businessesRef.current = businesses;
   }, [businesses]);
 
+  // Keep isSelecting in a ref so click handlers always read the latest value
+  const isSelectingRef = useRef(isSelecting);
+  useEffect(() => { isSelectingRef.current = isSelecting; }, [isSelecting]);
+
   // Circles specific clicks and cursor
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded || !layersReady) return;
 
     const handleCircleClick = (e: any) => {
+      // During coordinate-selection mode, let the general map click handle this
+      // so any point (including on top of a business circle) is selectable.
+      if (isSelectingRef.current) return;
+
       if (!e.features || e.features.length === 0) return;
       const feature = e.features[0];
       const businessId = feature.properties?.id as string | undefined;
@@ -431,6 +443,16 @@ export function MapeoVEMap({
     if (!map || !mapLoaded) return;
 
     const handleMapClick = (e: any) => {
+      if (!onMapClickRef.current) return;
+
+      // During selection mode: capture ANY tap regardless of what's underneath
+      // (user may tap on a business circle to use it as origin/destination)
+      if (isSelectingRef.current) {
+        onMapClickRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        return;
+      }
+
+      // Normal mode: only fire when NOT over a business circle
       let features: any[] = [];
       try {
         if (map.getLayer(CIRCLES_LAYER_ID)) {
@@ -439,7 +461,7 @@ export function MapeoVEMap({
       } catch (err) {
         // Safe query fallback
       }
-      if (features.length === 0 && onMapClickRef.current) {
+      if (features.length === 0) {
         onMapClickRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
       }
     };
@@ -584,7 +606,9 @@ export function MapeoVEMap({
     };
 
     map.on("movestart", handleMoveStart);
-    return () => map.off("movestart", handleMoveStart);
+    return () => {
+      map.off("movestart", handleMoveStart);
+    };
   }, [mapLoaded]);
 
   // ─── Error state ───────────────────────────────────────────────────────

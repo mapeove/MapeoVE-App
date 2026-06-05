@@ -84,11 +84,13 @@ interface NavigationPanelProps {
   /** True when user arrived within 50m of destination */
   hasArrived?: boolean;
   /** Start active GPS navigation */
-  onInitNavigation?: () => void;
+  onInitNavigation?: (gpsOrigin: boolean) => void;
   /** Stop active GPS navigation (keep route visible) */
   onStopNavigation?: () => void;
   /** Re-center camera on user */
   onRecenter?: () => void;
+  /** Callback when the origin type changes (gps vs manual) */
+  onOriginTypeChange?: (isGps: boolean) => void;
 }
 
 export function NavigationPanel({
@@ -115,6 +117,7 @@ export function NavigationPanel({
   onInitNavigation,
   onStopNavigation,
   onRecenter,
+  onOriginTypeChange,
 }: NavigationPanelProps) {
   const [isConfiguring, setIsConfiguring] = useState(true);
   
@@ -144,6 +147,13 @@ export function NavigationPanel({
       setDestSelectedName(business.name);
     }
   }, [business]);
+
+  // Notify parent component about origin type changes
+  useEffect(() => {
+    if (onOriginTypeChange) {
+      onOriginTypeChange(originType === "gps");
+    }
+  }, [originType, onOriginTypeChange]);
 
   // Sync map selection coordinates
   useEffect(() => {
@@ -720,8 +730,12 @@ export function NavigationPanel({
               {isActiveNavigation && !hasArrived && (
                 <div className="flex items-center gap-2.5 px-3 py-2.5 bg-blue-600 rounded-xl">
                   <div className="w-2 h-2 rounded-full bg-white animate-pulse flex-shrink-0" />
-                  <p className="text-[11px] font-black text-white">Siguiendo ruta</p>
-                  <span className="ml-auto text-[9px] font-bold text-blue-200 uppercase tracking-wide">GPS activo</span>
+                  <p className="text-[11px] font-black text-white">
+                    {originType === "gps" ? "Siguiendo ruta" : "Navegación manual"}
+                  </p>
+                  <span className="ml-auto text-[9px] font-bold text-blue-200 uppercase tracking-wide">
+                    {originType === "gps" ? "GPS activo" : "Manual"}
+                  </span>
                 </div>
               )}
 
@@ -902,7 +916,7 @@ export function NavigationPanel({
                   /* Route ready, not yet navigating: Iniciar / Editar / Salir */
                   <>
                     <button
-                      onClick={onInitNavigation}
+                      onClick={() => onInitNavigation?.(originType === "gps")}
                       className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl active:scale-95 shadow-sm hover:shadow transition-all text-center"
                     >
                       Iniciar
@@ -988,7 +1002,7 @@ export function NavigationPanel({
                 /* Route ready, not yet navigating: Iniciar / Editar / Salir */
                 <>
                   <button
-                    onClick={onInitNavigation}
+                    onClick={() => onInitNavigation?.(originType === "gps")}
                     className="py-3 bg-blue-600 text-white text-xs font-black rounded-xl active:scale-95 shadow-md transition-all text-center"
                   >
                     Iniciar
