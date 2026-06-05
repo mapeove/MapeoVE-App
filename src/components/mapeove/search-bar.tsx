@@ -9,11 +9,12 @@ interface SearchBarProps {
   onSearch: (query: string) => void;
   onSelectBusiness: (business: Business) => void;
   onClear: () => void;
+  onSelectGeocode?: (result: { name: string; lat: number; lng: number }) => void;
 }
 
-export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProps) {
+export function SearchBar({ onSearch, onSelectBusiness, onClear, onSelectGeocode }: SearchBarProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Business[]>([]);
+  const [results, setResults] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,11 +45,39 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProp
     setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const businesses = await searchBusinesses(value);
-        setResults(businesses);
+        const [businesses, geocodeRes] = await Promise.all([
+          searchBusinesses(value).catch(() => []),
+          fetch(`/api/geocode?q=${encodeURIComponent(value)}`)
+            .then((res) => res.json())
+            .then((data) => data.features || [])
+            .catch(() => [])
+        ]);
+
+        const formattedGeocode = geocodeRes.map((f: any, idx: number) => ({
+          id: `geocode-${idx}-${f.geometry?.coordinates?.[0] || idx}-${f.geometry?.coordinates?.[1] || idx}`,
+          type: "geocode" as const,
+          name: f.place_name || f.properties?.label || f.text || "Dirección encontrada",
+          lat: f.geometry?.coordinates?.[1] || 0,
+          lng: f.geometry?.coordinates?.[0] || 0
+        }));
+
+        const formattedBiz = businesses.map((b) => ({
+          id: `business-${b.id}`,
+          type: "business" as const,
+          name: b.name,
+          subtext: `${b.category.name} · ${b.address}`,
+          lat: Number(b.latitude),
+          lng: Number(b.longitude),
+          business: b
+        }));
+
+        // Combine: local businesses first, then global locations
+        const combined = [...formattedBiz, ...formattedGeocode];
+        setResults(combined);
         setShowResults(true);
         onSearch(value);
-      } catch {
+      } catch (err) {
+        console.error("Search error:", err);
         setResults([]);
       } finally {
         setIsSearching(false);
@@ -64,10 +93,14 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProp
     inputRef.current?.focus();
   }
 
-  function handleSelect(business: Business) {
-    setQuery(business.name);
+  function handleSelect(item: any) {
+    setQuery(item.name);
     setShowResults(false);
-    onSelectBusiness(business);
+    if (item.type === "business") {
+      onSelectBusiness(item.business);
+    } else {
+      onSelectGeocode?.({ name: item.name, lat: item.lat, lng: item.lng });
+    }
   }
 
   return (
@@ -82,7 +115,7 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProp
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => results.length > 0 && setShowResults(true)}
-          placeholder="Buscar negocios, comercios, servicios..."
+          placeholder="Buscar"
           className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white shadow-lg border border-gray-100 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
           style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.10)" }}
         />
@@ -97,26 +130,26 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear }: SearchBarProp
       </div>
 
       {/* Search Results Dropdown */}
-      {showResults && Array.isArray(results) && results.length > 0 && (
+      {showResults && results.length > 0 && (
         <div
           className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 max-h-64 overflow-y-auto z-50"
           style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.12)" }}
         >
-          {(Array.isArray(results) ? results : []).map((business) => (
+          {results.map((item) => (
             <button
-              key={business.id}
-              onClick={() => handleSelect(business)}
+              key={item.id}
+              onClick={() => handleSelect(item)}
               className="w-full flex items-start gap-2.5 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left border-b border-gray-50 last:border-0"
             >
               <div className="mt-0.5 flex-shrink-0">
-                <MapPin size={14} style={{ color: BRAND.blue }} />
+                <MapPin size={14} style={{ color: item.type === "business" ? BRAND.blue : "#7C3AED" }} />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-gray-800 truncate">
-                  {business.name}
+                  {item.name}
                 </p>
                 <p className="text-[11px] text-gray-500 truncate">
-                  {business.category.name} · {business.address}
+                  {item.type === "business" ? item.subtext : "Dirección / Lugar"}
                 </p>
               </div>
             </button>

@@ -36,20 +36,42 @@ const MapeoVEMap = dynamic(
 );
 
 export function MapeoVEHome() {
-  const { userLocation } = useUserLocation();
+  const { userLocation, isRealLocation } = useUserLocation();
   const {
     categories,
     businesses,
     selectedBusiness,
     activeCategory,
     businessCount,
-    handleMarkerClick,
-    handleCategoryChange,
+    handleMarkerClick: baseHandleMarkerClick,
+    handleCategoryChange: baseHandleCategoryChange,
     handleSearch,
     handleClearSearch,
     handleSelectBusinessFromSearch,
     handleCloseDetail,
   } = useMapeoveData(userLocation);
+
+  const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
+
+  const handleMarkerClick = (business: Business) => {
+    setSelectedGeocode(null);
+    baseHandleMarkerClick(business);
+  };
+
+  const handleCategoryChange = (slug: string | null) => {
+    setSelectedGeocode(null);
+    baseHandleCategoryChange(slug);
+  };
+
+  const handleClearSearchWithGeocode = () => {
+    handleClearSearch();
+    setSelectedGeocode(null);
+  };
+
+  const handleSelectBusinessFromSearchWithGeocode = (business: Business) => {
+    setSelectedGeocode(null);
+    handleSelectBusinessFromSearch(business);
+  };
 
   const [showList, setShowList] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
@@ -212,7 +234,13 @@ export function MapeoVEHome() {
       }
       return markers;
     }
-    return selectedMapCoords ? [{ ...selectedMapCoords, color: "#10B981" }] : undefined;
+    if (selectedMapCoords) {
+      return [{ ...selectedMapCoords, color: "#10B981" }];
+    }
+    if (selectedGeocode) {
+      return [{ lat: selectedGeocode.lat, lng: selectedGeocode.lng, color: BRAND.red }];
+    }
+    return undefined;
   };
 
   return (
@@ -238,13 +266,14 @@ export function MapeoVEHome() {
         onMapClick={(coords) => {
           if (mapSelectionMode) {
             setSelectedMapCoords({ type: mapSelectionMode, lat: coords.lat, lng: coords.lng });
-            setMapSelectionMode(null);
           }
         }}
         customMarkers={getMapMarkers()}
         followUserLocation={isActiveNavigation && isGpsOrigin && isFollowing}
         onStopFollowing={() => setIsFollowing(false)}
         isSelecting={!!mapSelectionMode}
+        isRealLocation={isRealLocation}
+        selectedGeocode={selectedGeocode}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
@@ -257,8 +286,12 @@ export function MapeoVEHome() {
               <div className="flex-1 min-w-0">
                 <SearchBar
                   onSearch={handleSearch}
-                  onSelectBusiness={handleSelectBusinessFromSearch}
-                  onClear={handleClearSearch}
+                  onSelectBusiness={handleSelectBusinessFromSearchWithGeocode}
+                  onClear={handleClearSearchWithGeocode}
+                  onSelectGeocode={(result) => {
+                    setSelectedGeocode(result);
+                    handleCloseDetail();
+                  }}
                 />
               </div>
               <AuthButton onOpenDashboard={() => setDashboardOpen(true)} />
@@ -268,6 +301,12 @@ export function MapeoVEHome() {
               activeCategory={activeCategory}
               onCategoryChange={handleCategoryChange}
             />
+            {isRealLocation === false && (
+              <div className="mx-auto max-w-[90%] md:max-w-sm flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-md text-[11px] font-bold text-gray-700 transition-all pointer-events-auto mt-1.5 justify-center">
+                <span className="text-yellow-500 text-sm">📍</span>
+                <span>Activa tu ubicación para centrar el mapa en tu posición.</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -319,6 +358,47 @@ export function MapeoVEHome() {
                   }
                 }}
               />
+            </div>
+          )}
+
+          {/* Panel de detalle de geocode (búsqueda global de dirección) */}
+          {selectedGeocode && !selectedBusiness && (
+            <div className={`mx-0 mb-0 md:mx-3 md:mb-3 ${mapSelectionMode ? "opacity-0 pointer-events-none" : ""}`}>
+              <div className="bg-white rounded-t-2xl md:rounded-2xl p-4 shadow-2xl border-t md:border border-gray-100 flex flex-col gap-3 pointer-events-auto">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-2.5">
+                    <span className="p-2 rounded-xl bg-blue-50 text-blue-600 mt-0.5">
+                      <MapPin size={20} />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900 leading-tight">{selectedGeocode.name}</h3>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">Ubicación encontrada</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedGeocode(null)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0"
+                  >
+                    <X size={14} className="text-gray-500" />
+                  </button>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsNavigationActive(true);
+                    setIsFollowing(true);
+                    const start = userLocation || null;
+                    const end = { lat: selectedGeocode.lat, lng: selectedGeocode.lng };
+                    setOriginCoords(start);
+                    setDestCoords(end);
+                    if (start) {
+                      calculateRoute("driving-car", start, end);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl active:scale-95 shadow-md transition-all text-center"
+                >
+                  Cómo llegar
+                </button>
+              </div>
             </div>
           )}
 

@@ -21,6 +21,8 @@ interface MapeoVEMapProps {
   /** When true, any map click should be captured as a coordinate selection.
    *  Circles (business markers) will not consume the click; the general map click fires instead. */
   isSelecting?: boolean;
+  isRealLocation?: boolean;
+  selectedGeocode?: { lat: number; lng: number } | null;
 }
 
 interface BusinessFeatureProperties {
@@ -100,6 +102,8 @@ export function MapeoVEMap({
   followUserLocation = false,
   onStopFollowing,
   isSelecting = false,
+  isRealLocation = false,
+  selectedGeocode = null,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -572,6 +576,33 @@ export function MapeoVEMap({
       duration: 800,
     });
   }, [selectedBusiness, mapLoaded]);
+
+  // ─── Fly to selected geocode ──────────────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !selectedGeocode || !mapLoaded) return;
+
+    const lat = Number(selectedGeocode.lat);
+    const lng = Number(selectedGeocode.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    (mapRef.current as any).flyTo({
+      center: [lng, lat],
+      zoom: 15,
+      duration: 800,
+    });
+  }, [selectedGeocode, mapLoaded]);
+
+  // ─── Center on user location once when real location is available ───
+  const centeredOnUserRef = useRef(false);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !userLocation || !isRealLocation || centeredOnUserRef.current) return;
+
+    centeredOnUserRef.current = true;
+    map.setCenter([userLocation.lng, userLocation.lat]);
+    map.setZoom(15);
+  }, [userLocation, isRealLocation, mapLoaded]);
 
   // ─── Follow user location (live navigation camera tracking) ───────────────
   // Uses easeTo for smooth continuous following without jarring jumps.
