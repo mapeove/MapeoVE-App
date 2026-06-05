@@ -107,7 +107,7 @@ export function MapeoVEHome() {
   // — GPS tracking only makes sense when the user IS at the origin point.
   // — If origin was manually selected (map/address), skip watchPosition entirely.
   const liveNav = useLiveNavigation({
-    isActive: isActiveNavigation && isGpsOrigin,
+    isActive: isActiveNavigation,
     routeGeoJSON,
     destCoords,
     transportMode: activeRoute?.mode ?? "driving-car",
@@ -266,7 +266,7 @@ export function MapeoVEHome() {
         businesses={businesses}
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
-        userLocation={isActiveNavigation && isGpsOrigin && liveNav.livePosition ? liveNav.livePosition : userLocation}
+        userLocation={isActiveNavigation && liveNav.livePosition ? liveNav.livePosition : userLocation}
         routeGeoJSON={routeGeoJSON}
         onMapClick={(coords) => {
           if (mapSelectionMode) {
@@ -275,7 +275,7 @@ export function MapeoVEHome() {
           }
         }}
         customMarkers={getMapMarkers()}
-        followUserLocation={isActiveNavigation && isGpsOrigin && isFollowing}
+        followUserLocation={isActiveNavigation && isFollowing}
         onStopFollowing={() => setIsFollowing(false)}
         isSelecting={!!mapSelectionMode}
         isRealLocation={isRealLocation}

@@ -94,6 +94,7 @@ interface NavigationPanelProps {
     isRecalculating: boolean;
     gpsError: string | null;
     hasArrived: boolean;
+    nextManeuver?: { text: string; distanceText: string } | null;
   };
   /** Whether the map camera is currently following the user */
   isFollowing?: boolean;
@@ -723,10 +724,21 @@ export function NavigationPanel({
               <ArrowLeft size={18} className="text-gray-700" />
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Plan de viaje</p>
-              <p className="text-xs font-black text-gray-800 truncate">
-                {originType === "gps" ? "Mi ubicación" : originSelectedName} → {destType === "business" ? business?.name : destSelectedName}
-              </p>
+              {isActiveNavigation && liveNav?.nextManeuver ? (
+                <>
+                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Siguiente indicación</p>
+                  <p className="text-xs font-black text-gray-800 leading-tight">
+                    {liveNav.nextManeuver.text}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Plan de viaje</p>
+                  <p className="text-xs font-black text-gray-800 truncate">
+                    {originType === "gps" ? "Mi ubicación" : originSelectedName} → {destType === "business" ? business?.name : destSelectedName}
+                  </p>
+                </>
+              )}
             </div>
             <button 
               onClick={handleExit}
@@ -836,10 +848,10 @@ export function NavigationPanel({
                 <div className="flex items-center justify-between border-y border-gray-50 py-2.5 my-0.5">
                   <div className="flex-1 text-center">
                     <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                      {originType === "gps" && liveNav?.remainingDistance != null ? "Restante" : "Distancia"}
+                      {isActiveNavigation && liveNav?.remainingDistance != null ? "Restante" : "Distancia"}
                     </p>
                     <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
-                      {originType === "gps" && liveNav?.remainingDistance != null
+                      {isActiveNavigation && liveNav?.remainingDistance != null
                         ? formatDistance(liveNav.remainingDistance)
                         : formatDistance(activeRoute.distance)}
                     </p>
@@ -847,10 +859,10 @@ export function NavigationPanel({
                   <div className="w-px h-8 bg-gray-100" />
                   <div className="flex-1 text-center">
                     <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                      {originType === "gps" && liveNav?.remainingTime != null ? "Tiempo rest." : "Tiempo est."}
+                      {isActiveNavigation && liveNav?.remainingTime != null ? "Tiempo rest." : "Tiempo est."}
                     </p>
                     <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
-                      {originType === "gps" && liveNav?.remainingTime != null
+                      {isActiveNavigation && liveNav?.remainingTime != null
                         ? formatDuration(liveNav.remainingTime)
                         : activeRoute.isFallback
                         ? "—"
