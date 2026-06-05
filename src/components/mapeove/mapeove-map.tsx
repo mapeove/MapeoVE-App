@@ -23,6 +23,7 @@ interface MapeoVEMapProps {
   isSelecting?: boolean;
   isRealLocation?: boolean;
   selectedGeocode?: { lat: number; lng: number } | null;
+  onVisibleBusinessesChange?: (businesses: Business[]) => void;
 }
 
 interface BusinessFeatureProperties {
@@ -104,6 +105,7 @@ export function MapeoVEMap({
   isSelecting = false,
   isRealLocation = false,
   selectedGeocode = null,
+  onVisibleBusinessesChange,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -396,6 +398,69 @@ export function MapeoVEMap({
   useEffect(() => {
     businessesRef.current = businesses;
   }, [businesses]);
+
+  const onVisibleBusinessesChangeRef = useRef(onVisibleBusinessesChange);
+  useEffect(() => {
+    onVisibleBusinessesChangeRef.current = onVisibleBusinessesChange;
+  }, [onVisibleBusinessesChange]);
+
+  const handleMapUpdate = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const bounds = map.getBounds();
+
+      const visibleBiz = (businessesRef.current || []).filter((b) => {
+        const lat = Number(b.latitude);
+        const lng = Number(b.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+        return (
+          lng >= bounds.getWest() &&
+          lng <= bounds.getEast() &&
+          lat >= bounds.getSouth() &&
+          lat <= bounds.getNorth()
+        );
+      });
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("=== MAPA UPDATE ===");
+        console.log("Centro del mapa:", `lat: ${center.lat.toFixed(6)}, lng: ${center.lng.toFixed(6)}`);
+        console.log("Zoom actual:", zoom.toFixed(2));
+        console.log("Negocios visibles:", visibleBiz.map(b => `${b.name} (${b.category.slug})`));
+        console.log("Negocios filtrados (en memoria):", businessesRef.current.length);
+      }
+
+      if (onVisibleBusinessesChangeRef.current) {
+        onVisibleBusinessesChangeRef.current(visibleBiz);
+      }
+    } catch (err) {
+      console.error("Error al calcular negocios visibles:", err);
+    }
+  };
+
+  // Sincronizar negocios visibles cuando cambian los negocios cargados o los filtros
+  useEffect(() => {
+    if (mapLoaded && layersReady) {
+      handleMapUpdate();
+    }
+  }, [businesses, mapLoaded, layersReady]);
+
+  // Escuchar el evento moveend para volver a calcular los negocios visibles al mover el mapa
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !layersReady) return;
+
+    const handleMoveEnd = () => {
+      handleMapUpdate();
+    };
+
+    map.on("moveend", handleMoveEnd);
+    return () => {
+      map.off("moveend", handleMoveEnd);
+    };
+  }, [mapLoaded, layersReady]);
 
   // Keep isSelecting in a ref so click handlers always read the latest value
   const isSelectingRef = useRef(isSelecting);

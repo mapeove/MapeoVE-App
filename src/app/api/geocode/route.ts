@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json?key=${apiKey}&limit=5`;
+    const proximity = searchParams.get("proximity") || "-67.3312,10.2268";
+    const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json?key=${apiKey}&limit=5&proximity=${proximity}`;
     const res = await fetch(url);
     
     if (!res.ok) {

@@ -12,6 +12,26 @@ interface SearchBarProps {
   onSelectGeocode?: (result: { name: string; lat: number; lng: number }) => void;
 }
 
+function formatGeocodeName(f: any): string {
+  const name = f.text || "";
+  if (!f.context || !Array.isArray(f.context)) {
+    return f.place_name || name || "Dirección encontrada";
+  }
+
+  const stateItem = f.context.find((c: any) => c.id?.startsWith("region") || c.place_designation === "state");
+  const countryItem = f.context.find((c: any) => c.id?.startsWith("country") || c.place_designation === "country");
+
+  const parts = [name];
+  if (stateItem && stateItem.text) {
+    parts.push(stateItem.text);
+  }
+  if (countryItem && countryItem.text) {
+    parts.push(countryItem.text);
+  }
+
+  return parts.join(", ");
+}
+
 export function SearchBar({ onSearch, onSelectBusiness, onClear, onSelectGeocode }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -56,7 +76,7 @@ export function SearchBar({ onSearch, onSelectBusiness, onClear, onSelectGeocode
         const formattedGeocode = geocodeRes.map((f: any, idx: number) => ({
           id: `geocode-${idx}-${f.geometry?.coordinates?.[0] || idx}-${f.geometry?.coordinates?.[1] || idx}`,
           type: "geocode" as const,
-          name: f.place_name || f.properties?.label || f.text || "Dirección encontrada",
+          name: formatGeocodeName(f),
           lat: f.geometry?.coordinates?.[1] || 0,
           lng: f.geometry?.coordinates?.[0] || 0
         }));

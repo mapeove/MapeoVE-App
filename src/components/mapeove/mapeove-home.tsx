@@ -8,7 +8,7 @@ import { CategoryFilters } from "@/components/mapeove/category-filters";
 import { BusinessDetail } from "@/components/mapeove/business-detail";
 import { BusinessList } from "@/components/mapeove/business-list";
 import { NavigationPanel } from "@/components/mapeove/navigation-panel";
-import { BRAND } from "@/types/mapeove";
+import { BRAND, Business } from "@/types/mapeove";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useMapeoveData } from "@/hooks/use-mapeove-data";
 import { useLiveNavigation } from "@/hooks/use-live-navigation";
@@ -54,34 +54,9 @@ export function MapeoVEHome() {
   } = useMapeoveData(userLocation);
 
   const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
+  const [visibleBusinesses, setVisibleBusinesses] = useState<Business[]>([]);
 
-  const getNearbyBusinessCount = () => {
-    let referenceCoords = userLocation;
-
-    if (selectedGeocode) {
-      referenceCoords = { lat: selectedGeocode.lat, lng: selectedGeocode.lng };
-    }
-
-    if (!referenceCoords) return 0;
-
-    // If using user location, but they are outside Venezuela, show 0
-    if (!selectedGeocode && !isInVenezuela(referenceCoords.lat, referenceCoords.lng)) {
-      return 0;
-    }
-
-    // Count businesses within 50 km (50000 meters) of the reference coordinates
-    const count = businesses.filter((b) => {
-      const lat = Number(b.latitude);
-      const lng = Number(b.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
-      const dist = haversineDistance(referenceCoords.lat, referenceCoords.lng, lat, lng);
-      return dist <= 50000; // 50 km
-    }).length;
-
-    return count;
-  };
-
-  const nearbyCount = getNearbyBusinessCount();
+  const nearbyCount = visibleBusinesses.length;
 
   const handleMarkerClick = (business: Business) => {
     setSelectedGeocode(null);
@@ -305,6 +280,7 @@ export function MapeoVEHome() {
         isSelecting={!!mapSelectionMode}
         isRealLocation={isRealLocation}
         selectedGeocode={selectedGeocode}
+        onVisibleBusinessesChange={setVisibleBusinesses}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
@@ -451,7 +427,7 @@ export function MapeoVEHome() {
               </div>
               <div className="overflow-y-auto max-h-[47vh] p-3">
                 <BusinessList
-                  businesses={businesses}
+                  businesses={visibleBusinesses}
                   onSelectBusiness={handleMarkerClick}
                   selectedId={selectedBusiness?.id || null}
                   userLocation={userLocation}
@@ -473,7 +449,7 @@ export function MapeoVEHome() {
                   className="text-[10px] px-1.5 py-0.5 rounded-full text-white font-bold"
                   style={{ backgroundColor: BRAND.blue }}
                 >
-                  {businessCount}
+                  {nearbyCount}
                 </span>
               </button>
             </div>

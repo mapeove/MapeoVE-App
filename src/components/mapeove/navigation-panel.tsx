@@ -40,6 +40,26 @@ function MotorcycleIcon({ size = 16, className = "" }: { size?: number; classNam
   );
 }
 
+function formatGeocodeName(f: any): string {
+  const name = f.text || "";
+  if (!f.context || !Array.isArray(f.context)) {
+    return f.place_name || name || "Dirección encontrada";
+  }
+
+  const stateItem = f.context.find((c: any) => c.id?.startsWith("region") || c.place_designation === "state");
+  const countryItem = f.context.find((c: any) => c.id?.startsWith("country") || c.place_designation === "country");
+
+  const parts = [name];
+  if (stateItem && stateItem.text) {
+    parts.push(stateItem.text);
+  }
+  if (countryItem && countryItem.text) {
+    parts.push(countryItem.text);
+  }
+
+  return parts.join(", ");
+}
+
 interface NavigationPanelProps {
   business: Business | null;
   userLocation: { lat: number; lng: number } | null;
@@ -196,7 +216,7 @@ export function NavigationPanel({
       const features = data.features || [];
       
       const formatted = features.map((f: any) => ({
-        name: f.place_name || f.properties?.label || f.text || "Dirección encontrada",
+        name: formatGeocodeName(f),
         lat: f.geometry.coordinates[1],
         lng: f.geometry.coordinates[0]
       }));
@@ -242,33 +262,19 @@ export function NavigationPanel({
       let finalOrigin = originType === "gps" ? undefined : originCoords;
       let finalDest = destType === "business" ? undefined : destCoords;
 
-      // Handle raw custom input if search suggestions list wasn't explicitly clicked
+      // Force user to select one of the suggestions for custom origin/destination
       if (originType === "custom" && originQuery && !originCoords) {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(originQuery)}`);
-        const data = await res.json();
-        if (data.features?.length > 0) {
-          const c = data.features[0].geometry.coordinates;
-          finalOrigin = { lng: c[0], lat: c[1] };
-          setOriginCoords(finalOrigin);
-        } else {
-          alert("Origen no encontrado.");
-          setGeocoding(false);
-          return;
-        }
+        alert("Por favor selecciona una de las sugerencias de origen.");
+        handleGeocode(originQuery, "origin");
+        setGeocoding(false);
+        return;
       }
 
       if (destType === "custom" && destQuery && !destCoords) {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(destQuery)}`);
-        const data = await res.json();
-        if (data.features?.length > 0) {
-          const c = data.features[0].geometry.coordinates;
-          finalDest = { lng: c[0], lat: c[1] };
-          setDestCoords(finalDest);
-        } else {
-          alert("Destino no encontrado.");
-          setGeocoding(false);
-          return;
-        }
+        alert("Por favor selecciona una de las sugerencias de destino.");
+        handleGeocode(destQuery, "destination");
+        setGeocoding(false);
+        return;
       }
 
       // Check if GPS was selected but not available
