@@ -12,7 +12,7 @@ import { BRAND, Business } from "@/types/mapeove";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useMapeoveData } from "@/hooks/use-mapeove-data";
 import { useLiveNavigation } from "@/hooks/use-live-navigation";
-import { MapPin, List, X } from "lucide-react";
+import { MapPin, List, X, Locate } from "lucide-react";
 import { AuthButton } from "@/components/mapeove/auth-button";
 import { AdminDashboard } from "@/components/mapeove/admin-dashboard";
 import { isInVenezuela } from "@/lib/coordinate-validator";
@@ -103,19 +103,33 @@ export function MapeoVEHome() {
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
   // Live navigation (GPS tracking, deviation, auto-recalc)
-  // isActive is isActiveNavigation AND isGpsOrigin:
-  // — GPS tracking only makes sense when the user IS at the origin point.
-  // — If origin was manually selected (map/address), skip watchPosition entirely.
   const liveNav = useLiveNavigation({
     isActive: isActiveNavigation,
     routeGeoJSON,
     destCoords,
     transportMode: activeRoute?.mode ?? "driving-car",
     isFallback: activeRoute?.isFallback ?? false,
+    isGpsOrigin,
     onRecalculate: async (mode, start, end) => {
       await calculateRoute(mode, start, end);
     },
   });
+
+  // Arrival detection handler
+  useEffect(() => {
+    if (liveNav.hasArrived) {
+      alert("¡Has llegado a tu destino!");
+      liveNav.stopTracking();
+      setIsActiveNavigation(false);
+      setIsNavigationActive(false);
+      setIsGpsOrigin(true);
+      setIsFollowing(true);
+      setRouteGeoJSON(null);
+      setActiveRoute(null);
+      setOriginCoords(null);
+      setDestCoords(null);
+    }
+  }, [liveNav.hasArrived]);
 
   // Clear map selection coords when entering a selection mode to ensure fresh tap coordinates
   useEffect(() => {
@@ -267,7 +281,7 @@ export function MapeoVEHome() {
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
         userLocation={isActiveNavigation && liveNav.livePosition ? liveNav.livePosition : userLocation}
-        routeGeoJSON={routeGeoJSON}
+        routeGeoJSON={isActiveNavigation && liveNav.remainingRouteGeoJSON ? liveNav.remainingRouteGeoJSON : routeGeoJSON}
         onMapClick={(coords) => {
           if (mapSelectionMode) {
             setSelectedMapCoords({ type: mapSelectionMode, lat: coords.lat, lng: coords.lng });
@@ -275,13 +289,26 @@ export function MapeoVEHome() {
           }
         }}
         customMarkers={getMapMarkers()}
-        followUserLocation={isActiveNavigation && isFollowing}
+        followUserLocation={isActiveNavigation && isFollowing && (isGpsOrigin || liveNav.livePosition !== null)}
         onStopFollowing={() => setIsFollowing(false)}
         isSelecting={!!mapSelectionMode}
         isRealLocation={isRealLocation}
         selectedGeocode={selectedGeocode}
         onVisibleBusinessesChange={setVisibleBusinesses}
+        bearing={liveNav.bearing}
+        isActiveNavigation={isActiveNavigation}
       />
+
+      {/* Floating Recentrar button (Waze/Google Maps style) */}
+      {isActiveNavigation && !isFollowing && (
+        <button
+          onClick={() => setIsFollowing(true)}
+          className="absolute bottom-24 right-4 z-[9999] bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-full shadow-lg flex items-center gap-1.5 transition-all active:scale-95 border-2 border-white"
+        >
+          <Locate size={14} />
+          <span>Recentrar</span>
+        </button>
+      )}
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
       {!isNavigationActive && (

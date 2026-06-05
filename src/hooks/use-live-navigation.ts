@@ -195,6 +195,57 @@ function speedForMode(mode: string): number {
   return table[mode] ?? 13.9;
 }
 
+// ─── Calculate geographic bearing between two coordinates ───────────────────
+function calculateBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const lat1Rad = (lat1 * Math.PI) / 180;
+  const lat2Rad = (lat2 * Math.PI) / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2Rad);
+  const x =
+    Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+    Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+  const brng = (Math.atan2(y, x) * 180) / Math.PI;
+  return (brng + 360) % 360;
+}
+
+// ─── Slice route GeoJSON to only show remaining geometry ─────────────────────
+function getRemainingRouteGeoJSON(
+  routeGeoJSON: any,
+  snappedLat: number,
+  snappedLng: number,
+  segmentIndex: number
+): any {
+  if (!routeGeoJSON) return null;
+  try {
+    const feature = routeGeoJSON.features?.[0];
+    if (!feature) return routeGeoJSON;
+
+    const coords: [number, number][] = feature.geometry?.coordinates;
+    if (!coords || coords.length < 2) return routeGeoJSON;
+
+    // Sliced coordinates: starts at snapped user location, then segmentIndex + 1 to the end
+    const remainingCoords: [number, number][] = [
+      [snappedLng, snappedLat],
+      ...coords.slice(segmentIndex + 1)
+    ];
+
+    return {
+      ...routeGeoJSON,
+      features: [
+        {
+          ...feature,
+          geometry: {
+            ...feature.geometry,
+            coordinates: remainingCoords
+          }
+        }
+      ]
+    };
+  } catch {
+    return routeGeoJSON;
+  }
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MIN_MOVE_METERS = 3; // Lowered to 3m for better responsiveness
 const RECALC_COOLDOWN_MS = 10_000; // max 1 recalculation every 10 seconds
@@ -211,7 +262,9 @@ export interface LiveNavState {
   gpsError: string | null;
   hasArrived: boolean; // true when within 15m of destination
   stopTracking: () => void;
-  nextManeuver: { text: string; distanceText: string } | null;
+  nextManeuver: { text: string; distanceText: string; type: number } | null;
+  bearing: number;
+  remainingRouteGeoJSON: any;
 }
 
 export interface UseLiveNavigationOptions {
@@ -225,6 +278,8 @@ export interface UseLiveNavigationOptions {
   transportMode: string;
   /** True if route is Haversine fallback — skips deviation check */
   isFallback: boolean;
+  /** True if origin is user's GPS */
+  isGpsOrigin: boolean;
   /** Called when auto-recalculation is triggered */
   onRecalculate: (
     mode: string,
@@ -246,6 +301,7 @@ export function useLiveNavigation({
   destCoords,
   transportMode,
   isFallback,
+  isGpsOrigin,
   onRecalculate,
 }: UseLiveNavigationOptions): LiveNavState {
   const [livePosition, setLivePosition] = useState<{
@@ -260,7 +316,9 @@ export function useLiveNavigation({
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [hasArrived, setHasArrived] = useState(false);
-  const [nextManeuver, setNextManeuver] = useState<{ text: string; distanceText: string } | null>(null);
+  const [nextManeuver, setNextManeuver] = useState<{ text: string; distanceText: string; type: number } | null>(null);
+  const [bearing, setBearing] = useState<number>(0);
+  const [remainingRouteGeoJSON, setRemainingRouteGeoJSON] = useState<any>(null);
 
   // Refs for values used inside the stable GPS callback.
   // Using refs avoids re-registering watchPosition on every render.
@@ -274,6 +332,7 @@ export function useLiveNavigation({
   const routeRef = useRef(routeGeoJSON);
   const modeRef = useRef(transportMode);
   const isFallbackRef = useRef(isFallback);
+  const isGpsOriginRef = useRef(isGpsOrigin);
   const onRecalculateRef = useRef(onRecalculate);
 
   // Keep refs in sync with latest prop values
@@ -289,6 +348,9 @@ export function useLiveNavigation({
   useEffect(() => {
     isFallbackRef.current = isFallback;
   }, [isFallback]);
+  useEffect(() => {
+    isGpsOriginRef.current = isGpsOrigin;
+  }, [isGpsOrigin]);
   useEffect(() => {
     onRecalculateRef.current = onRecalculate;
   }, [onRecalculate]);
@@ -309,6 +371,8 @@ export function useLiveNavigation({
     lastPosRef.current = null;
     setHasArrived(false);
     setNextManeuver(null);
+    setBearing(0);
+    setRemainingRouteGeoJSON(null);
   }, []);
 
   // ─── GPS position handler — STABLE (all mutable values via refs) ──────────
@@ -326,16 +390,62 @@ export function useLiveNavigation({
       );
       if (moved < MIN_MOVE_METERS) return;
     }
-    lastPosRef.current = { lat, lng };
+    
+    // Calculate bearing before updating lastPosRef
+    let curBearing: number | null = null;
+    if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
+      curBearing = pos.coords.heading;
+    } else if (lastPosRef.current) {
+      const prevLat = lastPosRef.current.lat;
+      const prevLng = lastPosRef.current.lng;
+      if (prevLat !== lat || prevLng !== lng) {
+        curBearing = calculateBearing(prevLat, prevLng, lat, lng);
+      }
+    }
+    if (curBearing !== null) {
+      setBearing(curBearing);
+    }
 
+    lastPosRef.current = { lat, lng };
     setGpsError(null);
 
     const dest = destRef.current;
     const isFallback = isFallbackRef.current;
     const route = routeRef.current;
     const mode = modeRef.current;
+    const isGpsOrigin = isGpsOriginRef.current;
 
     const deviationThreshold = mode === "foot-walking" ? 30 : mode === "cycling-regular" ? 50 : 80;
+
+    // If not GPS origin, check if they are close to the route
+    if (!isGpsOrigin) {
+      if (!isFallback && route) {
+        const snapped = findSnappedPosition(lat, lng, route);
+        if (snapped.distanceToRoute > 150) {
+          setLivePosition(null);
+          setRemainingRouteGeoJSON(route);
+          setRemainingDistance(null);
+          setRemainingTime(null);
+          setNextManeuver(null);
+          setIsDeviated(false);
+          return;
+        }
+      } else if (dest) {
+        const coords = route?.features?.[0]?.geometry?.coordinates || [];
+        const startLng = coords[0]?.[0] ?? dest.lng;
+        const startLat = coords[0]?.[1] ?? dest.lat;
+        const distToStart = haversineDistance(lat, lng, startLat, startLng);
+        if (distToStart > 150) {
+          setLivePosition(null);
+          setRemainingRouteGeoJSON(route);
+          setRemainingDistance(null);
+          setRemainingTime(null);
+          setNextManeuver(null);
+          setIsDeviated(false);
+          return;
+        }
+      }
+    }
 
     let finalLat = lat;
     let finalLng = lng;
@@ -350,6 +460,40 @@ export function useLiveNavigation({
     }
 
     setLivePosition({ lat: finalLat, lng: finalLng });
+
+    // ── Calculate remaining route geometry ─────────────────────────────────────────
+    let remRoute = route;
+    if (!isFallback && route && snappedResult) {
+      remRoute = getRemainingRouteGeoJSON(
+        route,
+        finalLat,
+        finalLng,
+        snappedResult.segmentIndex
+      );
+    } else if (isFallback && dest) {
+      remRoute = {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [finalLng, finalLat],
+                [dest.lng, dest.lat]
+              ]
+            },
+            properties: {
+              summary: {
+                distance: haversineDistance(finalLat, finalLng, dest.lat, dest.lng),
+                duration: 0
+              }
+            }
+          }
+        ]
+      };
+    }
+    setRemainingRouteGeoJSON(remRoute);
 
     // ── Calculate remaining distance and time estimate along route ─────────────────
     let finalDistToDest = haversineDistance(lat, lng, dest?.lat ?? lat, dest?.lng ?? lng);
@@ -374,7 +518,8 @@ export function useLiveNavigation({
       setHasArrived(true);
       setNextManeuver({
         text: "Has llegado a tu destino",
-        distanceText: "0 m"
+        distanceText: "0 m",
+        type: 10
       });
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
@@ -423,7 +568,8 @@ export function useLiveNavigation({
 
             setNextManeuver({
               text,
-              distanceText: distText
+              distanceText: distText,
+              type: nextStep.type
             });
           } else {
             const targetIdx = coords.length - 1;
@@ -436,7 +582,8 @@ export function useLiveNavigation({
             );
             setNextManeuver({
               text: "Has llegado a tu destino",
-              distanceText: formatDistanceHelper(distToDest)
+              distanceText: formatDistanceHelper(distToDest),
+              type: 10
             });
           }
         }
@@ -447,7 +594,8 @@ export function useLiveNavigation({
         const distToDest = haversineDistance(lat, lng, dest.lat, dest.lng);
         setNextManeuver({
           text: `Continúa recto durante ${formatDistanceHelper(distToDest)}`,
-          distanceText: formatDistanceHelper(distToDest)
+          distanceText: formatDistanceHelper(distToDest),
+          type: 6
         });
       }
     }
@@ -554,5 +702,7 @@ export function useLiveNavigation({
     hasArrived,
     stopTracking,
     nextManeuver,
+    bearing,
+    remainingRouteGeoJSON,
   };
 }

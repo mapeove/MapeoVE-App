@@ -24,6 +24,8 @@ interface MapeoVEMapProps {
   isRealLocation?: boolean;
   selectedGeocode?: { lat: number; lng: number } | null;
   onVisibleBusinessesChange?: (businesses: Business[]) => void;
+  bearing?: number;
+  isActiveNavigation?: boolean;
 }
 
 interface BusinessFeatureProperties {
@@ -106,6 +108,8 @@ export function MapeoVEMap({
   isRealLocation = false,
   selectedGeocode = null,
   onVisibleBusinessesChange,
+  bearing = 0,
+  isActiveNavigation = false,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -194,6 +198,12 @@ export function MapeoVEMap({
     return () => {
       cancelled = true;
       const map = mapRef.current;
+      if (userMarkerRef.current) {
+        try {
+          (userMarkerRef.current as any).remove();
+        } catch (e) {}
+        userMarkerRef.current = null;
+      }
       if (map) {
         map.remove();
       }
@@ -545,56 +555,64 @@ export function MapeoVEMap({
   // ─── Marcador del usuario (DOM Marker — se mantiene) ───────────────────
   useEffect(() => {
     const maplibregl = maplibreRef.current;
-    if (!mapRef.current || !userLocation || !mapLoaded || !maplibregl) return;
+    const map = mapRef.current;
+    if (!map || !userLocation || !mapLoaded || !maplibregl) return;
 
     const lat = Number(userLocation.lat);
     const lng = Number(userLocation.lng);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-    if (userMarkerRef.current) {
-      (userMarkerRef.current as { setLngLat: (lngLat: [number, number]) => void }).setLngLat([lng, lat]);
+    const markerElementId = "user-gps-marker";
+    let markerEl = document.getElementById(markerElementId);
+
+    const arrowHtml = `
+      <div style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; transform: rotate(${bearing}deg); transition: transform 0.2s ease-out;">
+        <svg viewBox="0 0 24 24" width="42" height="42" style="filter: drop-shadow(0px 2.5px 4px rgba(0,0,0,0.35));">
+          <path d="M12 2L3 20L12 16L21 20Z" fill="${BRAND.blue}" stroke="white" stroke-width="2" stroke-linejoin="round" />
+        </svg>
+      </div>
+    `;
+
+    const dotHtml = `
+      <div style="position: relative; width: 16px; height: 16px;">
+        <div style="position: absolute; top: -6px; left: -6px; width: 28px; height: 28px; border-radius: 50%; background: ${BRAND.blue}20; animation: pulse 2s infinite;"></div>
+        <div style="width: 16px; height: 16px; border-radius: 50%; background: ${BRAND.blue}; border: 2.5px solid white; box-shadow: 0 0 0 2px ${BRAND.blue}40, 0 1px 4px rgba(0,0,0,0.2);"></div>
+      </div>
+    `;
+
+    if (userMarkerRef.current && markerEl) {
+      (userMarkerRef.current as any).setLngLat([lng, lat]);
+      markerEl.innerHTML = isActiveNavigation ? arrowHtml : dotHtml;
     } else {
+      if (userMarkerRef.current) {
+        try {
+          (userMarkerRef.current as any).remove();
+        } catch (e) {}
+      }
+
       const markerRoot = document.createElement("div");
+      markerRoot.id = markerElementId;
       markerRoot.style.cssText = `
-        width: 16px;
-        height: 16px;
+        width: 42px;
+        height: 42px;
         cursor: pointer;
         z-index: 20;
-        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       `;
+      markerRoot.innerHTML = isActiveNavigation ? arrowHtml : dotHtml;
 
-      const dot = document.createElement("div");
-      dot.style.cssText = `
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: ${BRAND.blue};
-        border: 2.5px solid white;
-        box-shadow: 0 0 0 2px ${BRAND.blue}40, 0 1px 4px rgba(0,0,0,0.2);
-      `;
-
-      const pulseEl = document.createElement("div");
-      pulseEl.style.cssText = `
-        position: absolute;
-        top: -6px;
-        left: -6px;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: ${BRAND.blue}20;
-        animation: pulse 2s infinite;
-      `;
-
-      markerRoot.appendChild(pulseEl);
-      markerRoot.appendChild(dot);
-
-      // anchor: "center" → el punto se centra exactamente en la ubicación del usuario
-      userMarkerRef.current = new maplibregl.Marker({ element: markerRoot, anchor: "center" })
-        .setLngLat([lng, lat])
-        .addTo(mapRef.current as Parameters<typeof maplibregl.Marker.prototype.addTo>[0]);
+      try {
+        userMarkerRef.current = new maplibregl.Marker({ element: markerRoot, anchor: "center" })
+          .setLngLat([lng, lat])
+          .addTo(map);
+      } catch (err) {
+        console.error("Error creating user marker:", err);
+      }
     }
-  }, [userLocation, mapLoaded]);
+  }, [userLocation, mapLoaded, isActiveNavigation, bearing]);
 
   // ─── Custom Markers (for origin/destination) ──────────────────────────
   const customMarkersRefs = useRef<maplibregl.Marker[]>([]);
@@ -679,12 +697,41 @@ export function MapeoVEMap({
     const lng = Number(userLocation.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-    (map as any).easeTo({
-      center: [lng, lat],
-      zoom: Math.max((map as any).getZoom?.() ?? 15, 15),
-      duration: 800,
-    });
-  }, [userLocation, followUserLocation, mapLoaded]);
+    if (isActiveNavigation) {
+      (map as any).easeTo({
+        center: [lng, lat],
+        zoom: 17,
+        pitch: 65,
+        bearing: bearing,
+        offset: [0, 120], // Places the vehicle in the lower portion of the screen
+        duration: 1000,
+      });
+    } else {
+      (map as any).easeTo({
+        center: [lng, lat],
+        zoom: Math.max((map as any).getZoom?.() ?? 15, 15),
+        pitch: 0,
+        bearing: 0,
+        offset: [0, 0],
+        duration: 800,
+      });
+    }
+  }, [userLocation, followUserLocation, mapLoaded, isActiveNavigation, bearing]);
+
+  // ─── Reset map camera angle when exiting navigation ─────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (!isActiveNavigation) {
+      (map as any).easeTo({
+        pitch: 0,
+        bearing: 0,
+        offset: [0, 0],
+        duration: 1000
+      });
+    }
+  }, [isActiveNavigation, mapLoaded]);
 
   // ─── Detect user map drag → stop following ─────────────────────────────
   const onStopFollowingRef = useRef(onStopFollowing);

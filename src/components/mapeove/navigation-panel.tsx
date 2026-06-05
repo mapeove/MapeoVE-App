@@ -40,6 +40,84 @@ function MotorcycleIcon({ size = 16, className = "" }: { size?: number; classNam
   );
 }
 
+function ManeuverIcon({ type, className = "w-6 h-6 text-blue-600" }: { type: number; className?: string }) {
+  switch (type) {
+    case 0: // Left
+    case 2: // Sharp left
+    case 4: // Slight left
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 19v-4a4 4 0 0 0-4-4H5" />
+          <polyline points="9 7 5 11 9 15" />
+        </svg>
+      );
+    case 1: // Right
+    case 3: // Sharp right
+    case 5: // Slight right
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 19v-4a4 4 0 0 1 4-4h10" />
+          <polyline points="15 7 19 11 15 15" />
+        </svg>
+      );
+    case 6: // Straight
+    case 11: // Depart
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      );
+    case 7: // Enter roundabout
+    case 8: // Exit roundabout
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 20a8 8 0 1 1 8-8" />
+          <polyline points="17 16 20 12 20 16" />
+        </svg>
+      );
+    case 9: // U-turn
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 19V9a6 6 0 0 0-12 0v10" />
+          <polyline points="10 15 6 19 2 15" />
+        </svg>
+      );
+    case 10: // Goal
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="currentColor" className="text-red-500" opacity="0.2" />
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" className="text-red-500" />
+          <line x1="4" y1="22" x2="4" y2="15" className="text-red-500" />
+        </svg>
+      );
+    case 12: // Keep left
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22V15a3 3 0 0 0-1-2.2L5 8" />
+          <path d="M12 15a3 3 0 0 1 1-2.2l6-4.8" strokeDasharray="2 2" opacity="0.5" />
+          <polyline points="9 8 5 8 5 12" />
+        </svg>
+      );
+    case 13: // Keep right
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22V15a3 3 0 0 1 1-2.2L19 8" />
+          <path d="M12 15a3 3 0 0 0-1-2.2l-6-4.8" strokeDasharray="2 2" opacity="0.5" />
+          <polyline points="15 8 19 8 19 12" />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      );
+  }
+}
+
 function formatGeocodeName(f: any): string {
   const name = f.text || "";
   if (!f.context || !Array.isArray(f.context)) {
@@ -94,7 +172,7 @@ interface NavigationPanelProps {
     isRecalculating: boolean;
     gpsError: string | null;
     hasArrived: boolean;
-    nextManeuver?: { text: string; distanceText: string } | null;
+    nextManeuver?: { text: string; distanceText: string; type?: number } | null;
   };
   /** Whether the map camera is currently following the user */
   isFollowing?: boolean;
@@ -723,6 +801,11 @@ export function NavigationPanel({
             >
               <ArrowLeft size={18} className="text-gray-700" />
             </button>
+            {isActiveNavigation && liveNav?.nextManeuver && (
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-sm">
+                <ManeuverIcon type={liveNav.nextManeuver.type ?? 6} className="w-6 h-6 text-blue-600" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               {isActiveNavigation && liveNav?.nextManeuver ? (
                 <>
