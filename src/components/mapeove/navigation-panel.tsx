@@ -718,8 +718,8 @@ export function NavigationPanel({
                 </div>
               )}
 
-              {/* Deviation warning */}
-              {liveNav?.isDeviated && !liveNav.isRecalculating && (
+              {/* Deviation warning — only meaningful when navigating from real GPS position */}
+              {liveNav?.isDeviated && !liveNav.isRecalculating && originType === "gps" && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-100 rounded-xl">
                   <AlertTriangle size={13} className="text-orange-500 flex-shrink-0" />
                   <p className="text-[10px] font-bold text-orange-700">Te has desviado de la ruta</p>
@@ -751,22 +751,29 @@ export function NavigationPanel({
                       </span>
                     ) : (
                       <span className="text-[9px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                        {liveNav?.livePosition ? "En ruta" : "Ruta óptima"}
+                        {/* "En ruta" solo cuando origen es GPS y tenemos posición real */}
+                        {originType === "gps" && liveNav?.livePosition ? "En ruta" : "Ruta óptima"}
                       </span>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* ── Route Stats (remaining when live, totals otherwise) ─── */}
+              {/* ── Route Stats ─────────────────────────────────────────────
+                   REGLA: distancia/tiempo restante GPS solo cuando originType === "gps".
+                   Si el origen fue elegido en mapa o dirección escrita, el usuario
+                   no está físicamente en ese punto → usar datos de la respuesta ORS.
+                   Esto evita mostrar distancias absurdas como 6799 km cuando el
+                   dispositivo está en España y el destino en Venezuela.
+              ─────────────────────────────────────────────────────────────── */}
               {activeRoute && (
                 <div className="flex items-center justify-between border-y border-gray-50 py-2.5 my-0.5">
                   <div className="flex-1 text-center">
                     <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                      {liveNav?.remainingDistance != null ? "Restante" : "Distancia"}
+                      {originType === "gps" && liveNav?.remainingDistance != null ? "Restante" : "Distancia"}
                     </p>
                     <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
-                      {liveNav?.remainingDistance != null
+                      {originType === "gps" && liveNav?.remainingDistance != null
                         ? formatDistance(liveNav.remainingDistance)
                         : formatDistance(activeRoute.distance)}
                     </p>
@@ -774,10 +781,10 @@ export function NavigationPanel({
                   <div className="w-px h-8 bg-gray-100" />
                   <div className="flex-1 text-center">
                     <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
-                      {liveNav?.remainingTime != null ? "Tiempo rest." : "Tiempo est."}
+                      {originType === "gps" && liveNav?.remainingTime != null ? "Tiempo rest." : "Tiempo est."}
                     </p>
                     <p className="text-base font-black text-gray-900 leading-tight mt-0.5">
-                      {liveNav?.remainingTime != null
+                      {originType === "gps" && liveNav?.remainingTime != null
                         ? formatDuration(liveNav.remainingTime)
                         : activeRoute.isFallback
                         ? "—"

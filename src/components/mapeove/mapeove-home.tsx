@@ -109,8 +109,11 @@ export function MapeoVEHome() {
     customStart?: { lat: number; lng: number }, 
     customEnd?: { lat: number; lng: number }
   ) => {
+    // Limpiar siempre antes de calcular para evitar mezclar datos de rutas anteriores
     setRouteLoading(true);
     setRouteError(null);
+    setActiveRoute(null);
+    setRouteGeoJSON(null);
 
     let startPoint = "";
     if (customStart) {
