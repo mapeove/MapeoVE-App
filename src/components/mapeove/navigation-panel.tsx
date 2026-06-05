@@ -278,6 +278,18 @@ export function NavigationPanel({
         return;
       }
 
+      if (originType === "map" && !originCoords) {
+        alert("Por favor selecciona un punto de origen en el mapa.");
+        setGeocoding(false);
+        return;
+      }
+
+      if (destType === "map" && !destCoords) {
+        alert("Por favor selecciona un punto de destino en el mapa.");
+        setGeocoding(false);
+        return;
+      }
+
       await onCalculateRoute(mode, finalOrigin || undefined, finalDest || undefined);
     } catch (error) {
       console.error("Error planning route:", error);
@@ -695,7 +707,10 @@ export function NavigationPanel({
           {/* Top Floating Bar */}
           <div className="absolute top-4 left-4 right-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 z-[9998] pointer-events-auto flex items-center gap-3">
             <button 
-              onClick={() => setIsConfiguring(true)}
+              onClick={() => {
+                setIsConfiguring(true);
+                onClearRoute();
+              }}
               className="p-1.5 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
               title="Volver a configurar"
             >
@@ -922,7 +937,10 @@ export function NavigationPanel({
                       Iniciar
                     </button>
                     <button
-                      onClick={() => setIsConfiguring(true)}
+                      onClick={() => {
+                        setIsConfiguring(true);
+                        onClearRoute();
+                      }}
                       className="py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-black rounded-xl active:scale-95 transition-all text-center"
                     >
                       Editar
@@ -949,7 +967,10 @@ export function NavigationPanel({
                       )}
                     </button>
                     <button
-                      onClick={() => setIsConfiguring(true)}
+                      onClick={() => {
+                        setIsConfiguring(true);
+                        onClearRoute();
+                      }}
                       className="py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-black rounded-xl active:scale-95 transition-all text-center"
                     >
                       Editar
@@ -1008,7 +1029,10 @@ export function NavigationPanel({
                     Iniciar
                   </button>
                   <button
-                    onClick={() => setIsConfiguring(true)}
+                    onClick={() => {
+                      setIsConfiguring(true);
+                      onClearRoute();
+                    }}
                     className="py-3 border-2 border-gray-300 bg-white text-gray-900 text-xs font-black rounded-xl active:scale-95 transition-all text-center"
                   >
                     Editar
@@ -1035,7 +1059,10 @@ export function NavigationPanel({
                     )}
                   </button>
                   <button
-                    onClick={() => setIsConfiguring(true)}
+                    onClick={() => {
+                      setIsConfiguring(true);
+                      onClearRoute();
+                    }}
                     className="py-3 border-2 border-gray-300 bg-white text-gray-900 text-xs font-black rounded-xl active:scale-95 transition-all text-center"
                   >
                     Editar

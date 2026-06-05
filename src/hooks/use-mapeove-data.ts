@@ -66,25 +66,21 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
       ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
       : "null";
 
-    // Si la ubicación no cambió Y no hay filtros activos → no recargar
-    // Esto evita la 2da llamada redundante tras la carga inicial
+    // Si la ubicación no cambió Y la categoría no cambió → no recargar
     const locationChanged = locationKey !== prevLocationRef.current;
     const categoryChanged = activeCategory !== initialCategoryRef.current;
-    const searchChanged = searchQuery !== initialSearchRef.current;
 
-    if (!locationChanged && !categoryChanged && !searchChanged) {
+    if (!locationChanged && !categoryChanged) {
       return; // Nada cambió — no recargar
     }
 
     prevLocationRef.current = locationKey;
     initialCategoryRef.current = activeCategory;
-    initialSearchRef.current = searchQuery;
 
     async function loadByFilter() {
       try {
         const result = await fetchBusinesses({
           category: activeCategory || undefined,
-          q: searchQuery || undefined,
           lat: userLocation?.lat,
           lng: userLocation?.lng,
           limit: 100,
@@ -95,7 +91,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
       }
     }
     loadByFilter();
-  }, [activeCategory, searchQuery, userLocation]);
+  }, [activeCategory, userLocation]);
 
   const handleMarkerClick = useCallback((business: Business) => {
     setSelectedBusiness(business);

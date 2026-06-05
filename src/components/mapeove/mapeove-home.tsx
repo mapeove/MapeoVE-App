@@ -15,6 +15,8 @@ import { useLiveNavigation } from "@/hooks/use-live-navigation";
 import { MapPin, List, X } from "lucide-react";
 import { AuthButton } from "@/components/mapeove/auth-button";
 import { AdminDashboard } from "@/components/mapeove/admin-dashboard";
+import { isInVenezuela } from "@/lib/coordinate-validator";
+import { haversineDistance } from "@/hooks/use-live-navigation";
 
 // Dynamic import del mapa — ssr: false porque MapLibre GL usa window/document
 const MapeoVEMap = dynamic(
@@ -52,6 +54,34 @@ export function MapeoVEHome() {
   } = useMapeoveData(userLocation);
 
   const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
+
+  const getNearbyBusinessCount = () => {
+    let referenceCoords = userLocation;
+
+    if (selectedGeocode) {
+      referenceCoords = { lat: selectedGeocode.lat, lng: selectedGeocode.lng };
+    }
+
+    if (!referenceCoords) return 0;
+
+    // If using user location, but they are outside Venezuela, show 0
+    if (!selectedGeocode && !isInVenezuela(referenceCoords.lat, referenceCoords.lng)) {
+      return 0;
+    }
+
+    // Count businesses within 50 km (50000 meters) of the reference coordinates
+    const count = businesses.filter((b) => {
+      const lat = Number(b.latitude);
+      const lng = Number(b.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+      const dist = haversineDistance(referenceCoords.lat, referenceCoords.lng, lat, lng);
+      return dist <= 50000; // 50 km
+    }).length;
+
+    return count;
+  };
+
+  const nearbyCount = getNearbyBusinessCount();
 
   const handleMarkerClick = (business: Business) => {
     setSelectedGeocode(null);
@@ -266,6 +296,7 @@ export function MapeoVEHome() {
         onMapClick={(coords) => {
           if (mapSelectionMode) {
             setSelectedMapCoords({ type: mapSelectionMode, lat: coords.lat, lng: coords.lng });
+            setMapSelectionMode(null);
           }
         }}
         customMarkers={getMapMarkers()}
@@ -331,7 +362,7 @@ export function MapeoVEHome() {
                 style={{ backgroundColor: BRAND.blue }}
               >
                 <MapPin size={12} />
-                {businessCount} negocio{businessCount !== 1 ? "s" : ""} encontrados
+                {nearbyCount} negocio{nearbyCount !== 1 ? "s" : ""} cercano{nearbyCount !== 1 ? "s" : ""}
               </div>
             </div>
           )}
