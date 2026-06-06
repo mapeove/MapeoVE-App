@@ -26,6 +26,7 @@ interface MapeoVEMapProps {
   onVisibleBusinessesChange?: (businesses: Business[]) => void;
   bearing?: number;
   isActiveNavigation?: boolean;
+  onRecenter?: () => void;
 }
 
 interface BusinessFeatureProperties {
@@ -110,6 +111,7 @@ export function MapeoVEMap({
   onVisibleBusinessesChange,
   bearing = 0,
   isActiveNavigation = false,
+  onRecenter,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -239,6 +241,23 @@ export function MapeoVEMap({
       },
     });
 
+    // Capa de borde blanco para ruta premium (casing)
+    map.addLayer({
+      id: "route-layer-casing",
+      type: "line",
+      source: "route-source",
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": "#ffffff",
+        "line-width": 12, // 8px principal + 2px borde por lado
+        "line-opacity": 0.95,
+      },
+    });
+
+    // Capa azul principal
     map.addLayer({
       id: "route-layer",
       type: "line",
@@ -248,9 +267,9 @@ export function MapeoVEMap({
         "line-cap": "round",
       },
       paint: {
-        "line-color": BRAND.red,
-        "line-width": 5,
-        "line-opacity": 0.8,
+        "line-color": "#3b82f6",
+        "line-width": 8,
+        "line-opacity": 0.95,
       },
     });
 
@@ -567,9 +586,9 @@ export function MapeoVEMap({
     let markerEl = document.getElementById(markerElementId);
 
     const arrowHtml = `
-      <div style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; transform: rotate(${bearing}deg); transition: transform 0.2s ease-out;">
-        <svg viewBox="0 0 24 24" width="42" height="42" style="filter: drop-shadow(0px 2.5px 4px rgba(0,0,0,0.35));">
-          <path d="M12 2L3 20L12 16L21 20Z" fill="${BRAND.blue}" stroke="white" stroke-width="2" stroke-linejoin="round" />
+      <div class="user-location-arrow" style="transform: rotate(${bearing}deg); transition: transform 0.2s ease-out;">
+        <svg viewBox="0 0 24 24" width="28" height="28">
+          <path d="M12 3L4 20L12 16L20 20Z" fill="white" />
         </svg>
       </div>
     `;
@@ -583,6 +602,8 @@ export function MapeoVEMap({
 
     if (userMarkerRef.current && markerEl) {
       (userMarkerRef.current as any).setLngLat([lng, lat]);
+      markerEl.style.width = isActiveNavigation ? "48px" : "42px";
+      markerEl.style.height = isActiveNavigation ? "48px" : "42px";
       markerEl.innerHTML = isActiveNavigation ? arrowHtml : dotHtml;
     } else {
       if (userMarkerRef.current) {
@@ -594,8 +615,8 @@ export function MapeoVEMap({
       const markerRoot = document.createElement("div");
       markerRoot.id = markerElementId;
       markerRoot.style.cssText = `
-        width: 42px;
-        height: 42px;
+        width: ${isActiveNavigation ? "48px" : "42px"};
+        height: ${isActiveNavigation ? "48px" : "42px"};
         cursor: pointer;
         z-index: 20;
         display: flex;
@@ -698,12 +719,12 @@ export function MapeoVEMap({
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     if (isActiveNavigation) {
-      (map as any).easeTo({
+      (map as any).flyTo({
         center: [lng, lat],
-        zoom: 17,
-        pitch: 65,
-        bearing: bearing,
-        offset: [0, 120], // Places the vehicle in the lower portion of the screen
+        zoom: 18,
+        pitch: 70,
+        bearing: bearing || map.getBearing(),
+        offset: [0, 150], // Places the vehicle in the lower portion of the screen (tercio inferior)
         duration: 1000,
       });
     } else {
@@ -771,6 +792,7 @@ export function MapeoVEMap({
     <>
       <div
         ref={mapContainer}
+        className={isActiveNavigation ? "navigation-active" : ""}
         style={{
           position: "absolute",
           top: 0,
@@ -781,7 +803,32 @@ export function MapeoVEMap({
           height: "100vh",
         }}
       />
+      {isActiveNavigation && !followUserLocation && userLocation && (
+        <button 
+          className="recenter-button"
+          onClick={() => {
+            if (onRecenter) {
+              onRecenter();
+            }
+            if (mapRef.current) {
+              mapRef.current.flyTo({
+                center: [userLocation.lng, userLocation.lat],
+                zoom: 18,
+                pitch: 70,
+                bearing: bearing || mapRef.current.getBearing(),
+                offset: [0, 150],
+                duration: 1000,
+              });
+            }
+          }}
+        >
+          🎯 Recentrar
+        </button>
+      )}
       <style jsx global>{`
+        .navigation-active .maplibregl-ctrl {
+          display: none !important;
+        }
         @keyframes pulse {
           0% { transform: scale(1); opacity: 0.6; }
           50% { transform: scale(1.5); opacity: 0; }

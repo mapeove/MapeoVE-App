@@ -335,6 +335,20 @@ export function useLiveNavigation({
   const isGpsOriginRef = useRef(isGpsOrigin);
   const onRecalculateRef = useRef(onRecalculate);
 
+  const prevDistanceRef = useRef<number | null>(null);
+  const noChangePrevDistanceRef = useRef<number | null>(null);
+  const noChangeCountRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (remainingDistance !== null && prevDistanceRef.current !== null) {
+      const delta = prevDistanceRef.current - remainingDistance;
+      if (Math.abs(delta) > 0.5) { // cambio > 0.5 metros
+        console.log(`[GPS REAL] Distancia: ${(prevDistanceRef.current/1000).toFixed(2)}km → ${(remainingDistance/1000).toFixed(2)}km (Δ: ${delta.toFixed(1)}m)`);
+      }
+    }
+    prevDistanceRef.current = remainingDistance;
+  }, [remainingDistance]);
+
   // Keep refs in sync with latest prop values
   useEffect(() => {
     destRef.current = destCoords;
@@ -511,6 +525,30 @@ export function useLiveNavigation({
     }
 
     setRemainingDistance(finalDistToDest);
+
+    // Validar si el usuario se mueve pero la distancia no disminuye
+    if (noChangePrevDistanceRef.current !== null) {
+      const distDelta = noChangePrevDistanceRef.current - finalDistToDest;
+      if (Math.abs(distDelta) < 0.5) {
+        noChangeCountRef.current += 1;
+        if (noChangeCountRef.current >= 10 && dest) {
+          console.log("[GPS REAL] Alerta: 10 actualizaciones con movimiento detectado pero sin cambio en la distancia restante. Forzando recálculo...");
+          noChangeCountRef.current = 0;
+          if (!isRecalculatingRef.current) {
+            isRecalculatingRef.current = true;
+            setIsRecalculating(true);
+            lastRecalcRef.current = Date.now();
+            onRecalculateRef.current(mode, { lat, lng }, dest).finally(() => {
+              isRecalculatingRef.current = false;
+              setIsRecalculating(false);
+            });
+          }
+        }
+      } else {
+        noChangeCountRef.current = 0;
+      }
+    }
+    noChangePrevDistanceRef.current = finalDistToDest;
     
     let finalTimeToDest = finalDistToDest / speedForMode(mode);
     if (!isFallback && route) {

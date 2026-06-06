@@ -102,13 +102,26 @@ export function MapeoVEHome() {
   const [mapSelectionMode, setMapSelectionMode] = useState<"origin" | "destination" | null>(null);
   const [selectedMapCoords, setSelectedMapCoords] = useState<{type: "origin" | "destination", lat: number, lng: number} | null>(null);
 
+  // Navigation-frozen states to prevent desynchronization
+  const [navRouteGeoJSON, setNavRouteGeoJSON] = useState<any>(null);
+  const [navActiveRoute, setNavActiveRoute] = useState<any>(null);
+  const [navDestCoords, setNavDestCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Sync changes to routeGeoJSON and activeRoute (e.g. from recalculation) to the active navigation hook
+  useEffect(() => {
+    if (isActiveNavigation) {
+      if (routeGeoJSON) setNavRouteGeoJSON(routeGeoJSON);
+      if (activeRoute) setNavActiveRoute(activeRoute);
+    }
+  }, [routeGeoJSON, activeRoute, isActiveNavigation]);
+
   // Live navigation (GPS tracking, deviation, auto-recalc)
   const liveNav = useLiveNavigation({
     isActive: isActiveNavigation,
-    routeGeoJSON,
-    destCoords,
-    transportMode: activeRoute?.mode ?? "driving-car",
-    isFallback: activeRoute?.isFallback ?? false,
+    routeGeoJSON: navRouteGeoJSON,
+    destCoords: navDestCoords,
+    transportMode: navActiveRoute?.mode ?? "driving-car",
+    isFallback: navActiveRoute?.isFallback ?? false,
     isGpsOrigin,
     onRecalculate: async (mode, start, end) => {
       await calculateRoute(mode, start, end);
@@ -128,6 +141,9 @@ export function MapeoVEHome() {
       setActiveRoute(null);
       setOriginCoords(null);
       setDestCoords(null);
+      setNavRouteGeoJSON(null);
+      setNavActiveRoute(null);
+      setNavDestCoords(null);
     }
   }, [liveNav.hasArrived]);
 
@@ -297,18 +313,8 @@ export function MapeoVEHome() {
         onVisibleBusinessesChange={setVisibleBusinesses}
         bearing={liveNav.bearing}
         isActiveNavigation={isActiveNavigation}
+        onRecenter={() => setIsFollowing(true)}
       />
-
-      {/* Floating Recentrar button (Waze/Google Maps style) */}
-      {isActiveNavigation && !isFollowing && (
-        <button
-          onClick={() => setIsFollowing(true)}
-          className="absolute bottom-24 right-4 z-[9999] bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-full shadow-lg flex items-center gap-1.5 transition-all active:scale-95 border-2 border-white"
-        >
-          <Locate size={14} />
-          <span>Recentrar</span>
-        </button>
-      )}
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
       {!isNavigationActive && (
@@ -498,6 +504,9 @@ export function MapeoVEHome() {
               setOriginCoords(null);
               setDestCoords(null);
               setSelectedMapCoords(null);
+              setNavRouteGeoJSON(null);
+              setNavActiveRoute(null);
+              setNavDestCoords(null);
               clearRoute();
             }}
             onCalculateRoute={calculateRoute}
@@ -519,6 +528,9 @@ export function MapeoVEHome() {
             hasArrived={liveNav.hasArrived}
             onInitNavigation={(gpsOrigin) => {
               setIsGpsOrigin(gpsOrigin);
+              setNavRouteGeoJSON(routeGeoJSON);
+              setNavActiveRoute(activeRoute);
+              setNavDestCoords(destCoords);
               setIsActiveNavigation(true);
               setIsFollowing(true);
             }}
@@ -527,6 +539,9 @@ export function MapeoVEHome() {
               setIsActiveNavigation(false);
               setIsGpsOrigin(true); // reset for next time
               setIsFollowing(true);
+              setNavRouteGeoJSON(null);
+              setNavActiveRoute(null);
+              setNavDestCoords(null);
             }}
             onRecenter={() => setIsFollowing(true)}
             onOriginTypeChange={(isGps) => setIsGpsOrigin(isGps)}

@@ -138,6 +138,17 @@ function formatGeocodeName(f: any): string {
   return parts.join(", ");
 }
 
+function simpleHaversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 interface NavigationPanelProps {
   business: Business | null;
   userLocation: { lat: number; lng: number } | null;
@@ -219,6 +230,42 @@ export function NavigationPanel({
   onOriginTypeChange,
 }: NavigationPanelProps) {
   const [isConfiguring, setIsConfiguring] = useState(true);
+
+  // ── Fallback Distance & Duration Calculation ──────────────────────────
+  const getDisplayDistanceAndDuration = () => {
+    let dist = liveNav?.remainingDistance;
+    let dur = liveNav?.remainingTime;
+
+    // Validate dist
+    if (dist == null || isNaN(dist) || !Number.isFinite(dist) || dist <= 0) {
+      if (activeRoute?.distance != null && Number.isFinite(activeRoute.distance)) {
+        dist = activeRoute.distance;
+      } else if (userLocation && destCoords) {
+        dist = simpleHaversine(userLocation.lat, userLocation.lng, destCoords.lat, destCoords.lng);
+      } else {
+        dist = 0;
+      }
+    }
+
+    // Validate dur
+    if (dur == null || isNaN(dur) || !Number.isFinite(dur) || dur <= 0) {
+      if (activeRoute?.duration != null && Number.isFinite(activeRoute.duration)) {
+        dur = activeRoute.duration;
+      } else {
+        const mode = activeRoute?.mode ?? "driving-car";
+        const speeds: Record<string, number> = {
+          "driving-car": 13.9,
+          "driving-car-moto": 16.7,
+          "cycling-regular": 4.2,
+          "foot-walking": 1.4,
+        };
+        const speed = speeds[mode] ?? 13.9;
+        dur = dist / speed;
+      }
+    }
+
+    return { dist, dur };
+  };
   
   // Origen states
   const [originType, setOriginType] = useState<"gps" | "custom" | "map">("gps");
@@ -403,6 +450,64 @@ export function NavigationPanel({
     onClearRoute();
     onClose();
   };
+
+  if (isActiveNavigation) {
+    const { dist: displayDist, dur: displayDur } = getDisplayDistanceAndDuration();
+    const eta = displayDur !== null && Number.isFinite(displayDur)
+      ? new Date(Date.now() + displayDur * 1000).toLocaleTimeString('es-ES', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      : '--:--';
+
+    return (
+      <>
+        {/* Banner superior compacto */}
+        <div className="navigation-banner">
+          <div className="navigation-banner-content">
+            <div className="maneuver-icon">
+              <ManeuverIcon type={liveNav?.nextManeuver?.type ?? 6} className="w-6 h-6 text-white" />
+            </div>
+            <div className="maneuver-text">
+              {liveNav?.nextManeuver?.text || "Continúa recto por la ruta"}
+            </div>
+          </div>
+        </div>
+
+        {/* Panel inferior compacto */}
+        <div
+          className="fixed bottom-0 left-0 right-0 md:absolute md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 z-[9999] pointer-events-auto p-4 flex items-center justify-between"
+          style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+        >
+          {/* Left: Duration, ETA, and Distance Remaining */}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-black text-green-600">
+                {formatDuration(displayDur)}
+              </span>
+              <span className="text-sm font-semibold text-gray-500">
+                • Llegada {eta}
+              </span>
+            </div>
+            <span className="text-xs font-black text-gray-400 uppercase tracking-wider">
+              {formatDistance(displayDist)}
+            </span>
+          </div>
+
+          {/* Right: Action (Detener) */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onStopNavigation}
+              className="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <X size={14} />
+              <span>Detener</span>
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -803,17 +908,17 @@ export function NavigationPanel({
                 <ArrowLeft size={18} className="text-gray-700" />
               </button>
             )}
-            {isActiveNavigation && liveNav?.nextManeuver && (
+            {isActiveNavigation && (
               <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-sm">
-                <ManeuverIcon type={liveNav.nextManeuver.type ?? 6} className="w-6 h-6 text-blue-600" />
+                <ManeuverIcon type={liveNav?.nextManeuver?.type ?? 6} className="w-6 h-6 text-blue-600" />
               </div>
             )}
             <div className="flex-1 min-w-0">
-              {isActiveNavigation && liveNav?.nextManeuver ? (
+              {isActiveNavigation ? (
                 <>
                   <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Siguiente indicación</p>
                   <p className="text-xs font-black text-gray-800 leading-tight">
-                    {liveNav.nextManeuver.text}
+                    {liveNav?.nextManeuver?.text || "Continúa recto por la ruta"}
                   </p>
                 </>
               ) : (
@@ -1188,48 +1293,51 @@ export function NavigationPanel({
           )}
 
           {/* Compact Bottom Bar (Navigation Mode) */}
-          {isActiveNavigation && (
-            <div
-              className="fixed bottom-0 left-0 right-0 md:absolute md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 z-[9999] pointer-events-auto p-4 flex items-center justify-between"
-              style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
-            >
-              {/* Left: Time and Distance Remaining */}
-              <div className="flex flex-col">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-green-600">
-                    {liveNav?.remainingTime != null ? formatDuration(liveNav.remainingTime) : "—"}
+          {isActiveNavigation && (() => {
+            const { dist: displayDist, dur: displayDur } = getDisplayDistanceAndDuration();
+            return (
+              <div
+                className="fixed bottom-0 left-0 right-0 md:absolute md:bottom-4 md:left-4 md:right-auto md:w-[390px] bg-white rounded-t-3xl md:rounded-2xl shadow-2xl border-t md:border border-gray-100 z-[9999] pointer-events-auto p-4 flex items-center justify-between"
+                style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+              >
+                {/* Left: Time and Distance Remaining */}
+                <div className="flex flex-col">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-green-600">
+                      {formatDuration(displayDur)}
+                    </span>
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Restante</span>
+                  </div>
+                  <span className="text-xs font-black text-gray-500 mt-0.5">
+                    {formatDistance(displayDist)}
                   </span>
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Restante</span>
                 </div>
-                <span className="text-xs font-black text-gray-500 mt-0.5">
-                  {liveNav?.remainingDistance != null ? formatDistance(liveNav.remainingDistance) : "—"}
-                </span>
-              </div>
 
-              {/* Right: Actions (Recentrar, Detener) */}
-              <div className="flex items-center gap-2">
-                {/* Recentrar if not following */}
-                {!isFollowing && onRecenter && (
+                {/* Right: Actions (Recentrar, Detener) */}
+                <div className="flex items-center gap-2">
+                  {/* Recentrar if not following */}
+                  {!isFollowing && onRecenter && (
+                    <button
+                      onClick={onRecenter}
+                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-black rounded-xl active:scale-95 transition-all border border-blue-100 flex items-center gap-1"
+                    >
+                      <Locate size={13} />
+                      <span>Recentrar</span>
+                    </button>
+                  )}
+                  
+                  {/* Detener/Salir button */}
                   <button
-                    onClick={onRecenter}
-                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-black rounded-xl active:scale-95 transition-all border border-blue-100 flex items-center gap-1"
+                    onClick={onStopNavigation}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
                   >
-                    <Locate size={13} />
-                    <span>Recentrar</span>
+                    <X size={14} />
+                    <span>Detener</span>
                   </button>
-                )}
-                
-                {/* Detener/Salir button */}
-                <button
-                  onClick={onStopNavigation}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  <X size={14} />
-                  <span>Detener</span>
-                </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       )}
     </>
