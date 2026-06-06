@@ -424,6 +424,10 @@ export function useLiveNavigation({
     setGpsError(null);
 
     const dest = destRef.current;
+    if (!dest) {
+      console.warn("[GPS] No destination coordinates provided yet. Skipping position update.");
+      return;
+    }
     const isFallback = isFallbackRef.current;
     const route = routeRef.current;
     const mode = modeRef.current;
