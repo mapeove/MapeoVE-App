@@ -52,6 +52,16 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
   const [bizImages, setBizImages] = useState<{ id: string; url: string; isPrimary: boolean; createdAt: string }[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [bizMessage, setBizMessage] = useState<{ type: "success" | "error" | ""; text: string } | null>(null);
+
+  useEffect(() => {
+    setBizMessage(null);
+  }, [activeTab]);
+
+  const handleSaveAndBack = () => {
+    setSelectedAdminBiz(null);
+    setBizMessage({ type: "success", text: "Fotos actualizadas correctamente" });
+  };
 
   // Fetch Business Images when opened in Admin View
   useEffect(() => {
@@ -546,6 +556,16 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                       </span>
                     </div>
                   </div>
+
+                  {/* Botón Guardar y volver */}
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={handleSaveAndBack}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md"
+                    >
+                      Guardar y volver
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -555,6 +575,21 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                       Total: {businesses.length}
                     </span>
                   </div>
+
+                  {bizMessage && bizMessage.text && (
+                    <div className={`p-3 text-xs rounded-xl border flex items-center gap-2 ${
+                      bizMessage.type === "success" 
+                        ? "bg-green-50 text-green-700 border-green-200" 
+                        : "bg-red-50 text-red-700 border-red-200"
+                    }`}>
+                      {bizMessage.type === "success" ? (
+                        <CheckCircle2 size={14} className="text-green-600" />
+                      ) : (
+                        <XCircle size={14} className="text-red-500" />
+                      )}
+                      <span className="font-bold">{bizMessage.text}</span>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {(Array.isArray(businesses) ? businesses : []).map((biz) => (
@@ -571,7 +606,10 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                         </div>
                         <p className="text-[10px] sm:text-[11px] text-gray-500 truncate">{biz.address}</p>
                         <button
-                          onClick={() => setSelectedAdminBiz(biz)}
+                          onClick={() => {
+                            setBizMessage(null);
+                            setSelectedAdminBiz(biz);
+                          }}
                           className="mt-1 w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 active:scale-95"
                           style={{ backgroundColor: "#f3f4f6" }}
                         >
