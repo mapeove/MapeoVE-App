@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, ShieldAlert, Store, Users, FileText, CheckCircle2, XCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { X, ShieldAlert, Store, Users, FileText, CheckCircle2, XCircle, Search, MoreVertical, Edit2, Trash2, AlertTriangle, MapPin, Phone, Clock, MessageCircle } from "lucide-react";
 import { Business, BRAND } from "@/types/mapeove";
 
 interface AdminDashboardProps {
   isOpen: boolean;
   onClose: () => void;
   businesses: Business[];
+  onRefreshBusinesses?: () => void;
 }
 
 interface UserData {
@@ -44,9 +45,168 @@ interface BusinessRequestData {
   createdAt: string;
 }
 
-export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardProps) {
+export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesses }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "pagos">("negocios");
-  
+
+  // Local mirror of businesses that reflects deletes without a full page refresh
+  const [localBusinesses, setLocalBusinesses] = useState<Business[]>([]);
+  useEffect(() => { setLocalBusinesses(businesses); }, [businesses]);
+
+  // Search / filter
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredBusinesses = localBusinesses.filter((biz) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      biz.name.toLowerCase().includes(q) ||
+      biz.category.name.toLowerCase().includes(q) ||
+      biz.address.toLowerCase().includes(q) ||
+      (biz.phone && biz.phone.toLowerCase().includes(q)) ||
+      (biz.active ? "activo" : "inactivo").includes(q)
+    );
+  });
+
+  // 3-dot menu open state (keyed by biz.id)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Delete modal state
+  const [deletingBiz, setDeletingBiz] = useState<Business | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleConfirmDelete = async () => {
+    if (!deletingBiz) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/businesses/${deletingBiz.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLocalBusinesses((prev) => prev.filter((b) => b.id !== deletingBiz.id));
+        setBizMessage({ type: "success", text: `"${deletingBiz.name}" eliminado correctamente.` });
+        setDeletingBiz(null);
+        onRefreshBusinesses?.();
+      } else {
+        setDeleteError(data.error || "Error al eliminar el establecimiento.");
+      }
+    } catch (err) {
+      console.error("Error deleting business:", err);
+      setDeleteError("Error de conexión al eliminar.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Edit business state
+  const [editingBiz, setEditingBiz] = useState<Business | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string; icon: string }[]>([]);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    categoryId: "",
+    address: "",
+    phone: "",
+    whatsapp: "",
+    hours: "",
+    description: "",
+    active: true,
+    verified: false,
+    latitude: 0,
+    longitude: 0,
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMessage, setEditMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Load categories when edit mode opens
+  useEffect(() => {
+    if (!editingBiz) return;
+    setEditForm({
+      name: editingBiz.name,
+      categoryId: editingBiz.category.id,
+      address: editingBiz.address,
+      phone: editingBiz.phone || "",
+      whatsapp: editingBiz.whatsapp || "",
+      hours: editingBiz.hours || "",
+      description: editingBiz.description || "",
+      active: editingBiz.active,
+      verified: editingBiz.verified,
+      latitude: editingBiz.latitude,
+      longitude: editingBiz.longitude,
+    });
+    setEditMessage(null);
+
+    if (categories.length === 0) {
+      fetch("/api/categories")
+        .then((r) => r.json())
+        .then((json) => {
+          const cats = json?.success && Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+          setCategories(cats);
+        })
+        .catch(console.error);
+    }
+  }, [editingBiz]);
+
+  const handleSaveEdit = async () => {
+    if (!editingBiz) return;
+    if (!editForm.name.trim()) { setEditMessage({ type: "error", text: "El nombre es obligatorio." }); return; }
+    if (!editForm.categoryId) { setEditMessage({ type: "error", text: "La categoría es obligatoria." }); return; }
+    if (!editForm.address.trim()) { setEditMessage({ type: "error", text: "La dirección es obligatoria." }); return; }
+
+    setEditSaving(true);
+    setEditMessage(null);
+    try {
+      const res = await fetch(`/api/businesses/${editingBiz.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          categoryId: editForm.categoryId,
+          address: editForm.address.trim(),
+          phone: editForm.phone.trim() || null,
+          whatsapp: editForm.whatsapp.trim() || null,
+          hours: editForm.hours.trim() || null,
+          description: editForm.description.trim() || null,
+          active: editForm.active,
+          verified: editForm.verified,
+          latitude: editForm.latitude,
+          longitude: editForm.longitude,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Update local list
+        setLocalBusinesses((prev) =>
+          prev.map((b) =>
+            b.id === editingBiz.id
+              ? { ...b, ...data.data, category: data.data.category || b.category }
+              : b
+          )
+        );
+        setEditMessage({ type: "success", text: "Datos actualizados correctamente." });
+        onRefreshBusinesses?.();
+        setTimeout(() => setEditingBiz(null), 1200);
+      } else {
+        setEditMessage({ type: "error", text: data.error || "Error al guardar." });
+      }
+    } catch (err) {
+      console.error("Error saving edit:", err);
+      setEditMessage({ type: "error", text: "Error de conexión al guardar." });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   // Photo management state
   const [selectedAdminBiz, setSelectedAdminBiz] = useState<Business | null>(null);
   const [bizImages, setBizImages] = useState<{ id: string; url: string; isPrimary: boolean; createdAt: string }[]>([]);
@@ -451,7 +611,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
               }`}
             >
               <Store size={16} />
-              <span>Negocios ({businesses.length})</span>
+              <span>Negocios ({localBusinesses.length})</span>
             </button>
             <button
               onClick={() => setActiveTab("solicitudes")}
@@ -655,11 +815,33 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs sm:text-sm font-black text-gray-800">Negocios Registrados</h4>
-                    <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 bg-gray-200/60 px-2 py-0.5 rounded-full">
-                      Total: {businesses.length}
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs sm:text-sm font-black text-gray-800">Negocios Registrados</h4>
+                      <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 bg-gray-200/60 px-2 py-0.5 rounded-full">
+                        Total: {localBusinesses.length}
+                      </span>
+                    </div>
+
+                    {/* Buscador superior */}
+                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs w-full sm:max-w-xs focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
+                      <Search size={14} className="text-gray-400 shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Buscar negocio, categoría, dirección..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-transparent border-none outline-none w-full text-xs text-gray-800 placeholder-gray-400"
+                      />
+                      {searchQuery && (
+                        <button 
+                          onClick={() => setSearchQuery("")} 
+                          className="text-gray-400 hover:text-gray-600 font-bold shrink-0 text-xs px-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {bizMessage && bizMessage.text && (
@@ -678,31 +860,93 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {(Array.isArray(businesses) ? businesses : []).map((biz) => (
-                      <div key={biz.id} className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm flex flex-col gap-2">
-                        <div className="flex justify-between items-start">
-                          <h5 className="text-xs sm:text-sm font-black text-gray-900 truncate pr-2">{biz.name}</h5>
-                          <span className={`shrink-0 inline-block w-2 h-2 rounded-full mt-1 ${biz.verified ? "bg-blue-500" : "bg-gray-300"}`} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 bg-gray-100 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold">
-                            <span>{biz.category.icon}</span>
-                            <span>{biz.category.name}</span>
-                          </span>
-                        </div>
-                        <p className="text-[10px] sm:text-[11px] text-gray-500 truncate">{biz.address}</p>
-                        <button
-                          onClick={() => {
-                            setBizMessage(null);
-                            setSelectedAdminBiz(biz);
-                          }}
-                          className="mt-1 w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 active:scale-95"
-                          style={{ backgroundColor: "#f3f4f6" }}
-                        >
-                          📷 Gestionar Fotos
-                        </button>
+                    {filteredBusinesses.length === 0 ? (
+                      <div className="col-span-full bg-gray-50 border border-gray-150 rounded-xl p-8 text-center text-xs text-gray-500 font-medium">
+                        No se encontraron negocios con los criterios de búsqueda.
                       </div>
-                    ))}
+                    ) : (
+                      filteredBusinesses.map((biz) => (
+                        <div key={biz.id} className="bg-white border border-gray-150 rounded-xl p-3.5 shadow-sm flex flex-col gap-2 relative">
+                          <div className="flex justify-between items-start">
+                            <h5 className="text-xs sm:text-sm font-black text-gray-900 truncate pr-6">{biz.name}</h5>
+                            
+                            {/* 3-dot menu */}
+                            <div className="absolute top-3 right-3">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(openMenuId === biz.id ? null : biz.id);
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                              
+                              {openMenuId === biz.id && (
+                                <div 
+                                  ref={menuRef}
+                                  className="absolute right-0 top-7 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-30"
+                                >
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      setBizMessage(null);
+                                      setSelectedAdminBiz(biz);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-[10px] font-bold text-gray-750 hover:bg-gray-50 flex items-center gap-1.5"
+                                  >
+                                    📷 Gestionar Fotos
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      setEditingBiz(biz);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-[10px] font-bold text-gray-750 hover:bg-gray-50 flex items-center gap-1.5"
+                                  >
+                                    <Edit2 size={12} className="text-blue-500" /> Editar datos
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuId(null);
+                                      setDeletingBiz(biz);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-[10px] font-bold text-red-650 hover:bg-red-50 flex items-center gap-1.5"
+                                  >
+                                    <Trash2 size={12} className="text-red-500" /> Eliminar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 bg-gray-100 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold text-gray-600">
+                              <span>{biz.category.icon}</span>
+                              <span>{biz.category.name}</span>
+                            </span>
+                            <span className={`inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                              biz.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                            }`}>
+                              {biz.active ? "Activo" : "Inactivo"}
+                            </span>
+                            {biz.verified && (
+                              <span className="bg-blue-50 text-blue-700 inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold">
+                                Verificado
+                              </span>
+                            )}
+                          </div>
+                          
+                          <p className="text-[10px] sm:text-[11px] text-gray-500 truncate mt-0.5">{biz.address}</p>
+                          
+                          {biz.phone && (
+                            <p className="text-[9px] text-gray-400 flex items-center gap-1">
+                              <span>📞</span> {biz.phone}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )
@@ -1002,6 +1246,245 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
               </div>
             )}
           </div>
+
+          {/* MODAL: EDITAR NEGOCIO */}
+          {editingBiz && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+              <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scale-up flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-gray-150 flex items-center justify-between bg-gray-50 shrink-0">
+                  <h3 className="text-sm font-black text-gray-900 flex items-center gap-1.5">
+                    <Edit2 size={16} className="text-blue-600" />
+                    <span>Editar Establecimiento</span>
+                  </h3>
+                  <button 
+                    onClick={() => setEditingBiz(null)}
+                    className="p-1 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Form Content */}
+                <div className="p-5 overflow-y-auto space-y-4 text-xs flex-1">
+                  {editMessage && (
+                    <div className={`p-3 rounded-xl border flex items-center gap-2 ${
+                      editMessage.type === "success" 
+                        ? "bg-green-50 text-green-700 border-green-200" 
+                        : "bg-red-50 text-red-700 border-red-200"
+                    }`}>
+                      {editMessage.type === "success" ? (
+                        <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
+                      ) : (
+                        <XCircle size={14} className="text-red-500 flex-shrink-0" />
+                      )}
+                      <span className="font-bold">{editMessage.text}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Nombre *</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="Nombre del comercio"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Categoría *</label>
+                      <select
+                        value={editForm.categoryId}
+                        onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                      >
+                        <option value="">Seleccione una categoría</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.icon} {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Teléfono</label>
+                      <input
+                        type="text"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="+58 412 1234567"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">WhatsApp</label>
+                      <input
+                        type="text"
+                        value={editForm.whatsapp}
+                        onChange={(e) => setEditForm({ ...editForm, whatsapp: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="+58 412 1234567"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Horarios</label>
+                      <input
+                        type="text"
+                        value={editForm.hours}
+                        onChange={(e) => setEditForm({ ...editForm, hours: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="Lun-Sab 8:00 AM - 6:00 PM"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Dirección *</label>
+                      <input
+                        type="text"
+                        value={editForm.address}
+                        onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="Dirección física"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Latitud *</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editForm.latitude}
+                        onChange={(e) => setEditForm({ ...editForm, latitude: parseFloat(e.target.value) || 0 })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Longitud *</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editForm.longitude}
+                        onChange={(e) => setEditForm({ ...editForm, longitude: parseFloat(e.target.value) || 0 })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Descripción</label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none h-20 resize-none"
+                        placeholder="Descripción del negocio o servicios..."
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2 flex gap-6 mt-1 border-t border-gray-100 pt-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={editForm.verified}
+                          onChange={(e) => setEditForm({ ...editForm, verified: e.target.checked })}
+                          className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="font-bold text-gray-750">Verificado / Patrocinado</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={editForm.active}
+                          onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })}
+                          className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="font-bold text-gray-750">Activo (Visible en mapa)</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 bg-gray-50 border-t border-gray-150 flex justify-end gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setEditingBiz(null)}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-250 text-gray-700 rounded-xl text-xs font-bold transition-all active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={editSaving}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                  >
+                    {editSaving ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Guardando...</span>
+                      </>
+                    ) : (
+                      <span>Guardar cambios</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL: CONFIRMAR ELIMINAR */}
+          {deletingBiz && (
+            <div className="fixed inset-0 bg-black/75 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-up">
+                <div className="p-5 text-center space-y-3">
+                  <div className="mx-auto w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+                    <AlertTriangle size={24} />
+                  </div>
+                  <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">Confirmar eliminación</h4>
+                  <p className="text-[11px] text-gray-550 leading-relaxed">
+                    ¿Seguro que deseas eliminar <span className="font-bold text-gray-900">"{deletingBiz.name}"</span>? Esta acción es irreversible y borrará permanentemente el comercio y todas sus imágenes.
+                  </p>
+                  {deleteError && (
+                    <div className="p-2 bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold rounded-lg text-left">
+                      ⚠️ {deleteError}
+                    </div>
+                  )}
+                </div>
+                <div className="px-4 py-3.5 bg-gray-50 border-t border-gray-150 flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={() => setDeletingBiz(null)}
+                    className="flex-1 py-2 bg-gray-205 hover:bg-gray-250 text-gray-700 rounded-xl text-xs font-bold transition-all active:scale-95"
+                    style={{ backgroundColor: "#e5e7eb" }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={handleConfirmDelete}
+                    className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    {deleting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Eliminando...</span>
+                      </>
+                    ) : (
+                      <span>Eliminar definitivamente</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

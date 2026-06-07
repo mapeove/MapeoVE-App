@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Store, CreditCard, Clock, MessageCircle, Phone, MapPin, CheckCircle, AlertTriangle, Camera, Upload, Trash2 } from "lucide-react";
+import { X, Store, CreditCard, Clock, MessageCircle, Phone, MapPin, CheckCircle, AlertTriangle, Camera, Upload, Trash2, Edit2 } from "lucide-react";
 import { BRAND } from "@/types/mapeove";
 import dynamic from "next/dynamic";
 
@@ -72,6 +72,12 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Owner Edit Mode States
+  const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
+  const [isEditingUserBiz, setIsEditingUserBiz] = useState(false);
+  const [userBizEditSaving, setUserBizEditSaving] = useState(false);
+  const [userBizEditSuccess, setUserBizEditSuccess] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -92,6 +98,12 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setError("");
     setSuccess(false);
     setForceShowForm(false);
+
+    // Reset edit states
+    setEditingBusinessId(null);
+    setIsEditingUserBiz(false);
+    setUserBizEditSaving(false);
+    setUserBizEditSuccess(false);
 
     // Load categories
     async function loadCategories() {
@@ -313,6 +325,92 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     }
   };
 
+  const handleStartEdit = async (bizId: string) => {
+    setError("");
+    setEditingBusinessId(bizId);
+    try {
+      const res = await fetch(`/api/businesses/${bizId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const biz = data.data;
+          setBusinessName(biz.name);
+          setCategoryId(biz.categoryId);
+          setAddress(biz.address);
+          setLatitude(biz.latitude);
+          setLongitude(biz.longitude);
+          setPhone(biz.phone || "");
+          setWhatsapp(biz.whatsapp || "");
+          setOpeningHours(biz.hours || "");
+          setDescription(biz.description || "");
+          setIsEditingUserBiz(true);
+        } else {
+          setError("No se pudieron cargar los datos del local.");
+        }
+      } else {
+        setError("Error al obtener los datos del local.");
+      }
+    } catch (err) {
+      console.error("Error loading business for edit:", err);
+      setError("Error de conexión al obtener los datos.");
+    }
+  };
+
+  const handleSaveUserBiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setUserBizEditSuccess(false);
+
+    if (!businessName || !categoryId || !address || !phone || !whatsapp) {
+      setError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
+    if (latitude === null || longitude === null) {
+      setError("Debes seleccionar la ubicación en el mapa");
+      return;
+    }
+
+    setUserBizEditSaving(true);
+    try {
+      const res = await fetch(`/api/businesses/${editingBusinessId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: businessName,
+          categoryId,
+          address,
+          latitude,
+          longitude,
+          phone,
+          whatsapp,
+          hours: openingHours,
+          description,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUserBizEditSuccess(true);
+        setError("");
+        setTimeout(() => {
+          setIsEditingUserBiz(false);
+          setEditingBusinessId(null);
+          setUserBizEditSuccess(false);
+          onClose();
+          window.location.reload();
+        }, 1500);
+      } else {
+        setError(data.error || "Ocurrió un error al guardar los cambios");
+      }
+    } catch (err) {
+      console.error("Error updating user business:", err);
+      setError("Error de conexión al guardar los cambios");
+    } finally {
+      setUserBizEditSaving(false);
+    }
+  };
+
   const getBasePrice = () => {
     if (!paymentSettings) return 0;
     return plan === "MONTHLY" ? paymentSettings.monthlyPrice : paymentSettings.yearlyPrice;
@@ -393,26 +491,208 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-xs text-gray-500">Cargando estado...</span>
             </div>
+          ) : isEditingUserBiz ? (
+            /* User Business Edit Form */
+            <form onSubmit={handleSaveUserBiz} className="space-y-4 pb-4">
+              <div className="space-y-3">
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                  <Store size={14} className="text-blue-600" />
+                  <span>Editar Datos de tu Negocio</span>
+                </h4>
+
+                {userBizEditSuccess && (
+                  <div className="p-3 text-xs bg-green-50 text-green-700 border border-green-200 rounded-xl flex items-center gap-2">
+                    <CheckCircle size={14} className="text-green-600" />
+                    <span className="font-bold">Datos actualizados correctamente.</span>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Nombre Comercial *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. Hamburguesas El Catire"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Categoría *</label>
+                    <select
+                      value={categoryId}
+                      onChange={(e) => setCategoryId(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 font-medium"
+                    >
+                      {(Array.isArray(categories) ? categories : []).map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.icon} {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Horario *</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
+                        <Clock size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. 8:00 AM - 6:00 PM"
+                        value={openingHours}
+                        onChange={(e) => setOpeningHours(e.target.value)}
+                        className="w-full pl-8 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Teléfono Fijo / Móvil *</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
+                        <Phone size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. 0244-1234567"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">WhatsApp *</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
+                        <MessageCircle size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ej. +584121234567"
+                        value={whatsapp}
+                        onChange={(e) => setWhatsapp(e.target.value)}
+                        className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Dirección Exacta *</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
+                      <MapPin size={14} />
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Calle, sector, punto de referencia..."
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Ubicación en el Mapa *</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowMapSelector(true)}
+                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-gray-200"
+                  >
+                    <MapPin size={14} className="text-red-500" />
+                    {latitude && longitude ? (
+                      <span className="text-green-600">✓ Ubicación Seleccionada ({latitude.toFixed(5)}, {longitude.toFixed(5)})</span>
+                    ) : (
+                      <span>Seleccionar en el Mapa</span>
+                    )}
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Descripción del Negocio</label>
+                  <textarea
+                    placeholder="Describe los productos o servicios que ofreces..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Botones de Guardar / Cancelar */}
+              <div className="flex gap-2 justify-end pt-3 border-t border-gray-150">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingUserBiz(false);
+                    setEditingBusinessId(null);
+                  }}
+                  className="px-4 py-2.5 bg-gray-200 hover:bg-gray-250 text-gray-700 rounded-xl text-xs font-bold transition-all active:scale-95"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={userBizEditSaving}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                >
+                  {userBizEditSaving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <span>Guardar cambios</span>
+                  )}
+                </button>
+              </div>
+            </form>
           ) : !forceShowForm && (Array.isArray(existingRequests) && existingRequests.length > 0) && !success ? (
             /* Show status of existing requests */
             <div className="space-y-4">
               <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Tus Solicitudes</h4>
               <div className="space-y-2">
                 {(Array.isArray(existingRequests) ? existingRequests : []).map((req) => (
-                  <div key={req.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-                    <div className="flex justify-between items-start">
-                      <p className="text-xs font-black text-gray-900">{req.businessName}</p>
-                      {getStatusBadge(req.status)}
+                  <div key={req.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <p className="text-xs font-black text-gray-900">{req.businessName}</p>
+                        {getStatusBadge(req.status)}
+                      </div>
+                      <div className="text-[11px] text-gray-550 space-y-0.5 mt-1">
+                        <p>Método de pago: {req.paymentMethod}</p>
+                        <p>Referencia: {req.paymentReference}</p>
+                        <p>Fecha: {new Date(req.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      {req.status === "PENDING" && (
+                        <p className="text-[10px] text-gray-450 italic mt-1">
+                          Tu pago se encuentra en proceso de validación.
+                        </p>
+                      )}
                     </div>
-                    <div className="text-[11px] text-gray-500 space-y-0.5">
-                      <p>Método de pago: {req.paymentMethod}</p>
-                      <p>Referencia: {req.paymentReference}</p>
-                      <p>Fecha: {new Date(req.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    {req.status === "PENDING" && (
-                      <p className="text-[10px] text-gray-400 italic">
-                        Tu pago se encuentra en proceso de validación.
-                      </p>
+
+                    {req.status === "APPROVED" && req.businessId && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(req.businessId!)}
+                        className="mt-2.5 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <Edit2 size={12} />
+                        <span>Editar Datos de Local</span>
+                      </button>
                     )}
                   </div>
                 ))}
