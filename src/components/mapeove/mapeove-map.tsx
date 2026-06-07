@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Business, CATEGORY_COLORS, BRAND, MAP_CONFIG } from "@/types/mapeove";
+import { Business, CATEGORY_COLORS, BRAND } from "@/types/mapeove";
+import { MAP_STYLE, INITIAL_MAP_CONFIG } from "@/lib/map-config";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -103,30 +104,9 @@ export function MapeoVEMap({
 
         const map = new maplibregl.Map({
           container: mapContainer.current,
-          style: {
-            version: 8,
-            sources: {
-              osm: {
-                type: "raster",
-                tiles: [
-                  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                ],
-                tileSize: 256,
-                attribution: "&copy; OpenStreetMap contributors",
-              },
-            },
-            layers: [
-              {
-                id: "osm",
-                type: "raster",
-                source: "osm",
-                minzoom: 0,
-                maxzoom: 19,
-              },
-            ],
-          },
-          center: [MAP_CONFIG.longitude, MAP_CONFIG.latitude],
-          zoom: MAP_CONFIG.zoom,
+          style: MAP_STYLE,
+          center: [INITIAL_MAP_CONFIG.longitude, INITIAL_MAP_CONFIG.latitude],
+          zoom: INITIAL_MAP_CONFIG.zoom,
         });
 
         map.addControl(new maplibregl.NavigationControl(), "bottom-right");

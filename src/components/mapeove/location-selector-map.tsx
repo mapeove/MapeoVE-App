@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Check, X, Map as MapIcon } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { MAP_STYLE, INITIAL_MAP_CONFIG } from "@/lib/map-config";
 
 export default function LocationSelectorMap({ 
   onSelect, 
@@ -24,11 +25,6 @@ export default function LocationSelectorMap({
     initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null
   );
   const [mounted, setMounted] = useState(false);
-  const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
-  const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
-  const SATELLITE_STYLE = `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`;
-  
-  const [isSatellite, setIsSatellite] = useState(!!MAPTILER_KEY);
 
   useEffect(() => {
     setMounted(true);
@@ -42,15 +38,15 @@ export default function LocationSelectorMap({
 
     const startCenter: [number, number] = (initialLng != null && initialLat != null)
       ? [initialLng, initialLat] 
-      : [-67.3312, 10.2268];
+      : [INITIAL_MAP_CONFIG.longitude, INITIAL_MAP_CONFIG.latitude];
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: isSatellite ? SATELLITE_STYLE : MAP_STYLE,
-      center: startCenter, // Use initial coordinates if available
-      zoom: 16, // Start closer for detail
-      maxZoom: 19, // Prevent aggressive pixelation in satellite view
-      attributionControl: true, // Keep provider visible
+      style: MAP_STYLE, // Same style as main map
+      center: startCenter,
+      zoom: INITIAL_MAP_CONFIG.zoomSelector,
+      maxZoom: INITIAL_MAP_CONFIG.maxZoom,
+      attributionControl: true,
     });
     
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
@@ -83,11 +79,6 @@ export default function LocationSelectorMap({
     };
   }, [maplibregl]); // Run only once when maplibre loads
 
-  useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.setStyle(isSatellite ? SATELLITE_STYLE : MAP_STYLE);
-  }, [isSatellite]);
-
   if (!mounted) return null;
 
   return createPortal(
@@ -95,7 +86,7 @@ export default function LocationSelectorMap({
       <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-center shadow-sm relative z-10">
         <div>
           <h3 className="text-sm font-black text-gray-900">Ubicación de tu local</h3>
-          <p className="text-[10px] text-gray-500">Toca el mapa para colocar el marcador</p>
+          <p className="text-[10px] text-gray-550 font-bold">Toca el mapa para colocar el marcador</p>
         </div>
         <button onClick={onClose} className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200">
           <X size={16} />
@@ -103,13 +94,6 @@ export default function LocationSelectorMap({
       </div>
       <div className="relative flex-1 w-full bg-gray-100">
         <div ref={mapContainer} className="absolute inset-0" />
-        <button
-          onClick={() => setIsSatellite(!isSatellite)}
-          className="absolute top-4 left-4 z-[10000] p-2 bg-white rounded-xl shadow-md text-xs font-bold text-gray-700 flex items-center gap-1.5 active:scale-95 transition-transform"
-        >
-          <MapIcon size={16} />
-          {isSatellite ? "Mapa Normal" : "Satélite"}
-        </button>
       </div>
       
       <div 
