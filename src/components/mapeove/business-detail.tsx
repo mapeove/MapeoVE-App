@@ -443,13 +443,13 @@ export function BusinessDetail({
 
       {/* ── EMBEDDED SHEET FOR DESKTOP & MOBILE WRAPPER ── */}
       <div className={`relative bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
-        isExpanded ? "h-[80vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
+        isExpanded ? "h-[80vh]" : "max-h-[60vh] md:h-auto md:max-h-none"
       }`}>
         {/* Imagen, carrusel o placeholder */}
         {(() => {
           if (sortedImages.length > 0) {
             return (
-              <div className="relative h-[250px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100">
+              <div className="relative h-[170px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100">
                 {/* Drag handle overlay (mobile only) */}
                 <div 
                   className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-white/50 backdrop-blur-sm z-20 md:hidden cursor-pointer hover:bg-white/75 active:bg-white transition-colors"
@@ -527,7 +527,7 @@ export function BusinessDetail({
             );
           } else {
             return (
-              <div className="relative h-[220px] md:h-[250px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 flex items-center justify-center">
+              <div className="relative h-[170px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 flex items-center justify-center">
                 {/* Drag handle overlay (mobile only) */}
                 <div 
                   className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-gray-300 z-20 md:hidden cursor-pointer hover:bg-gray-450 transition-colors"
@@ -551,19 +551,19 @@ export function BusinessDetail({
         })()}
 
         {/* Contenido scrolleable */}
-        <div className="overflow-y-auto px-4 pt-4 pb-24 md:pb-4 flex-1 min-h-0 space-y-3">
+        <div className="overflow-y-auto px-4 pt-3 pb-32 md:pb-4 flex-1 min-h-0 space-y-2.5">
           {/* Header Row: Category Icon + Category Badge + Close button */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm text-white shrink-0"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center text-sm md:text-lg shadow-sm text-white shrink-0"
                 style={{ backgroundColor: categoryColor }}
               >
                 {business.category.icon}
               </div>
               <div className="flex flex-col gap-0.5">
                 <span 
-                  className="inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full text-white w-fit"
+                  className="inline-block text-[9px] md:text-[10px] font-black uppercase tracking-wider px-2 md:px-2.5 py-0.5 rounded-full text-white w-fit"
                   style={{ backgroundColor: categoryColor }}
                 >
                   {business.category.name}
@@ -572,32 +572,32 @@ export function BusinessDetail({
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 shrink-0"
+              className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 shrink-0"
             >
-              <X size={14} />
+              <X size={12} className="md:w-3.5 md:h-3.5" />
             </button>
           </div>
 
           {/* Nombre */}
-          <h2 className="text-base font-extrabold text-gray-900 leading-tight">
+          <h2 className="text-sm md:text-base font-extrabold text-gray-900 leading-tight">
             {business.name}
           </h2>
 
           {/* Badges: estado + verificado */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span
-              className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+              className={`flex items-center gap-1 text-[10px] md:text-[11px] font-semibold px-2 md:px-2.5 py-0.5 rounded-full ${
                 isOpen
                   ? "text-green-700 bg-green-50"
                   : "text-gray-500 bg-gray-100"
               }`}
             >
-              <CircleDot size={9} />
+              <CircleDot size={8} className="md:w-[9px] md:h-[9px]" />
               {openLabel}
             </span>
             {business.verified && (
-              <span className="flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
-                <Shield size={10} />
+              <span className="flex items-center gap-0.5 text-[10px] md:text-[11px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+                <Shield size={9} className="md:w-2.5 md:h-2.5" />
                 Verificado
               </span>
             )}
@@ -607,27 +607,27 @@ export function BusinessDetail({
           <div className="border-t border-gray-100 my-1" />
 
           {/* Info rows */}
-          <div className="space-y-2.5">
-            <div className="flex items-start gap-2.5">
-              <MapPin size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
-              <span className="text-xs text-gray-650 font-medium leading-relaxed">{business.address}</span>
+          <div className="space-y-2 md:space-y-2.5">
+            <div className="flex items-start gap-2">
+              <MapPin size={12} className="text-gray-400 flex-shrink-0 mt-0.5 md:w-3.5 md:h-3.5" />
+              <span className="text-[11px] md:text-xs text-gray-650 font-medium leading-relaxed">{business.address}</span>
             </div>
             {business.hours && (
-              <div className="flex items-start gap-2.5">
-                <Clock size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
-                <span className="text-xs text-gray-650 font-medium leading-relaxed">{business.hours}</span>
+              <div className="flex items-start gap-2">
+                <Clock size={12} className="text-gray-400 flex-shrink-0 mt-0.5 md:w-3.5 md:h-3.5" />
+                <span className="text-[11px] md:text-xs text-gray-650 font-medium leading-relaxed">{business.hours}</span>
               </div>
             )}
             {phoneNumber && (
-              <div className="flex items-center gap-2.5">
-                <Phone size={14} className="text-gray-400 flex-shrink-0" />
-                <span className="text-xs text-gray-650 font-medium">{business.phone}</span>
+              <div className="flex items-center gap-2">
+                <Phone size={12} className="text-gray-400 flex-shrink-0 md:w-3.5 md:h-3.5" />
+                <span className="text-[11px] md:text-xs text-gray-650 font-medium">{business.phone}</span>
               </div>
             )}
             {hasValidDistance && (
-              <div className="flex items-center gap-2.5">
-                <Navigation size={14} className="text-gray-400 flex-shrink-0" />
-                <span className="text-xs font-bold" style={{ color: BRAND.blue }}>
+              <div className="flex items-center gap-2">
+                <Navigation size={12} className="text-gray-400 flex-shrink-0 md:w-3.5 md:h-3.5" />
+                <span className="text-[11px] md:text-xs font-bold" style={{ color: BRAND.blue }}>
                   {business.distance} km de distancia
                 </span>
               </div>
