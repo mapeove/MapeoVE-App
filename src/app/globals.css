@@ -247,3 +247,199 @@
 .recenter-button:active {
   transform: scale(0.95);
 }
+
+/* Premium Business Markers */
+.mapeove-business-marker-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.mapeove-business-marker-wrapper:hover {
+  z-index: 15;
+}
+
+.mapeove-business-marker-wrapper.selected {
+  z-index: 9999 !important;
+}
+
+/* Icon Circle */
+.marker-icon-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (max-width: 768px) {
+  .marker-icon-circle {
+    width: 38px;
+    height: 38px;
+  }
+}
+
+.mapeove-business-marker-wrapper:hover .marker-icon-circle {
+  transform: scale(1.1);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+
+.mapeove-business-marker-wrapper.selected .marker-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-width: 3px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  transform: scale(1.15);
+}
+
+@media (max-width: 768px) {
+  .mapeove-business-marker-wrapper.selected .marker-icon-circle {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.marker-icon-circle svg {
+  color: #ffffff;
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .marker-icon-circle svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+.mapeove-business-marker-wrapper.selected .marker-icon-circle svg {
+  width: 19px;
+  height: 19px;
+}
+
+@media (max-width: 768px) {
+  .mapeove-business-marker-wrapper.selected .marker-icon-circle svg {
+    width: 21px;
+    height: 21px;
+  }
+}
+
+/* Name Label */
+.marker-name-label {
+  position: absolute;
+  top: 36px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (max-width: 768px) {
+  .marker-name-label {
+    top: 42px;
+    font-size: 11px;
+  }
+}
+
+.mapeove-business-marker-wrapper.selected .marker-name-label {
+  top: 46px;
+  font-size: 11px;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.15);
+}
+
+@media (max-width: 768px) {
+  .mapeove-business-marker-wrapper.selected .marker-name-label {
+    top: 52px;
+    font-size: 12px;
+  }
+}
+
+/* Show label when zoom >= 16 or when selected */
+.mapeove-business-marker-wrapper.show-label .marker-name-label,
+.mapeove-business-marker-wrapper.selected .marker-name-label {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Compact style for zoom-out level to avoid map saturation */
+.mapeove-business-marker-wrapper.compact .marker-icon-circle {
+  width: 12px !important;
+  height: 12px !important;
+  border-width: 1.5px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+.mapeove-business-marker-wrapper.compact .marker-icon-circle svg {
+  display: none !important;
+}
+
+.mapeove-business-marker-wrapper.compact .marker-name-label {
+  display: none !important;
+}
+
+/* Cluster Marker */
+.mapeove-cluster-marker {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  border: 2.5px solid #ffffff;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 8;
+}
+
+@media (max-width: 768px) {
+  .mapeove-cluster-marker {
+    width: 42px;
+    height: 42px;
+    font-size: 13px;
+  }
+}
+
+.mapeove-cluster-marker:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(30, 58, 138, 0.5);
+  z-index: 12;
+}
+
+.mapeove-cluster-marker:active {
+  transform: scale(0.95);
+}
+
+/* Subtle fade-in animation for HTML markers */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out forwards;
+}
