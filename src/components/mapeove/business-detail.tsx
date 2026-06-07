@@ -13,6 +13,8 @@ import {
   Clock,
   Shield,
   CircleDot,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface BusinessDetailProps {
@@ -73,17 +75,54 @@ export function BusinessDetail({
   const whatsappNumber = business.whatsapp?.replace(/[^0-9]/g, "") || "";
   const phoneNumber = business.phone?.replace(/[^0-9]/g, "") || "";
 
+  const rawImages = business.businessImages && business.businessImages.length > 0
+    ? business.businessImages
+    : business.image
+      ? [{ id: "legacy", url: business.image, isPrimary: true, createdAt: new Date().toISOString() }]
+      : [];
+
+  const sortedImages = [...rawImages].sort((a: any, b: any) => {
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateA - dateB;
+  });
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isVisorOpen, setIsVisorOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Reset expanded status when switching businesses
+  // Reset expanded status and image index when switching businesses
   useEffect(() => {
     setIsExpanded(false);
+    setCurrentImageIndex(0);
+    setIsVisorOpen(false);
   }, [business.id]);
+
+  useEffect(() => {
+    if (!isVisorOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsVisorOpen(false);
+      } else if (e.key === "ArrowLeft" && sortedImages.length > 1) {
+        setCurrentImageIndex((prev) => (prev === 0 ? sortedImages.length - 1 : prev - 1));
+      } else if (e.key === "ArrowRight" && sortedImages.length > 1) {
+        setCurrentImageIndex((prev) => (prev === sortedImages.length - 1 ? 0 : prev + 1));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isVisorOpen, sortedImages.length]);
 
   const hasValidDistance =
     business.distance !== undefined &&
@@ -91,6 +130,16 @@ export function BusinessDetail({
     isInVenezuela(userLocation.lat, userLocation.lng);
 
   const { isOpen, label: openLabel } = getOpenStatus(business.hours);
+
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === 0 ? sortedImages.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === sortedImages.length - 1 ? 0 : prev + 1));
+  };
 
   function handleCall() {
     if (phoneNumber) window.open(`tel:${phoneNumber}`, "_self");
@@ -159,43 +208,60 @@ export function BusinessDetail({
           <div className="w-12 h-1.5 rounded-full bg-gray-300" />
         </div>
 
-        {/* Imagen o placeholder */}
         {/* Imagen, carrusel o placeholder */}
         {(() => {
-          const images = business.businessImages && business.businessImages.length > 0
-            ? business.businessImages
-            : business.image
-              ? [{ id: "legacy", url: business.image, isPrimary: true }]
-              : [];
-
-          if (images.length > 0) {
+          if (sortedImages.length > 0) {
+            const currentImg = sortedImages[currentImageIndex];
             return (
-              <div className="relative h-44 md:h-48 overflow-hidden flex-shrink-0 bg-gray-50 border-b border-gray-100">
-                <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide h-full w-full">
-                  {images.map((img) => (
-                    <div key={img.id} className="w-full h-full flex-shrink-0 snap-start relative">
-                      <img
-                        src={img.url}
-                        alt={business.name}
-                        className="w-full h-full object-cover"
-                      />
-                      {img.isPrimary && (
-                        <span className="absolute top-2 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm"
-                          style={{ backgroundColor: BRAND.blue }}
-                        >
-                          Principal
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+              <div 
+                className="relative h-44 md:h-48 overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 cursor-zoom-in"
+                onClick={() => setIsVisorOpen(true)}
+              >
+                <img
+                  src={currentImg.url}
+                  alt={business.name}
+                  className="w-full h-full object-cover select-none"
+                />
+                
+                {currentImg.isPrimary && (
+                  <span className="absolute top-2 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm z-10"
+                    style={{ backgroundColor: BRAND.blue }}
+                  >
+                    Principal
+                  </span>
+                )}
+
+                {/* Left Arrow Button */}
+                {sortedImages.length > 1 && (
+                  <button
+                    onClick={handlePrevImage}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-all z-10 active:scale-90"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
+
+                {/* Right Arrow Button */}
+                {sortedImages.length > 1 && (
+                  <button
+                    onClick={handleNextImage}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-all z-10 active:scale-90"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                )}
+
                 {/* Close button sobre imagen */}
                 <button
-                  onClick={onClose}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose();
+                  }}
                   className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors z-10"
                 >
                   <X size={14} className="text-white" />
                 </button>
+
                 {/* Badge de categoría sobre imagen */}
                 <div className="absolute bottom-2 left-3 z-10">
                   <span
@@ -205,17 +271,18 @@ export function BusinessDetail({
                     {business.category.icon} {business.category.name}
                   </span>
                 </div>
-                {/* Indicator dot if multiple images */}
-                {images.length > 1 && (
-                  <div className="absolute bottom-2 right-3 bg-black/50 text-[9px] font-bold px-2 py-0.5 rounded-full text-white z-10">
-                    Desliza para ver más ({images.length})
+
+                {/* Indicator dot or counter if multiple images */}
+                {sortedImages.length > 1 && (
+                  <div className="absolute bottom-2 right-3 bg-black/55 text-[10px] font-bold px-2 py-0.5 rounded-full text-white z-10">
+                    {currentImageIndex + 1} / {sortedImages.length}
                   </div>
                 )}
               </div>
             );
           } else {
             return (
-              <div className="relative h-36 overflow-hidden flex-shrink-0 bg-gray-50 border-b border-gray-100 flex items-center justify-center">
+              <div className="relative h-36 overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 flex items-center justify-center">
                 <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center text-gray-300 gap-1.5">
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -334,6 +401,66 @@ export function BusinessDetail({
           </div>
         </div>
       </div>
+
+      {/* Visor modal fullscreen */}
+      {isVisorOpen && mounted && sortedImages.length > 0 && createPortal(
+        <div 
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/90 backdrop-blur-sm select-none"
+          onClick={() => setIsVisorOpen(false)}
+        >
+          {/* Close button X */}
+          <button
+            onClick={() => setIsVisorOpen(false)}
+            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-[100001] active:scale-95"
+          >
+            <X size={24} />
+          </button>
+
+          {/* Left Arrow */}
+          {sortedImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentImageIndex((prev) => (prev === 0 ? sortedImages.length - 1 : prev - 1));
+              }}
+              className="absolute left-4 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[100001] active:scale-95"
+            >
+              <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
+            </button>
+          )}
+
+          {/* Right Arrow */}
+          {sortedImages.length > 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentImageIndex((prev) => (prev === sortedImages.length - 1 ? 0 : prev + 1));
+              }}
+              className="absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[100001] active:scale-95"
+            >
+              <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
+            </button>
+          )}
+
+          {/* Centered Image */}
+          <div 
+            className="max-w-[90vw] max-h-[80vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={sortedImages[currentImageIndex].url}
+              alt={`${business.name} vista ampliada`}
+              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl select-none"
+            />
+          </div>
+
+          {/* Counter (Bottom Centered) */}
+          <div className="absolute bottom-6 bg-black/60 text-white text-xs font-black px-4 py-1.5 rounded-full backdrop-blur-sm z-[100001]">
+            {currentImageIndex + 1} / {sortedImages.length}
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
