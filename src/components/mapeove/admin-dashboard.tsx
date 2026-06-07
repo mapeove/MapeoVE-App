@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { X, ShieldAlert, Store, Users, FileText, CheckCircle2, XCircle, Search, MoreVertical, Edit2, Trash2, AlertTriangle, MapPin, Phone, Clock, MessageCircle } from "lucide-react";
 import { Business, BRAND } from "@/types/mapeove";
+import dynamic from "next/dynamic";
+
+const LocationSelectorMap = dynamic(() => import("./location-selector-map"), { ssr: false });
 
 interface AdminDashboardProps {
   isOpen: boolean;
@@ -127,6 +130,7 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
   });
   const [editSaving, setEditSaving] = useState(false);
   const [editMessage, setEditMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showMapSelector, setShowMapSelector] = useState(false);
 
   // Load categories when edit mode opens
   useEffect(() => {
@@ -1354,26 +1358,21 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Latitud *</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={editForm.latitude}
-                        onChange={(e) => setEditForm({ ...editForm, latitude: parseFloat(e.target.value) || 0 })}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Longitud *</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={editForm.longitude}
-                        onChange={(e) => setEditForm({ ...editForm, longitude: parseFloat(e.target.value) || 0 })}
-                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                      />
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Ubicación en el Mapa *</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowMapSelector(true)}
+                        className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-gray-200"
+                      >
+                        <MapPin size={14} className="text-red-500" />
+                        {editForm.latitude && editForm.longitude ? (
+                          <span className="text-green-600">✓ Ubicación Seleccionada ({editForm.latitude.toFixed(5)}, {editForm.longitude.toFixed(5)})</span>
+                        ) : (
+                          <span>Seleccionar en el Mapa</span>
+                        )}
+                      </button>
+                      <p className="text-[10px] text-gray-400 mt-1">Toca el mapa para ubicar el punto exacto del comercio</p>
                     </div>
 
                     <div className="sm:col-span-2">
@@ -1435,6 +1434,17 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                   </button>
                 </div>
               </div>
+              {showMapSelector && (
+                <LocationSelectorMap 
+                  initialLat={editForm.latitude}
+                  initialLng={editForm.longitude}
+                  onClose={() => setShowMapSelector(false)} 
+                  onSelect={(lat, lng) => {
+                    setEditForm({ ...editForm, latitude: lat, longitude: lng });
+                    setShowMapSelector(false);
+                  }} 
+                />
+              )}
             </div>
           )}
 

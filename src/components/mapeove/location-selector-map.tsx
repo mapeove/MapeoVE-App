@@ -7,16 +7,22 @@ import { Check, X, Map as MapIcon } from "lucide-react";
 
 export default function LocationSelectorMap({ 
   onSelect, 
-  onClose 
+  onClose,
+  initialLat,
+  initialLng
 }: { 
   onSelect: (lat: number, lng: number) => void;
   onClose: () => void;
+  initialLat?: number | null;
+  initialLng?: number | null;
 }) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  const [coords, setCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [coords, setCoords] = useState<{lat: number, lng: number} | null>(
+    initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null
+  );
   const [mounted, setMounted] = useState(false);
   const MAP_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
   const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
@@ -34,10 +40,14 @@ export default function LocationSelectorMap({
   useEffect(() => {
     if (!maplibregl || !mapContainer.current || mapRef.current) return;
 
+    const startCenter: [number, number] = (initialLng != null && initialLat != null)
+      ? [initialLng, initialLat] 
+      : [-67.3312, 10.2268];
+
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: isSatellite ? SATELLITE_STYLE : MAP_STYLE,
-      center: [-67.3312, 10.2268], // Base coordinates
+      center: startCenter, // Use initial coordinates if available
       zoom: 16, // Start closer for detail
       maxZoom: 19, // Prevent aggressive pixelation in satellite view
       attributionControl: true, // Keep provider visible
@@ -46,6 +56,13 @@ export default function LocationSelectorMap({
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
     mapRef.current = map;
+
+    // Pre-populate marker if initial coords are passed
+    if (initialLat != null && initialLng != null) {
+      markerRef.current = new maplibregl.Marker({ color: "#2563eb" })
+        .setLngLat([initialLng, initialLat])
+        .addTo(map);
+    }
 
     map.on("click", (e: any) => {
       const lat = e.lngLat.lat;
