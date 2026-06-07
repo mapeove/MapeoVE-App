@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
     const categorySlug = searchParams.get("category");
     const lat = searchParams.get("lat");
     const lng = searchParams.get("lng");
-    const radiusStr = searchParams.get("radius");
+    const radiusStr = searchParams.get("radiusKm") || searchParams.get("radius");
     const q = searchParams.get("q");
     const pageStr = searchParams.get("page") || "1";
     const limitStr = searchParams.get("limit") || "20";
 
     const page = Math.max(1, parseInt(pageStr, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(limitStr, 10) || 20));
-    const radius = radiusStr ? parseFloat(radiusStr) : undefined;
+    const radiusKm = radiusStr ? parseFloat(radiusStr) : undefined;
     const userLat = lat ? parseFloat(lat) : undefined;
     const userLng = lng ? parseFloat(lng) : undefined;
 
@@ -72,27 +72,50 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const total = await db.business.count({ where });
+    let businesses;
+    let total;
 
-    const businesses = await db.business.findMany({
-      where,
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            icon: true,
+    if (userLat !== undefined && userLng !== undefined) {
+      // If coordinates are provided, fetch all matching active businesses to avoid pagination truncation
+      businesses = await db.business.findMany({
+        where,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              icon: true,
+            },
+          },
+          businessImages: {
+            orderBy: { isPrimary: "desc" },
           },
         },
-        businessImages: {
-          orderBy: { isPrimary: "desc" },
+        orderBy: { name: "asc" },
+      });
+    } else {
+      total = await db.business.count({ where });
+      businesses = await db.business.findMany({
+        where,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              icon: true,
+            },
+          },
+          businessImages: {
+            orderBy: { isPrimary: "desc" },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+    }
 
     const token = request.cookies.get("mapeove-session")?.value;
     let currentUser: { userId: string; role: string } | null = null;
@@ -126,15 +149,17 @@ export async function GET(request: NextRequest) {
       return result;
     });
 
-    // Filter by radius if specified
-    if (radius !== undefined && userLat !== undefined && userLng !== undefined) {
-      results = results.filter(
-        (b) => b.distance !== undefined && b.distance <= radius
-      );
-    }
-
-    // Sort by distance if lat/lng provided
+    // Filter by radius if lat/lng are provided. Default radius is 20 km, capped at 50 km.
     if (userLat !== undefined && userLng !== undefined) {
+      let activeRadius = 20;
+      if (radiusKm !== undefined) {
+        activeRadius = Math.min(50, Math.max(1, radiusKm));
+      }
+      results = results.filter(
+        (b) => b.distance !== undefined && b.distance <= activeRadius
+      );
+
+      // Sort by distance
       results.sort((a, b) => {
         if (a.distance !== undefined && b.distance !== undefined) {
           return a.distance - b.distance;
@@ -143,6 +168,10 @@ export async function GET(request: NextRequest) {
         if (b.distance !== undefined) return 1;
         return 0;
       });
+
+      // Update total count and slice for page/limit pagination
+      total = results.length;
+      results = results.slice((page - 1) * limit, page * limit);
     }
 
     const totalPages = Math.ceil(total / limit);

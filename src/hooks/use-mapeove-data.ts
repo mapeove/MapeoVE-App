@@ -37,6 +37,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
           fetchBusinesses({ 
             lat: userLocation?.lat || undefined,
             lng: userLocation?.lng || undefined,
+            radius: 20,
             limit: 100 
           }),
         ]);
@@ -87,6 +88,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
           category: activeCategory || undefined,
           lat: userLocation?.lat,
           lng: userLocation?.lng,
+          radius: 20,
           limit: 100,
         });
         setBusinesses(result.businesses);
@@ -128,6 +130,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
         category: activeCategory || undefined,
         lat: userLocation?.lat,
         lng: userLocation?.lng,
+        radius: 20,
         limit: 100,
       });
       setBusinesses(result.businesses);

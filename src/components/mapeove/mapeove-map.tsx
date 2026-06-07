@@ -27,6 +27,7 @@ interface MapeoVEMapProps {
   bearing?: number;
   isActiveNavigation?: boolean;
   onRecenter?: () => void;
+  focusNearbyTrigger?: number;
 }
 
 
@@ -69,6 +70,7 @@ export function MapeoVEMap({
   bearing = 0,
   isActiveNavigation = false,
   onRecenter,
+  focusNearbyTrigger = 0,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -636,7 +638,6 @@ export function MapeoVEMap({
       duration: 800,
     });
   }, [selectedBusiness, mapLoaded]);
-
   // ─── Fly to selected geocode ──────────────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !selectedGeocode || !mapLoaded) return;
@@ -652,6 +653,54 @@ export function MapeoVEMap({
       duration: 800,
     });
   }, [selectedGeocode, mapLoaded]);
+
+  // ─── Focus nearby businesses ──────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !focusNearbyTrigger) return;
+
+    const refCenter = selectedGeocode || userLocation;
+    const validBiz = (businesses || []).filter((b) => {
+      const lat = Number(b.latitude);
+      const lng = Number(b.longitude);
+      const isValid = Number.isFinite(lat) && Number.isFinite(lng);
+      if (!isValid) return false;
+      if (refCenter) {
+        return b.distance !== undefined && b.distance <= 20;
+      }
+      return true;
+    });
+
+    if (validBiz.length === 0) return;
+
+    if (validBiz.length === 1) {
+      const lat = Number(validBiz[0].latitude);
+      const lng = Number(validBiz[0].longitude);
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 15.5,
+        duration: 800,
+      });
+    } else {
+      const maplibregl = maplibreRef.current;
+      if (!maplibregl) return;
+
+      const bounds = new maplibregl.LngLatBounds();
+      validBiz.forEach((b) => {
+        bounds.extend([Number(b.longitude), Number(b.latitude)]);
+      });
+
+      if (refCenter) {
+        bounds.extend([refCenter.lng, refCenter.lat]);
+      }
+
+      map.fitBounds(bounds, {
+        padding: { top: 80, bottom: 220, left: 50, right: 50 },
+        maxZoom: 15,
+        duration: 1000,
+      });
+    }
+  }, [focusNearbyTrigger, mapLoaded]);
 
   // ─── Center on user location once when real location is available ───
   const centeredOnUserRef = useRef(false);

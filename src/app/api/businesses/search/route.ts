@@ -43,23 +43,28 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q");
     const lat = searchParams.get("lat");
     const lng = searchParams.get("lng");
+    const radiusStr = searchParams.get("radiusKm") || searchParams.get("radius");
 
-    if (!q || q.trim() === "") {
-      return errorResponse("El parametro de busqueda 'q' es obligatorio");
+    const userLat = lat ? parseFloat(lat) : undefined;
+    const userLng = lng ? parseFloat(lng) : undefined;
+
+    // Build where clause
+    const where: Record<string, any> = { active: true };
+
+    if (q && q.trim() !== "") {
+      const searchTerm = q.trim();
+      where.OR = [
+        { name: { contains: searchTerm, mode: "insensitive" } },
+        { description: { contains: searchTerm, mode: "insensitive" } },
+        { address: { contains: searchTerm, mode: "insensitive" } },
+        { city: { contains: searchTerm, mode: "insensitive" } },
+      ];
+    } else if (userLat === undefined || userLng === undefined) {
+      return errorResponse("Debe proporcionar un parámetro de búsqueda 'q' o coordenadas 'lat' y 'lng'");
     }
 
-    const searchTerm = q.trim();
-
     const businesses = await db.business.findMany({
-      where: {
-        active: true,
-        OR: [
-          { name: { contains: searchTerm, mode: "insensitive" } },
-          { description: { contains: searchTerm, mode: "insensitive" } },
-          { address: { contains: searchTerm, mode: "insensitive" } },
-          { city: { contains: searchTerm, mode: "insensitive" } },
-        ],
-      },
+      where,
       include: {
         category: {
           select: {
@@ -74,11 +79,10 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { name: "asc" },
-      take: 50,
     });
 
-    const userLat = lat ? parseFloat(lat) : undefined;
-    const userLng = lng ? parseFloat(lng) : undefined;
+    const userLatNum = userLat;
+    const userLngNum = userLng;
 
     const token = request.cookies.get("mapeove-session")?.value;
     let currentUser: { userId: string; role: string } | null = null;
@@ -89,7 +93,7 @@ export async function GET(request: NextRequest) {
       } catch (e) {}
     }
 
-    const results: BusinessWithDistance[] = businesses.map((business) => {
+    let results: BusinessWithDistance[] = businesses.map((business) => {
       const result: BusinessWithDistance = { ...business };
 
       const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
@@ -98,10 +102,10 @@ export async function GET(request: NextRequest) {
         result.businessEmail = null;
       }
 
-      if (userLat !== undefined && userLng !== undefined) {
+      if (userLatNum !== undefined && userLngNum !== undefined) {
         const distance = haversineDistance(
-          userLat,
-          userLng,
+          userLatNum,
+          userLngNum,
           business.latitude,
           business.longitude
         );
@@ -111,8 +115,17 @@ export async function GET(request: NextRequest) {
       return result;
     });
 
-    // Sort by distance if lat/lng provided
-    if (userLat !== undefined && userLng !== undefined) {
+    // Filter by radius if lat/lng are provided. Default radius is 20 km, capped at 50 km.
+    if (userLatNum !== undefined && userLngNum !== undefined) {
+      let activeRadius = 20;
+      if (radiusStr) {
+        activeRadius = Math.min(50, Math.max(1, parseFloat(radiusStr) || 20));
+      }
+      results = results.filter(
+        (b) => b.distance !== undefined && b.distance <= activeRadius
+      );
+
+      // Sort by distance
       results.sort((a, b) => {
         if (a.distance !== undefined && b.distance !== undefined) {
           return a.distance - b.distance;
@@ -123,7 +136,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return successResponse(results);
+    // Limit search results to 50
+    const finalResults = results.slice(0, 50);
+
+    return successResponse(finalResults);
   } catch (err) {
     console.error("Error buscando negocios:", err);
     return errorResponse("Error al buscar negocios", 500);

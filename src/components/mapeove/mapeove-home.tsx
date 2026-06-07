@@ -39,6 +39,12 @@ const MapeoVEMap = dynamic(
 
 export function MapeoVEHome() {
   const { userLocation, isRealLocation } = useUserLocation();
+  const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
+
+  const queryLocation = selectedGeocode 
+    ? { lat: selectedGeocode.lat, lng: selectedGeocode.lng } 
+    : userLocation;
+
   const {
     categories,
     businesses,
@@ -52,12 +58,20 @@ export function MapeoVEHome() {
     handleSelectBusinessFromSearch,
     handleCloseDetail,
     refreshBusinesses,
-  } = useMapeoveData(userLocation);
+  } = useMapeoveData(queryLocation);
 
-  const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
   const [visibleBusinesses, setVisibleBusinesses] = useState<Business[]>([]);
+  const [focusNearbyTrigger, setFocusNearbyTrigger] = useState(0);
 
-  const nearbyCount = visibleBusinesses.length;
+  const nearbyBusinesses = queryLocation
+    ? businesses.filter((b) => b.distance !== undefined && b.distance <= 20)
+    : [];
+
+  const nearbyCount = nearbyBusinesses.length;
+
+  const handleFocusNearby = () => {
+    setFocusNearbyTrigger(prev => prev + 1);
+  };
 
   const handleMarkerClick = (business: Business) => {
     setSelectedGeocode(null);
@@ -315,6 +329,7 @@ export function MapeoVEHome() {
         bearing={liveNav.bearing}
         isActiveNavigation={isActiveNavigation}
         onRecenter={() => setIsFollowing(true)}
+        focusNearbyTrigger={focusNearbyTrigger}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
@@ -368,13 +383,14 @@ export function MapeoVEHome() {
           {/* Contador de negocios */}
           {!selectedBusiness && !showList && (
             <div className="flex justify-center mb-2">
-              <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg text-white text-[11px] font-bold"
+              <button
+                onClick={handleFocusNearby}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg text-white text-[11px] font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer pointer-events-auto"
                 style={{ backgroundColor: BRAND.blue }}
               >
                 <MapPin size={12} />
                 {nearbyCount} negocio{nearbyCount !== 1 ? "s" : ""} cercano{nearbyCount !== 1 ? "s" : ""}
-              </div>
+              </button>
             </div>
           )}
 
@@ -462,7 +478,7 @@ export function MapeoVEHome() {
               </div>
               <div className="overflow-y-auto max-h-[47vh] p-3">
                 <BusinessList
-                  businesses={visibleBusinesses}
+                  businesses={nearbyBusinesses}
                   onSelectBusiness={handleMarkerClick}
                   selectedId={selectedBusiness?.id || null}
                   userLocation={userLocation}
