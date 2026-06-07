@@ -18,9 +18,7 @@ export function BusinessList({
   userLocation = null,
 }: BusinessListProps) {
   // Only show distances if user location is within Venezuela
-  const showDistances =
-    userLocation !== null &&
-    isInVenezuela(userLocation.lat, userLocation.lng);
+  const showDistances = userLocation !== null;
 
   if (!Array.isArray(businesses) || businesses.length === 0) {
     return (

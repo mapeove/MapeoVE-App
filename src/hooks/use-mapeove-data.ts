@@ -34,7 +34,11 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
       try {
         const [cats, biz] = await Promise.all([
           fetchCategories(),
-          fetchBusinesses({ limit: 100 }),
+          fetchBusinesses({ 
+            lat: userLocation?.lat || undefined,
+            lng: userLocation?.lng || undefined,
+            limit: 100 
+          }),
         ]);
         setCategories(cats);
         setBusinesses(biz.businesses);

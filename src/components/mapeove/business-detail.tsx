@@ -318,8 +318,7 @@ export function BusinessDetail({
 
   const hasValidDistance =
     business.distance !== undefined &&
-    userLocation !== null &&
-    isInVenezuela(userLocation.lat, userLocation.lng);
+    userLocation !== null;
 
   const { isOpen, label: openLabel } = getOpenStatus(business.hours);
 

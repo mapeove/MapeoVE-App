@@ -267,6 +267,10 @@ export async function POST(request: NextRequest) {
               <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">4. Ubicación</h3>
               <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <tr>
+                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Dirección:</td>
+                  <td style="padding: 6px 0; color: #111111;">${req.address}</td>
+                </tr>
+                <tr>
                   <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Latitud:</td>
                   <td style="padding: 6px 0; color: #111111; font-family: monospace;">${req.latitude !== null ? req.latitude : "No especificada"}</td>
                 </tr>

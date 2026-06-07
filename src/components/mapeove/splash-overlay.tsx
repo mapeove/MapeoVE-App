@@ -75,7 +75,7 @@ export function SplashOverlay() {
         className="absolute bottom-8 text-xs font-medium opacity-60"
         style={{ color: BRAND.white }}
       >
-        La Victoria, Aragua — Venezuela
+        Conectando negocios en toda Venezuela
       </p>
     </div>
   );
