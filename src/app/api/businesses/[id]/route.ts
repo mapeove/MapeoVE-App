@@ -5,6 +5,55 @@ import { NextRequest } from "next/server";
 import { verify } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
 
+function normalizeUrl(url: string | null | undefined, type: "web" | "instagram" | "facebook" | "tiktok"): string | null {
+  if (!url || !url.trim()) return null;
+  let clean = url.trim();
+
+  if (type === "web") {
+    if (!/^https?:\/\//i.test(clean)) {
+      clean = "https://" + clean;
+    }
+    return clean;
+  }
+
+  if (type === "instagram") {
+    if (/^https?:\/\//i.test(clean)) return clean;
+    if (clean.startsWith("@")) {
+      clean = clean.substring(1);
+    }
+    if (clean.includes("instagram.com")) {
+      return "https://" + clean.replace(/^https?:\/\//i, "");
+    }
+    return `https://instagram.com/${clean}`;
+  }
+
+  if (type === "tiktok") {
+    if (/^https?:\/\//i.test(clean)) return clean;
+    if (clean.startsWith("@")) {
+      clean = clean.substring(1);
+    }
+    if (clean.includes("tiktok.com")) {
+      const path = clean.split("tiktok.com/")[1];
+      if (path && !path.startsWith("@")) {
+        return `https://tiktok.com/@${path}`;
+      }
+      return "https://" + clean.replace(/^https?:\/\//i, "");
+    }
+    return `https://tiktok.com/@${clean}`;
+  }
+
+  if (type === "facebook") {
+    if (/^https?:\/\//i.test(clean)) return clean;
+    if (clean.includes("facebook.com")) {
+      return "https://" + clean.replace(/^https?:\/\//i, "");
+    }
+    return `https://facebook.com/${clean}`;
+  }
+
+  return clean;
+}
+
+
 type BusinessWithDistance = {
   id: string;
   name: string;
@@ -24,6 +73,11 @@ type BusinessWithDistance = {
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
+  businessEmail: string | null;
+  website: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  tiktok: string | null;
   category: {
     id: string;
     name: string;
@@ -66,7 +120,21 @@ export async function GET(
     const lat = searchParams.get("lat");
     const lng = searchParams.get("lng");
 
+    const token = request.cookies.get("mapeove-session")?.value;
+    let canSeeEmail = false;
+    if (token) {
+      try {
+        const session = verify(token);
+        if (session && (session.role === "SUPER_ADMIN" || session.userId === business.ownerId)) {
+          canSeeEmail = true;
+        }
+      } catch (e) {}
+    }
+
     const result: BusinessWithDistance = { ...business };
+    if (!canSeeEmail) {
+      result.businessEmail = null;
+    }
 
     if (lat && lng) {
       const distance = haversineDistance(
@@ -127,6 +195,11 @@ export async function PUT(
       categoryId,
       verified,
       active,
+      businessEmail,
+      website,
+      instagram,
+      facebook,
+      tiktok,
     } = body;
 
     // Validate required fields if provided
@@ -167,6 +240,12 @@ export async function PUT(
     if (image !== undefined) updateData.image = image?.trim() || null;
     if (hours !== undefined) updateData.hours = hours?.trim() || null;
     if (categoryId !== undefined) updateData.categoryId = categoryId;
+    if (businessEmail !== undefined) updateData.businessEmail = businessEmail?.trim() || null;
+    if (website !== undefined) updateData.website = normalizeUrl(website, "web");
+    if (instagram !== undefined) updateData.instagram = normalizeUrl(instagram, "instagram");
+    if (facebook !== undefined) updateData.facebook = normalizeUrl(facebook, "facebook");
+    if (tiktok !== undefined) updateData.tiktok = normalizeUrl(tiktok, "tiktok");
+
     // Only super admin can change verified/active flags
     if (isSuperAdmin) {
       if (verified !== undefined) updateData.verified = verified;

@@ -72,6 +72,12 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [tiktok, setTiktok] = useState("");
+
   // Owner Edit Mode States
   const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
   const [isEditingUserBiz, setIsEditingUserBiz] = useState(false);
@@ -95,6 +101,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setLatitude(null);
     setLongitude(null);
     setUploadedImages([]);
+    setBusinessEmail("");
+    setWebsite("");
+    setInstagram("");
+    setFacebook("");
+    setTiktok("");
     setError("");
     setSuccess(false);
     setForceShowForm(false);
@@ -307,6 +318,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           paymentMethod,
           paymentReference,
           images: imagesPayload,
+          businessEmail: businessEmail.trim() || null,
+          website: website.trim() || null,
+          instagram: instagram.trim() || null,
+          facebook: facebook.trim() || null,
+          tiktok: tiktok.trim() || null,
         }),
       });
 
@@ -343,6 +359,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           setWhatsapp(biz.whatsapp || "");
           setOpeningHours(biz.hours || "");
           setDescription(biz.description || "");
+          setBusinessEmail(biz.businessEmail || "");
+          setWebsite(biz.website || "");
+          setInstagram(biz.instagram || "");
+          setFacebook(biz.facebook || "");
+          setTiktok(biz.tiktok || "");
           setIsEditingUserBiz(true);
         } else {
           setError("No se pudieron cargar los datos del local.");
@@ -386,6 +407,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           whatsapp,
           hours: openingHours,
           description,
+          businessEmail: businessEmail.trim() || null,
+          website: website.trim() || null,
+          instagram: instagram.trim() || null,
+          facebook: facebook.trim() || null,
+          tiktok: tiktok.trim() || null,
         }),
       });
 
@@ -634,6 +660,59 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     rows={3}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 resize-none"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5 pt-2 border-t border-gray-100">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Correo electrónico del negocio (Privado - solo Admin)</label>
+                    <input
+                      type="email"
+                      placeholder="Ej. contacto@tunegocio.com"
+                      value={businessEmail}
+                      onChange={(e) => setBusinessEmail(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Página Web (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. www.tunegocio.com"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Instagram (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. @tunegocio o URL"
+                      value={instagram}
+                      onChange={(e) => setInstagram(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Facebook (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. tunegocio o URL"
+                      value={facebook}
+                      onChange={(e) => setFacebook(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">TikTok (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. @tunegocio o URL"
+                      value={tiktok}
+                      onChange={(e) => setTiktok(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -894,6 +973,59 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     onChange={(e) => setNote(e.target.value)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5 pt-2 border-t border-gray-100">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Correo electrónico del negocio (Privado - solo Admin)</label>
+                    <input
+                      type="email"
+                      placeholder="Ej. contacto@tunegocio.com"
+                      value={businessEmail}
+                      onChange={(e) => setBusinessEmail(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Página Web (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. www.tunegocio.com"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Instagram (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. @tunegocio o URL"
+                      value={instagram}
+                      onChange={(e) => setInstagram(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Facebook (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. tunegocio o URL"
+                      value={facebook}
+                      onChange={(e) => setFacebook(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">TikTok (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. @tunegocio o URL"
+                      value={tiktok}
+                      onChange={(e) => setTiktok(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
                 </div>
               </div>
 

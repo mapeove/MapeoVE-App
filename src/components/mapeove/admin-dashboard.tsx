@@ -44,6 +44,11 @@ interface BusinessRequestData {
   paymentMethod: string;
   paymentReference: string;
   plan: string | null;
+  businessEmail: string | null;
+  website: string | null;
+  instagram: string | null;
+  facebook: string | null;
+  tiktok: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
 }
@@ -127,6 +132,11 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
     verified: false,
     latitude: 0,
     longitude: 0,
+    businessEmail: "",
+    website: "",
+    instagram: "",
+    facebook: "",
+    tiktok: "",
   });
   const [editSaving, setEditSaving] = useState(false);
   const [editMessage, setEditMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -147,6 +157,11 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
       verified: editingBiz.verified,
       latitude: editingBiz.latitude,
       longitude: editingBiz.longitude,
+      businessEmail: editingBiz.businessEmail || "",
+      website: editingBiz.website || "",
+      instagram: editingBiz.instagram || "",
+      facebook: editingBiz.facebook || "",
+      tiktok: editingBiz.tiktok || "",
     });
     setEditMessage(null);
 
@@ -185,6 +200,11 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
           verified: editForm.verified,
           latitude: editForm.latitude,
           longitude: editForm.longitude,
+          businessEmail: editForm.businessEmail.trim() || null,
+          website: editForm.website.trim() || null,
+          instagram: editForm.instagram.trim() || null,
+          facebook: editForm.facebook.trim() || null,
+          tiktok: editForm.tiktok.trim() || null,
         }),
       });
       const data = await res.json();
@@ -533,6 +553,32 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
     }
   };
 
+  // Polling for requests and registered businesses when dashboard is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const interval = setInterval(() => {
+      // Fetch requests in background
+      fetch("/api/admin/business-requests")
+        .then((res) => {
+          if (res.ok) return res.json();
+        })
+        .then((data) => {
+          if (data && data.success && data.requests) {
+            setRequests(data.requests);
+          }
+        })
+        .catch(console.error);
+
+      // Refresh businesses in background to update localBusinesses & markers on map
+      if (onRefreshBusinesses) {
+        onRefreshBusinesses();
+      }
+    }, 25000); // Poll every 25 seconds
+
+    return () => clearInterval(interval);
+  }, [isOpen, onRefreshBusinesses]);
+
   const handleApprove = async (id: string) => {
     setActioningId(id);
     try {
@@ -541,8 +587,12 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        // Reload list to get updated status
-        loadRequests();
+        // Update local requests status
+        setRequests((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, status: "APPROVED" } : r))
+        );
+        // Refresh businesses list
+        onRefreshBusinesses?.();
       } else {
         alert(data.error || "Error al aprobar la solicitud");
       }
@@ -562,8 +612,10 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        // Reload list to get updated status
-        loadRequests();
+        // Update local requests status
+        setRequests((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, status: "REJECTED" } : r))
+        );
       } else {
         alert(data.error || "Error al rechazar la solicitud");
       }
@@ -1003,6 +1055,11 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                             <p className="text-gray-400 font-bold text-[9px] uppercase tracking-wider">Datos del Local</p>
                             <p><strong>Dirección:</strong> {req.address}</p>
                             <p><strong>Teléfono:</strong> {req.phone} | <strong>WhatsApp:</strong> {req.whatsapp}</p>
+                            <p><strong>Email del Negocio (Privado):</strong> {req.businessEmail || "No provisto"}</p>
+                            <p><strong>Página web:</strong> {req.website ? <a href={req.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{req.website}</a> : "No provista"}</p>
+                            <p><strong>Instagram:</strong> {req.instagram ? <a href={req.instagram} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{req.instagram}</a> : "No provisto"}</p>
+                            <p><strong>Facebook:</strong> {req.facebook ? <a href={req.facebook} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{req.facebook}</a> : "No provisto"}</p>
+                            <p><strong>TikTok:</strong> {req.tiktok ? <a href={req.tiktok} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{req.tiktok}</a> : "No provisto"}</p>
                             <p><strong>Horario:</strong> {req.openingHours || "No indicado"}</p>
                             <p><strong>Descripción:</strong> {req.description || "N/A"}</p>
                             {req.note && <p><strong>Oferta/Nota:</strong> {req.note}</p>}
@@ -1344,6 +1401,61 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                         onChange={(e) => setEditForm({ ...editForm, hours: e.target.value })}
                         className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                         placeholder="Lun-Sab 8:00 AM - 6:00 PM"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Correo electrónico (Privado)</label>
+                      <input
+                        type="email"
+                        value={editForm.businessEmail}
+                        onChange={(e) => setEditForm({ ...editForm, businessEmail: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="contacto@negocio.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Página Web</label>
+                      <input
+                        type="text"
+                        value={editForm.website}
+                        onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="https://www.miweb.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instagram</label>
+                      <input
+                        type="text"
+                        value={editForm.instagram}
+                        onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="@usuario o URL"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Facebook</label>
+                      <input
+                        type="text"
+                        value={editForm.facebook}
+                        onChange={(e) => setEditForm({ ...editForm, facebook: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="pagina o URL"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">TikTok</label>
+                      <input
+                        type="text"
+                        value={editForm.tiktok}
+                        onChange={(e) => setEditForm({ ...editForm, tiktok: e.target.value })}
+                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                        placeholder="@usuario o URL"
                       />
                     </div>
 

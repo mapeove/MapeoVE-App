@@ -118,6 +118,20 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     setSelectedBusiness(null);
   }, []);
 
+  const refreshBusinesses = useCallback(async () => {
+    try {
+      const result = await fetchBusinesses({
+        category: activeCategory || undefined,
+        lat: userLocation?.lat,
+        lng: userLocation?.lng,
+        limit: 100,
+      });
+      setBusinesses(result.businesses);
+    } catch (err) {
+      console.error("Error refreshing businesses:", err);
+    }
+  }, [activeCategory, userLocation]);
+
   return {
     categories,
     businesses,
@@ -132,5 +146,6 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     handleClearSearch,
     handleSelectBusinessFromSearch,
     handleCloseDetail,
+    refreshBusinesses,
   };
 }

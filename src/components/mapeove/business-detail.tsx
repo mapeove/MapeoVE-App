@@ -633,6 +633,56 @@ export function BusinessDetail({
               </div>
             )}
           </div>
+
+          {/* Social Links Row */}
+          {(business.website || business.instagram || business.facebook || business.tiktok) && (
+            <div className="flex flex-wrap gap-2 pt-2 pb-1">
+              {business.website && (
+                <a
+                  href={business.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold transition-all hover:bg-blue-100 hover:scale-105 active:scale-95 shadow-sm"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <span>Web</span>
+                </a>
+              )}
+              {business.instagram && (
+                <a
+                  href={business.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-50 text-pink-700 text-[10px] font-bold transition-all hover:bg-pink-100 hover:scale-105 active:scale-95 shadow-sm"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                  <span>Instagram</span>
+                </a>
+              )}
+              {business.facebook && (
+                <a
+                  href={business.facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-800 text-[10px] font-bold transition-all hover:bg-blue-100 hover:scale-105 active:scale-95 shadow-sm"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                  <span>Facebook</span>
+                </a>
+              )}
+              {business.tiktok && (
+                <a
+                  href={business.tiktok}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 text-gray-800 text-[10px] font-bold transition-all hover:bg-gray-150 hover:scale-105 active:scale-95 shadow-sm border border-gray-200"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+                  <span>TikTok</span>
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Acciones principales ── Solo se muestran dentro del sheet en escritorio (hidden md:block) */}

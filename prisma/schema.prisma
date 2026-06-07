@@ -59,6 +59,11 @@ model Business {
   category    Category @relation(fields: [categoryId], references: [id])
   owner       User?    @relation(fields: [ownerId], references: [id])
   businessImages BusinessImage[]
+  businessEmail String?  @map("business_email")
+  website       String?
+  instagram     String?
+  facebook      String?
+  tiktok        String?
 
   @@index([categoryId])
   @@index([active])
@@ -103,6 +108,11 @@ model BusinessRequest {
   category         Category              @relation(fields: [categoryId], references: [id])
   reviewedBy       User?                 @relation("reviewedByRequests", fields: [reviewedById], references: [id])
   user             User                  @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade)
+  businessEmail    String?               @map("business_email")
+  website          String?
+  instagram        String?
+  facebook         String?
+  tiktok           String?
 
   @@map("business_requests")
 }

@@ -54,6 +54,11 @@ export async function POST(
         country: "Venezuela",
         verified: true,
         active: true,
+        businessEmail: req.businessEmail,
+        website: req.website,
+        instagram: req.instagram,
+        facebook: req.facebook,
+        tiktok: req.tiktok,
       },
     });
 

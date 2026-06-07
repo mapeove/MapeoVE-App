@@ -23,9 +23,10 @@ export default function LocationSelectorMap({
   const markerRef = useRef<any>(null);
   
   const [coords, setCoords] = useState<{lat: number, lng: number} | null>(
-    initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null
+    initialLat != null && initialLng != null ? { lat: initialLat, lng: initialLng } : null
   );
   const [mounted, setMounted] = useState(false);
+  const activeRef = useRef(true);
 
   // Search Address States
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,9 +36,15 @@ export default function LocationSelectorMap({
 
   useEffect(() => {
     setMounted(true);
+    activeRef.current = true;
     import("maplibre-gl").then((mod) => {
-      setMaplibregl(mod.default);
+      if (activeRef.current) {
+        setMaplibregl(mod.default);
+      }
     });
+    return () => {
+      activeRef.current = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -47,9 +54,12 @@ export default function LocationSelectorMap({
       ? [initialLng, initialLat] 
       : [INITIAL_MAP_CONFIG.longitude, INITIAL_MAP_CONFIG.latitude];
 
+    // Deep copy standard style object to prevent MapLibre internal mutations from colliding
+    const styleCopy = JSON.parse(JSON.stringify(MAP_STYLE));
+
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: MAP_STYLE, // Same style as main map
+      style: styleCopy,
       center: startCenter,
       zoom: INITIAL_MAP_CONFIG.zoomSelector,
       maxZoom: INITIAL_MAP_CONFIG.maxZoom,
@@ -70,17 +80,18 @@ export default function LocationSelectorMap({
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            if (!activeRef.current || !mapRef.current) return;
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             setCoords({ lat, lng });
-            map.flyTo({ center: [lng, lat], zoom: 16 });
+            mapRef.current.flyTo({ center: [lng, lat], zoom: 16 });
 
             if (markerRef.current) {
               markerRef.current.setLngLat([lng, lat]);
             } else {
               markerRef.current = new maplibregl.Marker({ color: "#2563eb" })
                 .setLngLat([lng, lat])
-                .addTo(map);
+                .addTo(mapRef.current);
             }
           },
           (error) => {

@@ -28,6 +28,11 @@ export interface Business {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  businessEmail?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  tiktok?: string | null;
   category: {
     id: string;
     name: string;

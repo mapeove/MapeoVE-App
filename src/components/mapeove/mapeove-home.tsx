@@ -51,6 +51,7 @@ export function MapeoVEHome() {
     handleClearSearch,
     handleSelectBusinessFromSearch,
     handleCloseDetail,
+    refreshBusinesses,
   } = useMapeoveData(userLocation);
 
   const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
@@ -356,6 +357,7 @@ export function MapeoVEHome() {
         isOpen={dashboardOpen} 
         onClose={() => setDashboardOpen(false)} 
         businesses={businesses}
+        onRefreshBusinesses={refreshBusinesses}
       />
 
       {/* Sección inferior (Hidden during navigation) */}
