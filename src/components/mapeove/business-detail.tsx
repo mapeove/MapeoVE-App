@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
@@ -94,6 +94,9 @@ export function BusinessDetail({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isVisorOpen, setIsVisorOpen] = useState(false);
 
+  const detailScrollContainerRef = useRef<HTMLDivElement>(null);
+  const visorScrollContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -105,6 +108,33 @@ export function BusinessDetail({
     setIsVisorOpen(false);
   }, [business.id]);
 
+  // Sync scroll positions when currentImageIndex changes programmatically (e.g. keydowns or clicks)
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft;
+    const width = e.currentTarget.clientWidth;
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < sortedImages.length) {
+        setCurrentImageIndex(newIndex);
+      }
+    }
+  };
+
+  // Sync visor scroll position when visor is opened
+  useEffect(() => {
+    if (isVisorOpen && visorScrollContainerRef.current) {
+      setTimeout(() => {
+        if (visorScrollContainerRef.current) {
+          const width = visorScrollContainerRef.current.clientWidth;
+          visorScrollContainerRef.current.scrollTo({
+            left: currentImageIndex * width,
+            behavior: "auto"
+          });
+        }
+      }, 50);
+    }
+  }, [isVisorOpen]);
+
   useEffect(() => {
     if (!isVisorOpen) return;
 
@@ -112,9 +142,23 @@ export function BusinessDetail({
       if (e.key === "Escape") {
         setIsVisorOpen(false);
       } else if (e.key === "ArrowLeft" && sortedImages.length > 1) {
-        setCurrentImageIndex((prev) => (prev === 0 ? sortedImages.length - 1 : prev - 1));
+        const prevIdx = currentImageIndex === 0 ? sortedImages.length - 1 : currentImageIndex - 1;
+        setCurrentImageIndex(prevIdx);
+        if (visorScrollContainerRef.current) {
+          visorScrollContainerRef.current.scrollTo({
+            left: prevIdx * visorScrollContainerRef.current.clientWidth,
+            behavior: "smooth"
+          });
+        }
       } else if (e.key === "ArrowRight" && sortedImages.length > 1) {
-        setCurrentImageIndex((prev) => (prev === sortedImages.length - 1 ? 0 : prev + 1));
+        const nextIdx = currentImageIndex === sortedImages.length - 1 ? 0 : currentImageIndex + 1;
+        setCurrentImageIndex(nextIdx);
+        if (visorScrollContainerRef.current) {
+          visorScrollContainerRef.current.scrollTo({
+            left: nextIdx * visorScrollContainerRef.current.clientWidth,
+            behavior: "smooth"
+          });
+        }
       }
     };
 
@@ -122,7 +166,7 @@ export function BusinessDetail({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isVisorOpen, sortedImages.length]);
+  }, [isVisorOpen, sortedImages.length, currentImageIndex]);
 
   const hasValidDistance =
     business.distance !== undefined &&
@@ -133,12 +177,65 @@ export function BusinessDetail({
 
   const handlePrevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === 0 ? sortedImages.length - 1 : prev - 1));
+    if (detailScrollContainerRef.current) {
+      const width = detailScrollContainerRef.current.clientWidth;
+      const nextIndex = currentImageIndex === 0 ? sortedImages.length - 1 : currentImageIndex - 1;
+      detailScrollContainerRef.current.scrollTo({
+        left: nextIndex * width,
+        behavior: "smooth"
+      });
+      setCurrentImageIndex(nextIndex);
+    }
   };
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentImageIndex((prev) => (prev === sortedImages.length - 1 ? 0 : prev + 1));
+    if (detailScrollContainerRef.current) {
+      const width = detailScrollContainerRef.current.clientWidth;
+      const nextIndex = currentImageIndex === sortedImages.length - 1 ? 0 : currentImageIndex + 1;
+      detailScrollContainerRef.current.scrollTo({
+        left: nextIndex * width,
+        behavior: "smooth"
+      });
+      setCurrentImageIndex(nextIndex);
+    }
+  };
+
+  const handleVisorScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft;
+    const width = e.currentTarget.clientWidth;
+    if (width > 0) {
+      const newIndex = Math.round(scrollLeft / width);
+      if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < sortedImages.length) {
+        setCurrentImageIndex(newIndex);
+      }
+    }
+  };
+
+  const handleVisorPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (visorScrollContainerRef.current) {
+      const width = visorScrollContainerRef.current.clientWidth;
+      const nextIndex = currentImageIndex === 0 ? sortedImages.length - 1 : currentImageIndex - 1;
+      visorScrollContainerRef.current.scrollTo({
+        left: nextIndex * width,
+        behavior: "smooth"
+      });
+      setCurrentImageIndex(nextIndex);
+    }
+  };
+
+  const handleVisorNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (visorScrollContainerRef.current) {
+      const width = visorScrollContainerRef.current.clientWidth;
+      const nextIndex = currentImageIndex === sortedImages.length - 1 ? 0 : currentImageIndex + 1;
+      visorScrollContainerRef.current.scrollTo({
+        left: nextIndex * width,
+        behavior: "smooth"
+      });
+      setCurrentImageIndex(nextIndex);
+    }
   };
 
   function handleCall() {
@@ -200,36 +297,43 @@ export function BusinessDetail({
       <div className={`relative bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
         isExpanded ? "h-[80vh]" : "max-h-[55vh] md:h-auto md:max-h-none"
       }`}>
-        {/* Drag handle (mobile) */}
-        <div 
-          className="flex justify-center pt-3 pb-2 md:hidden cursor-pointer hover:bg-gray-50 active:bg-gray-100"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="w-12 h-1.5 rounded-full bg-gray-300" />
-        </div>
-
         {/* Imagen, carrusel o placeholder */}
         {(() => {
           if (sortedImages.length > 0) {
-            const currentImg = sortedImages[currentImageIndex];
             return (
-              <div 
-                className="relative h-44 md:h-48 overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 cursor-zoom-in"
-                onClick={() => setIsVisorOpen(true)}
-              >
-                <img
-                  src={currentImg.url}
-                  alt={business.name}
-                  className="w-full h-full object-cover select-none"
+              <div className="relative h-[250px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100">
+                {/* Drag handle overlay (mobile only) */}
+                <div 
+                  className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-white/50 backdrop-blur-sm z-20 md:hidden cursor-pointer hover:bg-white/75 active:bg-white transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(!isExpanded);
+                  }}
                 />
-                
-                {currentImg.isPrimary && (
-                  <span className="absolute top-2 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm z-10"
-                    style={{ backgroundColor: BRAND.blue }}
-                  >
-                    Principal
-                  </span>
-                )}
+
+                <div 
+                  ref={detailScrollContainerRef}
+                  onScroll={handleScroll}
+                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide h-full w-full cursor-zoom-in"
+                  onClick={() => setIsVisorOpen(true)}
+                >
+                  {sortedImages.map((img, idx) => (
+                    <div key={img.id || idx} className="w-full h-full flex-shrink-0 snap-start relative">
+                      <img
+                        src={img.url}
+                        alt={business.name}
+                        className="w-full h-full object-cover select-none"
+                      />
+                      {img.isPrimary && (
+                        <span className="absolute top-3 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm z-10"
+                          style={{ backgroundColor: BRAND.blue }}
+                        >
+                          Principal
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
                 {/* Left Arrow Button */}
                 {sortedImages.length > 1 && (
@@ -251,77 +355,88 @@ export function BusinessDetail({
                   </button>
                 )}
 
-                {/* Close button sobre imagen */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClose();
-                  }}
-                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors z-10"
-                >
-                  <X size={14} className="text-white" />
-                </button>
-
-                {/* Badge de categoría sobre imagen */}
-                <div className="absolute bottom-2 left-3 z-10">
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white leading-tight shadow-md"
-                    style={{ backgroundColor: categoryColor }}
-                  >
-                    {business.category.icon} {business.category.name}
-                  </span>
-                </div>
-
-                {/* Indicator dot or counter if multiple images */}
+                {/* Indicadores inferiores tipo ● ○ ○ ○ */}
                 {sortedImages.length > 1 && (
-                  <div className="absolute bottom-2 right-3 bg-black/55 text-[10px] font-bold px-2 py-0.5 rounded-full text-white z-10">
-                    {currentImageIndex + 1} / {sortedImages.length}
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
+                    {sortedImages.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                          idx === currentImageIndex ? "bg-white scale-110" : "bg-white/40"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Contador de fotos (ej. 1/5) */}
+                {sortedImages.length > 1 && (
+                  <div className="absolute bottom-3 right-3 bg-black/55 text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white z-10 backdrop-blur-sm">
+                    {currentImageIndex + 1}/{sortedImages.length}
                   </div>
                 )}
               </div>
             );
           } else {
             return (
-              <div className="relative h-36 overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 flex items-center justify-center">
+              <div className="relative h-[220px] md:h-[250px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 flex items-center justify-center">
+                {/* Drag handle overlay (mobile only) */}
+                <div 
+                  className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-gray-300 z-20 md:hidden cursor-pointer hover:bg-gray-450 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExpanded(!isExpanded);
+                  }}
+                />
+                
                 <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center text-gray-300 gap-1.5">
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <polyline points="21 15 16 10 5 21"/>
                   </svg>
-                  <span className="text-[9px] font-bold tracking-wider text-gray-400 uppercase">Sin imágenes</span>
-                </div>
-                {/* Close button */}
-                <button
-                  onClick={onClose}
-                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
-                >
-                  <X size={14} className="text-gray-500" />
-                </button>
-                {/* Category badge */}
-                <div className="absolute bottom-2 left-3 z-10">
-                  <span
-                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white leading-tight shadow"
-                    style={{ backgroundColor: categoryColor }}
-                  >
-                    {business.category.icon} {business.category.name}
-                  </span>
+                  <span className="text-[9px] font-black tracking-wider text-gray-400 uppercase">Sin imágenes</span>
                 </div>
               </div>
             );
           }
         })()}
 
-        {/* Contenido scrolleable (pb-24 on mobile prevents being covered by the portal buttons) */}
-        <div className="overflow-y-auto px-4 pt-3 pb-24 md:pb-4 flex-1 min-h-0">
+        {/* Contenido scrolleable */}
+        <div className="overflow-y-auto px-4 pt-4 pb-24 md:pb-4 flex-1 min-h-0 space-y-3">
+          {/* Header Row: Category Icon + Category Badge + Close button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm text-white shrink-0"
+                style={{ backgroundColor: categoryColor }}
+              >
+                {business.category.icon}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span 
+                  className="inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full text-white w-fit"
+                  style={{ backgroundColor: categoryColor }}
+                >
+                  {business.category.name}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 shrink-0"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
           {/* Nombre */}
-          <h2 className="text-base font-extrabold text-gray-900 leading-tight pr-6">
+          <h2 className="text-base font-extrabold text-gray-900 leading-tight">
             {business.name}
           </h2>
 
           {/* Badges: estado + verificado */}
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {/* Badge Abierto/Cerrado */}
+          <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
                 isOpen
@@ -340,26 +455,29 @@ export function BusinessDetail({
             )}
           </div>
 
-          {/* Info rows ── dirección, horario, teléfono, distancia */}
-          <div className="mt-3.5 space-y-2">
-            <div className="flex items-start gap-2">
+          {/* Divider */}
+          <div className="border-t border-gray-100 my-1" />
+
+          {/* Info rows */}
+          <div className="space-y-2.5">
+            <div className="flex items-start gap-2.5">
               <MapPin size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
               <span className="text-xs text-gray-650 font-medium leading-relaxed">{business.address}</span>
             </div>
             {business.hours && (
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="text-gray-400 flex-shrink-0" />
-                <span className="text-xs text-gray-650 font-medium">{business.hours}</span>
+              <div className="flex items-start gap-2.5">
+                <Clock size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                <span className="text-xs text-gray-650 font-medium leading-relaxed">{business.hours}</span>
               </div>
             )}
             {phoneNumber && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Phone size={14} className="text-gray-400 flex-shrink-0" />
                 <span className="text-xs text-gray-650 font-medium">{business.phone}</span>
               </div>
             )}
             {hasValidDistance && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Navigation size={14} className="text-gray-400 flex-shrink-0" />
                 <span className="text-xs font-bold" style={{ color: BRAND.blue }}>
                   {business.distance} km de distancia
@@ -405,7 +523,7 @@ export function BusinessDetail({
       {/* Visor modal fullscreen */}
       {isVisorOpen && mounted && sortedImages.length > 0 && createPortal(
         <div 
-          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/90 backdrop-blur-sm select-none"
+          className="fixed inset-0 z-[100000] flex flex-col bg-black select-none"
           onClick={() => setIsVisorOpen(false)}
         >
           {/* Close button X */}
@@ -416,46 +534,49 @@ export function BusinessDetail({
             <X size={24} />
           </button>
 
-          {/* Left Arrow */}
+          {/* Swipe container for fullscreen images */}
+          <div 
+            ref={visorScrollContainerRef}
+            onScroll={handleVisorScroll}
+            className="flex-1 flex items-center justify-center overflow-x-auto snap-x snap-mandatory scrollbar-hide h-full w-full"
+          >
+            {sortedImages.map((img, idx) => (
+              <div 
+                key={img.id || idx} 
+                className="w-full h-full flex-shrink-0 snap-start flex items-center justify-center p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={img.url}
+                  alt={`${business.name} vista ampliada ${idx + 1}`}
+                  className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Left Arrow (Desktop/accessibility) */}
           {sortedImages.length > 1 && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentImageIndex((prev) => (prev === 0 ? sortedImages.length - 1 : prev - 1));
-              }}
-              className="absolute left-4 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[100001] active:scale-95"
+              onClick={handleVisorPrev}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[100001] active:scale-95 hidden sm:flex"
             >
               <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
             </button>
           )}
 
-          {/* Right Arrow */}
+          {/* Right Arrow (Desktop/accessibility) */}
           {sortedImages.length > 1 && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentImageIndex((prev) => (prev === sortedImages.length - 1 ? 0 : prev + 1));
-              }}
-              className="absolute right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[100001] active:scale-95"
+              onClick={handleVisorNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[100001] active:scale-95 hidden sm:flex"
             >
               <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
             </button>
           )}
 
-          {/* Centered Image */}
-          <div 
-            className="max-w-[90vw] max-h-[80vh] flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={sortedImages[currentImageIndex].url}
-              alt={`${business.name} vista ampliada`}
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl select-none"
-            />
-          </div>
-
           {/* Counter (Bottom Centered) */}
-          <div className="absolute bottom-6 bg-black/60 text-white text-xs font-black px-4 py-1.5 rounded-full backdrop-blur-sm z-[100001]">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-black px-4 py-1.5 rounded-full backdrop-blur-sm z-[100001]">
             {currentImageIndex + 1} / {sortedImages.length}
           </div>
         </div>,
