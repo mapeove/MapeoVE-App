@@ -65,6 +65,154 @@ function getOpenStatus(hours: string | null): { isOpen: boolean; label: string }
   return { isOpen: false, label: hours };
 }
 
+interface ZoomableImageProps {
+  src: string;
+  alt: string;
+  isActive: boolean;
+}
+
+function ZoomableImage({ src, alt, isActive }: ZoomableImageProps) {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const imgRef = useRef<HTMLImageElement>(null);
+  
+  // Touch gesture state
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const touchStartDistRef = useRef<number | null>(null);
+  const startScaleRef = useRef(1);
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const lastTapRef = useRef<number>(0);
+
+  // Reset zoom when image source changes
+  useEffect(() => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }, [src]);
+
+  // Reset zoom when active status changes
+  useEffect(() => {
+    if (!isActive) {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [isActive]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      startPosRef.current = { ...position };
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartDistRef.current = dist;
+      startScaleRef.current = scale;
+      
+      touchStartRef.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+      startPosRef.current = { ...position };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (scale === 1 && e.touches.length !== 2) return;
+    
+    // Stop propagation so the parent scroll container doesn't swipe
+    e.stopPropagation();
+
+    if (e.touches.length === 1 && touchStartRef.current) {
+      const dx = e.touches[0].clientX - touchStartRef.current.x;
+      const dy = e.touches[0].clientY - touchStartRef.current.y;
+      
+      const width = typeof window !== "undefined" ? window.innerWidth : 360;
+      const height = typeof window !== "undefined" ? window.innerHeight : 600;
+      const maxPanX = (scale - 1) * (width / 2);
+      const maxPanY = (scale - 1) * (height / 2);
+      
+      setPosition({
+        x: Math.max(-maxPanX, Math.min(maxPanX, startPosRef.current.x + dx)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, startPosRef.current.y + dy))
+      });
+    } else if (e.touches.length === 2 && touchStartDistRef.current && touchStartRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / touchStartDistRef.current;
+      const nextScale = Math.max(1, Math.min(4, startScaleRef.current * factor));
+      setScale(nextScale);
+
+      const center = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+      const dx = center.x - touchStartRef.current.x;
+      const dy = center.y - touchStartRef.current.y;
+      
+      const width = typeof window !== "undefined" ? window.innerWidth : 360;
+      const height = typeof window !== "undefined" ? window.innerHeight : 600;
+      const maxPanX = (nextScale - 1) * (width / 2);
+      const maxPanY = (nextScale - 1) * (height / 2);
+
+      setPosition({
+        x: Math.max(-maxPanX, Math.min(maxPanX, startPosRef.current.x + dx)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, startPosRef.current.y + dy))
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+    touchStartDistRef.current = null;
+    
+    if (scale < 1) {
+      setScale(1);
+      setPosition({ x: 0, y: 0 });
+    }
+  };
+
+  const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation(); // prevent closing the visor!
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+    if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
+      if (scale > 1) {
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
+      } else {
+        setScale(2.5);
+        setPosition({ x: 0, y: 0 });
+      }
+    }
+    lastTapRef.current = now;
+  };
+
+  return (
+    <div 
+      className="overflow-hidden w-full h-full flex items-center justify-center relative"
+      style={{ touchAction: scale > 1 ? "none" : "pan-x" }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onClick={handleDoubleTap}
+    >
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        className="max-w-full object-contain rounded-lg shadow-2xl transition-transform duration-100 ease-out select-none"
+        style={{
+          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+          maxHeight: "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 80px)",
+        }}
+      />
+    </div>
+  );
+}
+
 export function BusinessDetail({
   business,
   onClose,
@@ -529,7 +677,11 @@ export function BusinessDetail({
           {/* Close button X */}
           <button
             onClick={() => setIsVisorOpen(false)}
-            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-[100001] active:scale-95"
+            className="absolute p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-[100001] active:scale-95"
+            style={{ 
+              top: "calc(1rem + env(safe-area-inset-top))", 
+              right: "calc(1rem + env(safe-area-inset-right))" 
+            }}
           >
             <X size={24} />
           </button>
@@ -538,18 +690,18 @@ export function BusinessDetail({
           <div 
             ref={visorScrollContainerRef}
             onScroll={handleVisorScroll}
-            className="flex-1 flex items-center justify-center overflow-x-auto snap-x snap-mandatory scrollbar-hide h-full w-full"
+            className="flex-1 flex flex-row overflow-x-auto snap-x snap-mandatory scrollbar-hide w-full h-full"
           >
             {sortedImages.map((img, idx) => (
               <div 
                 key={img.id || idx} 
-                className="w-full h-full flex-shrink-0 snap-start flex items-center justify-center p-4"
+                className="w-screen h-full flex-shrink-0 snap-start flex items-center justify-center relative overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
-                <img
+                <ZoomableImage
                   src={img.url}
                   alt={`${business.name} vista ampliada ${idx + 1}`}
-                  className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+                  isActive={currentImageIndex === idx}
                 />
               </div>
             ))}
@@ -576,7 +728,12 @@ export function BusinessDetail({
           )}
 
           {/* Counter (Bottom Centered) */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-black px-4 py-1.5 rounded-full backdrop-blur-sm z-[100001]">
+          <div 
+            className="absolute left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-black px-4 py-1.5 rounded-full backdrop-blur-sm z-[100001]"
+            style={{ 
+              bottom: "calc(1.5rem + env(safe-area-inset-bottom))" 
+            }}
+          >
             {currentImageIndex + 1} / {sortedImages.length}
           </div>
         </div>,
