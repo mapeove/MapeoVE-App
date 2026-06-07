@@ -254,10 +254,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  position: relative;
+  position: absolute !important;
   cursor: pointer;
   z-index: 10;
-  transition: all 0.2s ease;
 }
 
 .mapeove-business-marker-wrapper:hover {
@@ -381,22 +380,6 @@
   transform: translateY(0) scale(1);
 }
 
-/* Compact style for zoom-out level to avoid map saturation */
-.mapeove-business-marker-wrapper.compact .marker-icon-circle {
-  width: 12px !important;
-  height: 12px !important;
-  border-width: 1.5px !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
-}
-
-.mapeove-business-marker-wrapper.compact .marker-icon-circle svg {
-  display: none !important;
-}
-
-.mapeove-business-marker-wrapper.compact .marker-name-label {
-  display: none !important;
-}
-
 /* Cluster Marker */
 .mapeove-cluster-marker {
   width: 36px;
@@ -436,8 +419,8 @@
 
 /* Subtle fade-in animation for HTML markers */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(2px) scale(0.95); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {

@@ -370,10 +370,12 @@ export function MapeoVEMap({
 
     map.on("zoomend", handleViewportChange);
     map.on("moveend", handleViewportChange);
+    map.on("idle", handleViewportChange);
 
     return () => {
       map.off("zoomend", handleViewportChange);
       map.off("moveend", handleViewportChange);
+      map.off("idle", handleViewportChange);
     };
   }, [mapLoaded]);
 
@@ -391,7 +393,6 @@ export function MapeoVEMap({
     if (isActiveNavigation) return;
 
     const currentZoomLevel = map.getZoom();
-    const isCompact = currentZoomLevel < 14;
     const showLabels = currentZoomLevel >= 16;
 
     const selectedId = selectedBusiness?.id;
@@ -430,6 +431,16 @@ export function MapeoVEMap({
         });
       }
     }
+
+    const MAP_CATEGORY_COLORS: Record<string, string> = {
+      restaurantes: "#F97316", // rojo/naranja
+      farmacias: "#22C55E",    // verde
+      gasolineras: "#D72638",  // rojo
+      hoteles: "#0B3D91",      // azul
+      talleres: "#8B5CF6",     // morado/gris
+      salud: "#06B6D4",        // turquesa
+      comercios: "#F4C430",    // amarillo
+    };
 
     // Render clusters
     clusters.forEach((cluster) => {
@@ -486,14 +497,11 @@ export function MapeoVEMap({
       const lng = Number(business.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-      const color = CATEGORY_COLORS[business.category.slug] || BRAND.blue;
+      const color = MAP_CATEGORY_COLORS[business.category.slug] || BRAND.blue;
       const svgIcon = getCategoryIconSvg(business.category.slug);
 
       const markerEl = document.createElement("div");
       markerEl.className = `mapeove-business-marker-wrapper animate-fade-in ${isSelected ? "selected" : ""}`;
-      if (isCompact) {
-        markerEl.classList.add("compact");
-      }
       if (showLabels) {
         markerEl.classList.add("show-label");
       }
