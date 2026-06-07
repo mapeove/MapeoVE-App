@@ -52,6 +52,7 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
   const [bizImages, setBizImages] = useState<{ id: string; url: string; isPrimary: boolean; createdAt: string }[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [bizMessage, setBizMessage] = useState<{ type: "success" | "error" | ""; text: string } | null>(null);
 
   useEffect(() => {
@@ -92,42 +93,94 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
 
   const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedAdminBiz || !e.target.files || e.target.files.length === 0) return;
-    
-    const file = e.target.files[0];
 
-    // Client validations
+    const files = Array.from(e.target.files);
+    const MAX_PHOTOS = 5;
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      alert("Formato de imagen no permitido. Use JPG, JPEG, PNG o WEBP.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("El tamaño máximo permitido es de 5MB por imagen.");
-      return;
-    }
 
-    setUploadingImage(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("isPrimary", bizImages.length === 0 ? "true" : "false");
+    // Calculate how many slots remain
+    const currentCount = bizImages.length;
+    const slotsAvailable = MAX_PHOTOS - currentCount;
 
-    try {
-      const res = await fetch(`/api/businesses/${selectedAdminBiz.id}/images`, {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setBizImages(prev => [...prev, data.image].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0)));
-      } else {
-        alert(data.error || "Error al subir la imagen");
-      }
-    } catch (err) {
-      console.error("Error uploading image:", err);
-      alert("Error de conexión al subir la imagen");
-    } finally {
-      setUploadingImage(false);
+    if (slotsAvailable <= 0) {
+      setBizMessage({ type: "error", text: `Ya alcanzaste el límite máximo de ${MAX_PHOTOS} fotos por comercio.` });
       e.target.value = "";
+      return;
+    }
+
+    if (files.length > slotsAvailable) {
+      setBizMessage({
+        type: "error",
+        text: `Solo puedes agregar ${slotsAvailable} foto${slotsAvailable === 1 ? "" : "s"} más. Seleccionaste ${files.length}.`,
+      });
+      e.target.value = "";
+      return;
+    }
+
+    // Validate all files before uploading any
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        setBizMessage({ type: "error", text: `"${file.name}" tiene un formato no permitido. Use JPG, JPEG, PNG o WEBP.` });
+        e.target.value = "";
+        return;
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        setBizMessage({ type: "error", text: `"${file.name}" supera los 5MB permitidos por imagen.` });
+        e.target.value = "";
+        return;
+      }
+    }
+
+    setBizMessage(null);
+    setUploadingImage(true);
+    setUploadProgress({ current: 0, total: files.length });
+
+    let uploadedCount = 0;
+    let hasError = false;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress({ current: i + 1, total: files.length });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      // Only first image uploaded is primary if the gallery is empty
+      formData.append("isPrimary", (currentCount === 0 && i === 0) ? "true" : "false");
+
+      try {
+        const res = await fetch(`/api/businesses/${selectedAdminBiz.id}/images`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setBizImages(prev => [...prev, data.image].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0)));
+          uploadedCount++;
+        } else {
+          setBizMessage({ type: "error", text: data.error || `Error al subir "${file.name}"` });
+          hasError = true;
+          break;
+        }
+      } catch (err) {
+        console.error("Error uploading image:", err);
+        setBizMessage({ type: "error", text: `Error de conexión al subir "${file.name}"` });
+        hasError = true;
+        break;
+      }
+    }
+
+    setUploadingImage(false);
+    setUploadProgress(null);
+    e.target.value = "";
+
+    if (!hasError && uploadedCount > 0) {
+      setBizMessage({
+        type: "success",
+        text: uploadedCount === 1
+          ? "Foto subida correctamente."
+          : `${uploadedCount} fotos subidas correctamente.`,
+      });
     }
   };
 
@@ -537,23 +590,56 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
 
                   {/* Upload Section */}
                   <div className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm space-y-3">
-                    <h5 className="text-xs font-bold text-gray-750 uppercase tracking-wider">Subir Nueva Foto</h5>
-                    <div className="flex items-center gap-3">
-                      <label className={`cursor-pointer px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md flex items-center gap-1.5 ${
-                        bizImages.length >= 5 ? "opacity-40 cursor-not-allowed pointer-events-none" : ""
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs font-bold text-gray-750 uppercase tracking-wider">Subir Fotos</h5>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        bizImages.length >= 5 ? "bg-red-50 text-red-600" : "bg-gray-100 text-gray-500"
+                      }`}>
+                        {bizImages.length}/5 fotos
+                      </span>
+                    </div>
+
+                    {bizMessage && bizMessage.text && (
+                      <div className={`p-2.5 text-xs rounded-xl border flex items-start gap-2 ${
+                        bizMessage.type === "success"
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : "bg-red-50 text-red-700 border-red-200"
+                      }`}>
+                        <span className="font-bold leading-relaxed">{bizMessage.text}</span>
+                      </div>
+                    )}
+
+                    {uploadingImage && uploadProgress && (
+                      <div className="flex items-center gap-2.5 py-2 px-3 bg-blue-50 border border-blue-200 rounded-xl">
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        <span className="text-xs font-bold text-blue-700">
+                          Subiendo foto {uploadProgress.current} de {uploadProgress.total}...
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                      <label className={`cursor-pointer px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md flex items-center gap-2 ${
+                        bizImages.length >= 5 || uploadingImage ? "opacity-40 cursor-not-allowed pointer-events-none" : ""
                       }`}>
                         <input
                           type="file"
+                          multiple
                           accept="image/jpeg,image/jpg,image/png,image/webp"
                           className="hidden"
                           onChange={handleUploadPhoto}
                           disabled={uploadingImage || bizImages.length >= 5}
                         />
-                        <span>{uploadingImage ? "Subiendo..." : "Seleccionar Archivo"}</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                        <span>Seleccionar fotos</span>
                       </label>
-                      <span className="text-[10px] text-gray-400 leading-normal">
-                        Formatos permitidos: JPG, JPEG, PNG, WEBP (Límite: {bizImages.length}/5 fotos, Max 5MB por imagen).
-                      </span>
+                      <div className="text-[10px] text-gray-400 leading-relaxed">
+                        <span className="font-semibold">Puedes seleccionar varias a la vez.</span><br />
+                        JPG · JPEG · PNG · WEBP · Máx. 5MB por imagen<br />
+                        {bizImages.length < 5 && (
+                          <span className="text-blue-500 font-bold">Quedan {5 - bizImages.length} espacio{5 - bizImages.length !== 1 ? "s" : ""} disponibles.</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

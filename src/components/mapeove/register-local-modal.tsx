@@ -70,6 +70,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<{ url: string; path: string; isPrimary: boolean }[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -160,31 +161,49 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
 
   const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const files = Array.from(e.target.files);
-    
-    if (uploadedImages.length + files.length > 5) {
-      setError("Puedes subir un máximo de 5 fotos.");
+    const MAX_PHOTOS = 5;
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+    const slotsAvailable = MAX_PHOTOS - uploadedImages.length;
+
+    if (slotsAvailable <= 0) {
+      setError(`Ya alcanzaste el límite máximo de ${MAX_PHOTOS} fotos.`);
+      e.target.value = "";
       return;
+    }
+
+    if (files.length > slotsAvailable) {
+      setError(`Solo puedes agregar ${slotsAvailable} foto${slotsAvailable === 1 ? "" : "s"} más. Seleccionaste ${files.length}.`);
+      e.target.value = "";
+      return;
+    }
+
+    // Validate ALL files before uploading any
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        setError(`"${file.name}" tiene un formato no permitido. Use JPG, JPEG, PNG o WEBP.`);
+        e.target.value = "";
+        return;
+      }
+      if (file.size > MAX_SIZE_BYTES) {
+        setError(`"${file.name}" supera los 5MB permitidos por imagen.`);
+        e.target.value = "";
+        return;
+      }
     }
 
     setError("");
     setUploadingImage(true);
+    setUploadProgress({ current: 0, total: files.length });
 
     const tempPath = `temp-requests/temp-req-${user?.id || 'guest'}-${Date.now()}`;
 
-    for (const file of files) {
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-      if (!allowedTypes.includes(file.type)) {
-        setError("Formato de imagen no permitido. Use JPG, JPEG, PNG o WEBP.");
-        setUploadingImage(false);
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setError("El tamaño máximo permitido es de 5MB por imagen.");
-        setUploadingImage(false);
-        return;
-      }
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress({ current: i + 1, total: files.length });
 
       const formData = new FormData();
       formData.append("file", file);
@@ -202,14 +221,18 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
             return [...prev, { url: data.url, path: data.path, isPrimary: isFirst }];
           });
         } else {
-          setError(data.error || "Error al subir la imagen.");
+          setError(data.error || `Error al subir "${file.name}".`);
+          break;
         }
       } catch (err) {
         console.error("Error uploading image:", err);
-        setError("Error de conexión al subir la imagen.");
+        setError(`Error de conexión al subir "${file.name}".`);
+        break;
       }
     }
+
     setUploadingImage(false);
+    setUploadProgress(null);
     e.target.value = "";
   };
 
@@ -645,8 +668,18 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                         onChange={handleUploadImages}
                         disabled={uploadingImage}
                       />
-                      <Upload size={16} className="text-gray-400 mb-1" />
-                      <span className="text-[10px] font-bold text-gray-500">{uploadingImage ? "Subiendo..." : "Subir Foto"}</span>
+                      {uploadingImage && uploadProgress ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-1" />
+                          <span className="text-[10px] font-bold text-blue-600">{uploadProgress.current}/{uploadProgress.total}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={16} className="text-gray-400 mb-1" />
+                          <span className="text-[10px] font-bold text-gray-500">Subir Fotos</span>
+                          <span className="text-[9px] text-gray-400">{5 - uploadedImages.length} espacio{(5 - uploadedImages.length) !== 1 ? "s" : ""} restante{(5 - uploadedImages.length) !== 1 ? "s" : ""}</span>
+                        </>
+                      )}
                     </label>
                   )}
                 </div>
