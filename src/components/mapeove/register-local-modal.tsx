@@ -451,9 +451,12 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           initialLat={latitude}
           initialLng={longitude}
           onClose={() => setShowMapSelector(false)} 
-          onSelect={(lat, lng) => {
+          onSelect={(lat, lng, address) => {
             setLatitude(lat);
             setLongitude(lng);
+            if (address) {
+              setAddress(address);
+            }
             setShowMapSelector(false);
           }} 
         />

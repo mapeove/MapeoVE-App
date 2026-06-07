@@ -1439,8 +1439,13 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                   initialLat={editForm.latitude}
                   initialLng={editForm.longitude}
                   onClose={() => setShowMapSelector(false)} 
-                  onSelect={(lat, lng) => {
-                    setEditForm({ ...editForm, latitude: lat, longitude: lng });
+                  onSelect={(lat, lng, address) => {
+                    setEditForm((prev) => ({
+                      ...prev,
+                      latitude: lat,
+                      longitude: lng,
+                      address: address || prev.address
+                    }));
                     setShowMapSelector(false);
                   }} 
                 />
