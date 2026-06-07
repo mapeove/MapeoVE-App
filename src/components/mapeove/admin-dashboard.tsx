@@ -47,6 +47,132 @@ interface BusinessRequestData {
 export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "pagos">("negocios");
   
+  // Photo management state
+  const [selectedAdminBiz, setSelectedAdminBiz] = useState<Business | null>(null);
+  const [bizImages, setBizImages] = useState<{ id: string; url: string; isPrimary: boolean; createdAt: string }[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Fetch Business Images when opened in Admin View
+  useEffect(() => {
+    if (!selectedAdminBiz) {
+      setBizImages([]);
+      return;
+    }
+
+    async function loadBizImages() {
+      setLoadingImages(true);
+      try {
+        const res = await fetch(`/api/businesses/${selectedAdminBiz.id}/images`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.images) {
+            setBizImages(data.images);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching biz images:", err);
+      } finally {
+        setLoadingImages(false);
+      }
+    }
+
+    loadBizImages();
+  }, [selectedAdminBiz]);
+
+  const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedAdminBiz || !e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+
+    // Client validations
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Formato de imagen no permitido. Use JPG, JPEG, PNG o WEBP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("El tamaño máximo permitido es de 5MB por imagen.");
+      return;
+    }
+
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("isPrimary", bizImages.length === 0 ? "true" : "false");
+
+    try {
+      const res = await fetch(`/api/businesses/${selectedAdminBiz.id}/images`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBizImages(prev => [...prev, data.image].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0)));
+      } else {
+        alert(data.error || "Error al subir la imagen");
+      }
+    } catch (err) {
+      console.error("Error uploading image:", err);
+      alert("Error de conexión al subir la imagen");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeletePhoto = async (imageId: string) => {
+    if (!selectedAdminBiz) return;
+    if (!confirm("¿Estás seguro de que deseas eliminar esta foto?")) return;
+
+    try {
+      const res = await fetch(`/api/businesses/${selectedAdminBiz.id}/images/${imageId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBizImages(prev => prev.filter(img => img.id !== imageId));
+        // Refetch to handle primary switch if needed
+        const refetchRes = await fetch(`/api/businesses/${selectedAdminBiz.id}/images`);
+        if (refetchRes.ok) {
+          const refetchData = await refetchRes.json();
+          if (refetchData.success && refetchData.images) {
+            setBizImages(refetchData.images);
+          }
+        }
+      } else {
+        alert(data.error || "Error al eliminar la imagen");
+      }
+    } catch (err) {
+      console.error("Error deleting image:", err);
+      alert("Error de conexión al eliminar la imagen");
+    }
+  };
+
+  const handleSetPrimaryPhoto = async (imageId: string) => {
+    if (!selectedAdminBiz) return;
+
+    try {
+      const res = await fetch(`/api/businesses/${selectedAdminBiz.id}/images/${imageId}/primary`, {
+        method: "PATCH",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBizImages(prev => 
+          prev.map(img => ({
+            ...img,
+            isPrimary: img.id === imageId,
+          })).sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))
+        );
+      } else {
+        alert(data.error || "Error al establecer como principal");
+      }
+    } catch (err) {
+      console.error("Error setting primary image:", err);
+      alert("Error de conexión");
+    }
+  };
+
   // Users Data
   const [users, setUsers] = useState<UserData[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -308,35 +434,154 @@ export function AdminDashboard({ isOpen, onClose, businesses }: AdminDashboardPr
 
           {/* Main Workspace */}
           <div className="flex-1 p-3 sm:p-6 overflow-y-auto min-w-0">
-            
             {/* TAB: NEGOCIOS */}
             {activeTab === "negocios" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs sm:text-sm font-black text-gray-800">Negocios Registrados</h4>
-                  <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 bg-gray-200/60 px-2 py-0.5 rounded-full">
-                    Total: {businesses.length}
-                  </span>
-                </div>
+              selectedAdminBiz ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setSelectedAdminBiz(null)}
+                      className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-250 rounded-xl text-xs font-bold text-gray-750 flex items-center gap-1 transition-colors"
+                      style={{ backgroundColor: "#f3f4f6" }}
+                    >
+                      ← Volver a Comercios
+                    </button>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Comercios / Fotos
+                    </span>
+                  </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {(Array.isArray(businesses) ? businesses : []).map((biz) => (
-                    <div key={biz.id} className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm flex flex-col gap-2">
-                      <div className="flex justify-between items-start">
-                        <h5 className="text-xs sm:text-sm font-black text-gray-900 truncate pr-2">{biz.name}</h5>
-                        <span className={`shrink-0 inline-block w-2 h-2 rounded-full mt-1 ${biz.verified ? "bg-blue-500" : "bg-gray-300"}`} />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 bg-gray-100 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold">
-                          <span>{biz.category.icon}</span>
-                          <span>{biz.category.name}</span>
-                        </span>
-                      </div>
-                      <p className="text-[10px] sm:text-[11px] text-gray-500 truncate">{biz.address}</p>
+                  <div className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm space-y-1.5">
+                    <h5 className="text-sm font-black text-gray-900">{selectedAdminBiz.name}</h5>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="bg-gray-100 font-bold px-2 py-0.5 rounded-full text-gray-600">
+                        {selectedAdminBiz.category.icon} {selectedAdminBiz.category.name}
+                      </span>
+                      <span className={`font-bold px-2 py-0.5 rounded-full ${
+                        selectedAdminBiz.active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                      }`}>
+                        {selectedAdminBiz.active ? "Activo" : "Inactivo"}
+                      </span>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Photo Gallery */}
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Galería de Fotos</h5>
+
+                    {loadingImages ? (
+                      <div className="flex items-center gap-2 py-10 justify-center">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-gray-500">Cargando fotos...</span>
+                      </div>
+                    ) : bizImages.length === 0 ? (
+                      <div className="bg-white border border-dashed border-gray-300 rounded-xl p-10 text-center flex flex-col items-center justify-center gap-2">
+                        <span className="text-3xl">📷</span>
+                        <p className="text-xs text-gray-500 font-medium">Este comercio no tiene fotos registradas.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {bizImages.map((img) => (
+                          <div 
+                            key={img.id} 
+                            className={`relative bg-white border rounded-xl overflow-hidden shadow-sm flex flex-col group transition-all ${
+                              img.isPrimary ? "border-blue-500 ring-2 ring-blue-500/20" : "border-gray-200"
+                            }`}
+                          >
+                            <div className="aspect-video relative overflow-hidden bg-gray-55 h-24 shrink-0">
+                              <img
+                                src={img.url}
+                                alt="Foto comercio"
+                                className="w-full h-full object-cover"
+                              />
+                              {img.isPrimary && (
+                                <span className="absolute top-1.5 left-1.5 bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                                  Principal
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-2 flex gap-1 justify-between shrink-0 bg-gray-50 border-t border-gray-150">
+                              <button
+                                onClick={() => handleSetPrimaryPhoto(img.id)}
+                                disabled={img.isPrimary}
+                                className={`flex-1 py-1 rounded-lg text-[9px] font-bold text-center transition-all ${
+                                  img.isPrimary
+                                    ? "bg-blue-50/50 text-blue-400 cursor-default"
+                                    : "bg-white border border-gray-200 hover:bg-blue-50 hover:text-blue-700 text-gray-700 active:scale-95"
+                                }`}
+                              >
+                                Principal
+                              </button>
+                              <button
+                                onClick={() => handleDeletePhoto(img.id)}
+                                className="px-2 py-1 bg-white border border-red-200 hover:bg-red-50 hover:text-red-750 text-red-500 rounded-lg text-[9px] font-bold text-center transition-all active:scale-95"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload Section */}
+                  <div className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm space-y-3">
+                    <h5 className="text-xs font-bold text-gray-750 uppercase tracking-wider">Subir Nueva Foto</h5>
+                    <div className="flex items-center gap-3">
+                      <label className={`cursor-pointer px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-md flex items-center gap-1.5 ${
+                        bizImages.length >= 5 ? "opacity-40 cursor-not-allowed pointer-events-none" : ""
+                      }`}>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleUploadPhoto}
+                          disabled={uploadingImage || bizImages.length >= 5}
+                        />
+                        <span>{uploadingImage ? "Subiendo..." : "Seleccionar Archivo"}</span>
+                      </label>
+                      <span className="text-[10px] text-gray-400 leading-normal">
+                        Formatos permitidos: JPG, JPEG, PNG, WEBP (Límite: {bizImages.length}/5 fotos, Max 5MB por imagen).
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs sm:text-sm font-black text-gray-800">Negocios Registrados</h4>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-gray-500 bg-gray-200/60 px-2 py-0.5 rounded-full">
+                      Total: {businesses.length}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {(Array.isArray(businesses) ? businesses : []).map((biz) => (
+                      <div key={biz.id} className="bg-white border border-gray-150 rounded-xl p-3 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                          <h5 className="text-xs sm:text-sm font-black text-gray-900 truncate pr-2">{biz.name}</h5>
+                          <span className={`shrink-0 inline-block w-2 h-2 rounded-full mt-1 ${biz.verified ? "bg-blue-500" : "bg-gray-300"}`} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 bg-gray-100 text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full font-bold">
+                            <span>{biz.category.icon}</span>
+                            <span>{biz.category.name}</span>
+                          </span>
+                        </div>
+                        <p className="text-[10px] sm:text-[11px] text-gray-500 truncate">{biz.address}</p>
+                        <button
+                          onClick={() => setSelectedAdminBiz(biz)}
+                          className="mt-1 w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 active:scale-95"
+                          style={{ backgroundColor: "#f3f4f6" }}
+                        >
+                          📷 Gestionar Fotos
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
             )}
 
             {/* TAB: SOLICITUDES DE LOCAL */}

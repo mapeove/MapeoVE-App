@@ -35,6 +35,13 @@ export interface Business {
     icon: string;
   };
   distance?: number;
+  businessImages?: {
+    id: string;
+    businessId: string;
+    url: string;
+    isPrimary: boolean;
+    createdAt: string;
+  }[];
 }
 
 export interface ApiResponse<T> {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Store, CreditCard, Clock, MessageCircle, Phone, MapPin, CheckCircle, AlertTriangle } from "lucide-react";
+import { X, Store, CreditCard, Clock, MessageCircle, Phone, MapPin, CheckCircle, AlertTriangle, Camera, Upload, Trash2 } from "lucide-react";
 import { BRAND } from "@/types/mapeove";
 import dynamic from "next/dynamic";
 
@@ -68,9 +68,29 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<{ url: string; path: string; isPrimary: boolean }[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Reset form fields
+    setBusinessName("");
+    setAddress("");
+    setPhone("");
+    setWhatsapp("");
+    setDescription("");
+    setOpeningHours("");
+    setNote("");
+    setPlan("MONTHLY");
+    setPaymentMethod("PAGO_MOVIL");
+    setPaymentReference("");
+    setLatitude(null);
+    setLongitude(null);
+    setUploadedImages([]);
+    setError("");
+    setSuccess(false);
+    setForceShowForm(false);
 
     // Load categories
     async function loadCategories() {
@@ -138,6 +158,80 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
 
   if (!isOpen) return null;
 
+  const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const files = Array.from(e.target.files);
+    
+    if (uploadedImages.length + files.length > 5) {
+      setError("Puedes subir un máximo de 5 fotos.");
+      return;
+    }
+
+    setError("");
+    setUploadingImage(true);
+
+    const tempPath = `temp-requests/temp-req-${user?.id || 'guest'}-${Date.now()}`;
+
+    for (const file of files) {
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        setError("Formato de imagen no permitido. Use JPG, JPEG, PNG o WEBP.");
+        setUploadingImage(false);
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError("El tamaño máximo permitido es de 5MB por imagen.");
+        setUploadingImage(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("path", tempPath);
+
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setUploadedImages((prev) => {
+            const isFirst = prev.length === 0;
+            return [...prev, { url: data.url, path: data.path, isPrimary: isFirst }];
+          });
+        } else {
+          setError(data.error || "Error al subir la imagen.");
+        }
+      } catch (err) {
+        console.error("Error uploading image:", err);
+        setError("Error de conexión al subir la imagen.");
+      }
+    }
+    setUploadingImage(false);
+    e.target.value = "";
+  };
+
+  const handleSetPrimary = (index: number) => {
+    setUploadedImages((prev) =>
+      prev.map((img, i) => ({
+        ...img,
+        isPrimary: i === index,
+      }))
+    );
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setUploadedImages((prev) => {
+      const filtered = prev.filter((_, i) => i !== index);
+      if (prev[index]?.isPrimary && filtered.length > 0) {
+        filtered[0].isPrimary = true;
+      }
+      return filtered;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -155,6 +249,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
 
     setSubmitting(true);
     try {
+      const imagesPayload = [
+        ...uploadedImages.filter((img) => img.isPrimary).map((img) => img.url),
+        ...uploadedImages.filter((img) => !img.isPrimary).map((img) => img.url),
+      ];
+
       const res = await fetch("/api/business-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -172,6 +271,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           longitude,
           paymentMethod,
           paymentReference,
+          images: imagesPayload,
         }),
       });
 
@@ -486,6 +586,69 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     onChange={(e) => setNote(e.target.value)}
                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
                   />
+                </div>
+              </div>
+
+              {/* Fotos del establecimiento */}
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                  <Camera size={14} className="text-blue-600" />
+                  <span>Fotos del Establecimiento (Máx. 5)</span>
+                </h4>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {uploadedImages.map((img, index) => (
+                    <div key={index} className="relative aspect-video rounded-xl overflow-hidden border border-gray-200 group bg-gray-50 flex items-center justify-center">
+                      <img src={img.url} alt={`Local ${index + 1}`} className="w-full h-full object-cover" />
+                      
+                      {/* Controls overlay */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5 z-10">
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="p-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimary(index)}
+                          className={`w-full py-1 text-[9px] font-bold rounded-md text-center transition-all ${
+                            img.isPrimary
+                              ? "bg-green-600 text-white"
+                              : "bg-white/95 text-gray-800 hover:bg-white"
+                          }`}
+                        >
+                          {img.isPrimary ? "★ Principal" : "Marcar Principal"}
+                        </button>
+                      </div>
+
+                      {/* Sticky indicator for primary */}
+                      {img.isPrimary && (
+                        <span className="absolute top-1.5 left-1.5 bg-green-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md shadow-sm z-10">
+                          ★ Principal
+                        </span>
+                      )}
+                    </div>
+                  ))}
+
+                  {uploadedImages.length < 5 && (
+                    <label className={`aspect-video rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/20 hover:text-blue-600 transition-all ${uploadingImage ? 'pointer-events-none opacity-50' : ''}`}>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleUploadImages}
+                        disabled={uploadingImage}
+                      />
+                      <Upload size={16} className="text-gray-400 mb-1" />
+                      <span className="text-[10px] font-bold text-gray-500">{uploadingImage ? "Subiendo..." : "Subir Foto"}</span>
+                    </label>
+                  )}
                 </div>
               </div>
 

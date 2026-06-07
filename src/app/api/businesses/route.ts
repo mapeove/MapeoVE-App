@@ -79,6 +79,9 @@ export async function GET(request: NextRequest) {
             icon: true,
           },
         },
+        businessImages: {
+          orderBy: { isPrimary: "desc" },
+        },
       },
       orderBy: { name: "asc" },
       skip: (page - 1) * limit,

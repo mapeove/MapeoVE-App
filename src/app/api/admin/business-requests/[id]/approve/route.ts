@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verify } from "@/lib/session";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(
   request: NextRequest,
@@ -55,6 +56,49 @@ export async function POST(
         active: true,
       },
     });
+
+    // Copy images from temporary request folder to business folder and create BusinessImage records
+    if (req.images && req.images.length > 0) {
+      for (let i = 0; i < req.images.length; i++) {
+        const tempUrl = req.images[i];
+        try {
+          const urlParts = tempUrl.split("/business-images/");
+          const tempPath = urlParts[1];
+          if (tempPath) {
+            const filename = tempPath.split("/").pop();
+            const newPath = `${business.id}/${filename}`;
+
+            // Copy file in Supabase storage
+            const { error: copyError } = await supabase.storage
+              .from("business-images")
+              .copy(tempPath, newPath);
+
+            if (!copyError) {
+              // Delete old temp file
+              await supabase.storage.from("business-images").remove([tempPath]);
+
+              // Get public URL for new file
+              const { data: { publicUrl } } = supabase.storage
+                .from("business-images")
+                .getPublicUrl(newPath);
+
+              // Create BusinessImage record
+              await db.businessImage.create({
+                data: {
+                  businessId: business.id,
+                  url: publicUrl,
+                  isPrimary: i === 0, // first image is primary
+                },
+              });
+            } else {
+              console.error("Error copying image on request approval:", copyError);
+            }
+          }
+        } catch (err) {
+          console.error("Error processing request image on approval:", err);
+        }
+      }
+    }
 
     // Update User Role to OWNER
     await db.user.update({

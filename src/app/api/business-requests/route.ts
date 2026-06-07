@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       plan,
       latitude,
       longitude,
+      images,
     } = body;
 
     // Validate required fields
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
         proofImageUrl: proofImageUrl || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
+        images: Array.isArray(images) ? images : [],
         status: "PENDING",
       },
     });

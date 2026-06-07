@@ -49,6 +49,9 @@ export async function GET(
             icon: true,
           },
         },
+        businessImages: {
+          orderBy: { isPrimary: "desc" },
+        },
       },
     });
 

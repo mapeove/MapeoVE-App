@@ -58,6 +58,7 @@ model Business {
   ownerId     String?  @map("owner_id")
   category    Category @relation(fields: [categoryId], references: [id])
   owner       User?    @relation(fields: [ownerId], references: [id])
+  businessImages BusinessImage[]
 
   @@index([categoryId])
   @@index([active])
@@ -98,6 +99,7 @@ model BusinessRequest {
   paymentMethod    PaymentMethod         @map("payment_method")
   status           BusinessRequestStatus @default(PENDING)
   plan             SubscriptionPlan?
+  images           String[]              @default([])
   category         Category              @relation(fields: [categoryId], references: [id])
   reviewedBy       User?                 @relation("reviewedByRequests", fields: [reviewedById], references: [id])
   user             User                  @relation("userRequests", fields: [userId], references: [id], onDelete: Cascade)
@@ -142,4 +144,16 @@ enum SubscriptionPlan {
 enum BinanceFeeType {
   FIXED
   PERCENTAGE
+}
+
+model BusinessImage {
+  id          String   @id @default(cuid())
+  businessId  String   @map("business_id")
+  url         String
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_images")
 }

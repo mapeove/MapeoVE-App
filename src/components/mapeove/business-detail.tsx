@@ -160,61 +160,90 @@ export function BusinessDetail({
         </div>
 
         {/* Imagen o placeholder */}
-        {business.image ? (
-          <div className="relative h-28 md:h-32 overflow-hidden flex-shrink-0">
-            <img
-              src={business.image}
-              alt={business.name}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-            {/* Close button sobre imagen */}
-            <button
-              onClick={onClose}
-              className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors"
-            >
-              <X size={14} className="text-white" />
-            </button>
-            {/* Badge de categoría sobre imagen */}
-            <div className="absolute bottom-2 left-3">
-              <span
-                className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white leading-tight shadow-sm"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {business.category.icon} {business.category.name}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="relative flex-shrink-0">
-            {/* Barra de color como acento visual */}
-            <div className="h-1.5" style={{ backgroundColor: categoryColor }} />
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
-            >
-              <X size={14} className="text-gray-500" />
-            </button>
-            {/* Header con ícono de categoría grande */}
-            <div className="flex items-center gap-3 px-4 pt-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg flex-shrink-0 shadow-sm"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {business.category.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span
-                  className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white leading-tight"
-                  style={{ backgroundColor: categoryColor }}
+        {/* Imagen, carrusel o placeholder */}
+        {(() => {
+          const images = business.businessImages && business.businessImages.length > 0
+            ? business.businessImages
+            : business.image
+              ? [{ id: "legacy", url: business.image, isPrimary: true }]
+              : [];
+
+          if (images.length > 0) {
+            return (
+              <div className="relative h-44 md:h-48 overflow-hidden flex-shrink-0 bg-gray-50 border-b border-gray-100">
+                <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide h-full w-full">
+                  {images.map((img) => (
+                    <div key={img.id} className="w-full h-full flex-shrink-0 snap-start relative">
+                      <img
+                        src={img.url}
+                        alt={business.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {img.isPrimary && (
+                        <span className="absolute top-2 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm"
+                          style={{ backgroundColor: BRAND.blue }}
+                        >
+                          Principal
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* Close button sobre imagen */}
+                <button
+                  onClick={onClose}
+                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 transition-colors z-10"
                 >
-                  {business.category.name}
-                </span>
+                  <X size={14} className="text-white" />
+                </button>
+                {/* Badge de categoría sobre imagen */}
+                <div className="absolute bottom-2 left-3 z-10">
+                  <span
+                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white leading-tight shadow-md"
+                    style={{ backgroundColor: categoryColor }}
+                  >
+                    {business.category.icon} {business.category.name}
+                  </span>
+                </div>
+                {/* Indicator dot if multiple images */}
+                {images.length > 1 && (
+                  <div className="absolute bottom-2 right-3 bg-black/50 text-[9px] font-bold px-2 py-0.5 rounded-full text-white z-10">
+                    Desliza para ver más ({images.length})
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        )}
+            );
+          } else {
+            return (
+              <div className="relative h-36 overflow-hidden flex-shrink-0 bg-gray-50 border-b border-gray-100 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center text-gray-300 gap-1.5">
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span className="text-[9px] font-bold tracking-wider text-gray-400 uppercase">Sin imágenes</span>
+                </div>
+                {/* Close button */}
+                <button
+                  onClick={onClose}
+                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
+                >
+                  <X size={14} className="text-gray-500" />
+                </button>
+                {/* Category badge */}
+                <div className="absolute bottom-2 left-3 z-10">
+                  <span
+                    className="text-[11px] font-bold px-2.5 py-0.5 rounded-full text-white leading-tight shadow"
+                    style={{ backgroundColor: categoryColor }}
+                  >
+                    {business.category.icon} {business.category.name}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+        })()}
 
         {/* Contenido scrolleable (pb-24 on mobile prevents being covered by the portal buttons) */}
         <div className="overflow-y-auto px-4 pt-3 pb-24 md:pb-4 flex-1 min-h-0">
