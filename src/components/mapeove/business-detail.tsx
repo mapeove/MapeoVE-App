@@ -449,7 +449,7 @@ export function BusinessDetail({
         {(() => {
           if (sortedImages.length > 0) {
             return (
-              <div className="relative h-[170px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100">
+              <div className="relative h-[130px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-50 md:bg-gray-55 border-b border-gray-100">
                 {/* Drag handle overlay (mobile only) */}
                 <div 
                   className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-white/50 backdrop-blur-sm z-20 md:hidden cursor-pointer hover:bg-white/75 active:bg-white transition-colors"
@@ -466,11 +466,11 @@ export function BusinessDetail({
                   onClick={() => setIsVisorOpen(true)}
                 >
                   {sortedImages.map((img, idx) => (
-                    <div key={img.id || idx} className="w-full h-full flex-shrink-0 snap-start relative">
+                    <div key={img.id || idx} className="w-full h-full flex-shrink-0 snap-start relative bg-gray-50 md:bg-transparent flex items-center justify-center">
                       <img
                         src={img.url}
                         alt={business.name}
-                        className="w-full h-full object-cover select-none"
+                        className="w-full h-full object-contain md:object-cover select-none"
                       />
                       {img.isPrimary && (
                         <span className="absolute top-3 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm z-10"
@@ -527,7 +527,7 @@ export function BusinessDetail({
             );
           } else {
             return (
-              <div className="relative h-[170px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-55 border-b border-gray-100 flex items-center justify-center">
+              <div className="relative h-[130px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-50 border-b border-gray-100 flex items-center justify-center">
                 {/* Drag handle overlay (mobile only) */}
                 <div 
                   className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-gray-300 z-20 md:hidden cursor-pointer hover:bg-gray-450 transition-colors"
