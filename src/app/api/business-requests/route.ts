@@ -163,6 +163,11 @@ export async function POST(request: NextRequest) {
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "mapeove@gmail.com";
     const emailFrom = process.env.EMAIL_FROM || "onboarding@resend.dev"; // default sandbox sender
 
+    const adminPanelUrl =
+      process.env.ADMIN_PANEL_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://mapeo-ve-app.vercel.app";
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; background-color: #f4f5f7; padding: 30px 15px; margin: 0;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e1e4e8;">
@@ -309,13 +314,11 @@ export async function POST(request: NextRequest) {
               Accede al panel de administración de MapeoVE para aprobar o rechazar esta solicitud.
             </div>
 
-            ${process.env.NEXT_PUBLIC_APP_URL ? `
             <div style="text-align: center; margin-top: 15px; margin-bottom: 10px;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}" target="_blank" style="background-color: #0B3D91; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 13px; font-weight: bold; border-radius: 6px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+              <a href="${adminPanelUrl}" target="_blank" style="background-color: #0B3D91; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 13px; font-weight: bold; border-radius: 6px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                 Abrir Panel de Administración
               </a>
             </div>
-            ` : ""}
           </div>
 
           <!-- Footer -->
