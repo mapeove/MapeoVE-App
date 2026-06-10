@@ -750,7 +750,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Tus Solicitudes</h4>
               <div className="space-y-2">
                 {(Array.isArray(existingRequests) ? existingRequests : []).map((req) => (
-                  <div key={req.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-2 flex flex-col justify-between">
+                  <div key={req.id} className="p-4 pb-5 bg-gray-50 border border-gray-200 rounded-xl space-y-2 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start">
                         <p className="text-xs font-black text-gray-900">{req.businessName}</p>
