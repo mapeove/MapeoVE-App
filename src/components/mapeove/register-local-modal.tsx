@@ -489,7 +489,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       )}
       
       <div 
-        className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden border border-gray-100 animate-scale-in"
+        className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[95dvh] sm:max-h-[90vh] overflow-hidden border border-gray-100 animate-scale-in pb-12 sm:pb-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
