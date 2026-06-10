@@ -9,12 +9,20 @@ import { BRAND } from "@/types/mapeove";
 
 interface AuthButtonProps {
   onOpenDashboard: () => void;
+  authModalOpen: boolean;
+  setAuthModalOpen: (open: boolean) => void;
+  registerModalOpen: boolean;
+  setRegisterModalOpen: (open: boolean) => void;
 }
 
-export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
+export function AuthButton({ 
+  onOpenDashboard,
+  authModalOpen,
+  setAuthModalOpen,
+  registerModalOpen,
+  setRegisterModalOpen
+}: AuthButtonProps) {
   const { user, logout, loading } = useAuth();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [registerModalOpen, setRegisterModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -46,17 +54,14 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
 
   if (!user) {
     return (
-      <>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white shadow-lg border border-gray-100 text-xs font-bold text-gray-700 hover:text-gray-900 hover:shadow-xl active:scale-95 transition-all pointer-events-auto"
-          style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.10)" }}
-        >
-          <LogIn size={14} style={{ color: BRAND.blue }} />
-          <span className="hidden sm:inline">Iniciar Sesión</span>
-        </button>
-        <AuthModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
-      </>
+      <button
+        onClick={() => setAuthModalOpen(true)}
+        className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white shadow-lg border border-gray-100 text-xs font-bold text-gray-700 hover:text-gray-900 hover:shadow-xl active:scale-95 transition-all pointer-events-auto"
+        style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.10)" }}
+      >
+        <LogIn size={14} style={{ color: BRAND.blue }} />
+        <span className="hidden sm:inline">Iniciar Sesión</span>
+      </button>
     );
   }
 
@@ -125,15 +130,6 @@ export function AuthButton({ onOpenDashboard }: AuthButtonProps) {
             <span>Cerrar Sesión</span>
           </button>
         </div>
-      )}
-
-      {/* Local registration/details Modal */}
-      {!isSuperAdmin && (
-        <RegisterLocalModal 
-          isOpen={registerModalOpen} 
-          onClose={() => setRegisterModalOpen(false)} 
-          user={user}
-        />
       )}
     </div>
   );

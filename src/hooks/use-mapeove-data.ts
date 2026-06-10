@@ -11,6 +11,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingNearby, setLoadingNearby] = useState(false);
 
   // Ref para rastrear si la carga inicial ya se hizo
   const initialLoadDone = useRef(false);
@@ -32,6 +33,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
 
     async function loadData() {
       try {
+        setLoadingNearby(true);
         const [cats, biz] = await Promise.all([
           fetchCategories(),
           fetchBusinesses({ 
@@ -56,6 +58,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
         console.error("Error cargando datos:", err);
       } finally {
         setIsLoading(false);
+        setLoadingNearby(false);
       }
     }
     loadData();
@@ -84,6 +87,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
 
     async function loadByFilter() {
       try {
+        setLoadingNearby(true);
         const result = await fetchBusinesses({
           category: activeCategory || undefined,
           lat: userLocation?.lat,
@@ -94,6 +98,8 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
         setBusinesses(result.businesses);
       } catch (err) {
         console.error("Error cargando negocios:", err);
+      } finally {
+        setLoadingNearby(false);
       }
     }
     loadByFilter();
@@ -126,6 +132,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
 
   const refreshBusinesses = useCallback(async () => {
     try {
+      setLoadingNearby(true);
       const result = await fetchBusinesses({
         category: activeCategory || undefined,
         lat: userLocation?.lat,
@@ -136,6 +143,8 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
       setBusinesses(result.businesses);
     } catch (err) {
       console.error("Error refreshing businesses:", err);
+    } finally {
+      setLoadingNearby(false);
     }
   }, [activeCategory, userLocation]);
 
@@ -145,6 +154,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     selectedBusiness,
     activeCategory,
     isLoading,
+    loadingNearby,
     searchQuery,
     businessCount: businesses.length,
     handleMarkerClick,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { SplashOverlay } from "@/components/mapeove/splash-overlay";
 import { SearchBar } from "@/components/mapeove/search-bar";
@@ -15,6 +15,9 @@ import { useLiveNavigation } from "@/hooks/use-live-navigation";
 import { MapPin, List, X, Locate } from "lucide-react";
 import { AuthButton } from "@/components/mapeove/auth-button";
 import { AdminDashboard } from "@/components/mapeove/admin-dashboard";
+import { AuthModal } from "@/components/mapeove/auth-modal";
+import { RegisterLocalModal } from "@/components/mapeove/register-local-modal";
+import { useAuth } from "@/hooks/use-auth";
 import { isInVenezuela } from "@/lib/coordinate-validator";
 import { haversineDistance } from "@/hooks/use-live-navigation";
 
@@ -38,18 +41,32 @@ const MapeoVEMap = dynamic(
 );
 
 export function MapeoVEHome() {
+  const { user } = useAuth();
   const { userLocation, isRealLocation } = useUserLocation();
   const [selectedGeocode, setSelectedGeocode] = useState<{ name: string; lat: number; lng: number } | null>(null);
 
+  // Modal states
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
+
+  // Map exploration states
+  const [exploreLocation, setExploreLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isExplorationMode, setIsExplorationMode] = useState(false);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const queryLocation = selectedGeocode 
     ? { lat: selectedGeocode.lat, lng: selectedGeocode.lng } 
-    : userLocation;
+    : (isExplorationMode && exploreLocation)
+      ? exploreLocation
+      : userLocation;
 
   const {
     categories,
     businesses,
     selectedBusiness,
     activeCategory,
+    loadingNearby,
     businessCount,
     handleMarkerClick: baseHandleMarkerClick,
     handleCategoryChange: baseHandleCategoryChange,
@@ -62,6 +79,15 @@ export function MapeoVEHome() {
 
   const [visibleBusinesses, setVisibleBusinesses] = useState<Business[]>([]);
   const [focusNearbyTrigger, setFocusNearbyTrigger] = useState(0);
+  const [showList, setShowList] = useState(false);
+
+  const isAnyModalOrSheetOpen = 
+    dashboardOpen || 
+    authModalOpen || 
+    registerModalOpen || 
+    !!selectedBusiness || 
+    !!selectedGeocode || 
+    showList;
 
   const nearbyBusinesses = queryLocation
     ? businesses.filter((b) => b.distance !== undefined && b.distance <= 20)
@@ -71,6 +97,26 @@ export function MapeoVEHome() {
 
   const handleFocusNearby = () => {
     setFocusNearbyTrigger(prev => prev + 1);
+  };
+
+  const handleMapExplore = (coords: { lat: number; lng: number }) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setSelectedGeocode(null); // drag clears search bar focus location
+      setIsExplorationMode(true);
+      setExploreLocation(coords);
+    }, 700);
+  };
+
+  const handleResetToGps = () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setIsExplorationMode(false);
+    setExploreLocation(null);
+    setSelectedGeocode(null);
   };
 
   const handleMarkerClick = (business: Business) => {
@@ -92,9 +138,6 @@ export function MapeoVEHome() {
     setSelectedGeocode(null);
     handleSelectBusinessFromSearch(business);
   };
-
-  const [showList, setShowList] = useState(false);
-  const [dashboardOpen, setDashboardOpen] = useState(false);
 
   // Navigation / UX states
   const [isNavigationActive, setIsNavigationActive] = useState(false);
@@ -330,6 +373,8 @@ export function MapeoVEHome() {
         isActiveNavigation={isActiveNavigation}
         onRecenter={() => setIsFollowing(true)}
         focusNearbyTrigger={focusNearbyTrigger}
+        onMapExplore={handleMapExplore}
+        onResetToGps={handleResetToGps}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
@@ -345,12 +390,23 @@ export function MapeoVEHome() {
                   onSelectBusiness={handleSelectBusinessFromSearchWithGeocode}
                   onClear={handleClearSearchWithGeocode}
                   onSelectGeocode={(result) => {
+                    if (debounceTimeoutRef.current) {
+                      clearTimeout(debounceTimeoutRef.current);
+                    }
+                    setIsExplorationMode(false);
+                    setExploreLocation(null);
                     setSelectedGeocode(result);
                     handleCloseDetail();
                   }}
                 />
               </div>
-              <AuthButton onOpenDashboard={() => setDashboardOpen(true)} />
+              <AuthButton 
+                onOpenDashboard={() => setDashboardOpen(true)}
+                authModalOpen={authModalOpen}
+                setAuthModalOpen={setAuthModalOpen}
+                registerModalOpen={registerModalOpen}
+                setRegisterModalOpen={setRegisterModalOpen}
+              />
             </div>
             <CategoryFilters
               categories={categories}
@@ -381,15 +437,26 @@ export function MapeoVEHome() {
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {/* Contador de negocios */}
-          {!selectedBusiness && !showList && (
+          {!isAnyModalOrSheetOpen && (
             <div className="flex justify-center mb-2">
               <button
                 onClick={handleFocusNearby}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-lg text-white text-[11px] font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer pointer-events-auto"
                 style={{ backgroundColor: BRAND.blue }}
               >
-                <MapPin size={12} />
-                {nearbyCount} negocio{nearbyCount !== 1 ? "s" : ""} cercano{nearbyCount !== 1 ? "s" : ""}
+                {loadingNearby ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Buscando negocios...
+                  </span>
+                ) : (
+                  <>
+                    <MapPin size={12} />
+                    <span>
+                      {nearbyCount} negocio{nearbyCount !== 1 ? "s" : ""} cercano{nearbyCount !== 1 ? "s" : ""}
+                    </span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -488,7 +555,7 @@ export function MapeoVEHome() {
           )}
 
           {/* Botón Ver lista */}
-          {!selectedBusiness && !showList && (
+          {!isAnyModalOrSheetOpen && (
             <div className="flex justify-center mb-3">
               <button
                 onClick={() => setShowList(true)}
@@ -579,6 +646,21 @@ export function MapeoVEHome() {
             Cancelar
           </button>
         </div>
+      )}
+
+      {/* Root modals to ensure correct stacking context (above all overlays) */}
+      {registerModalOpen && user && (
+        <RegisterLocalModal 
+          isOpen={registerModalOpen} 
+          onClose={() => setRegisterModalOpen(false)} 
+          user={user}
+        />
+      )}
+      {authModalOpen && (
+        <AuthModal 
+          isOpen={authModalOpen} 
+          onClose={() => setAuthModalOpen(false)} 
+        />
       )}
     </div>
   );

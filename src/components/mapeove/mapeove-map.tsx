@@ -28,6 +28,8 @@ interface MapeoVEMapProps {
   isActiveNavigation?: boolean;
   onRecenter?: () => void;
   focusNearbyTrigger?: number;
+  onMapExplore?: (coords: { lat: number; lng: number }) => void;
+  onResetToGps?: () => void;
 }
 
 
@@ -71,6 +73,8 @@ export function MapeoVEMap({
   isActiveNavigation = false,
   onRecenter,
   focusNearbyTrigger = 0,
+  onMapExplore,
+  onResetToGps,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -79,6 +83,7 @@ export function MapeoVEMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [layersReady, setLayersReady] = useState(false);
+  const isUserGestureRef = useRef(false);
 
   // Refs para rastrear si source/layers ya fueron creados
   const sourcesAddedRef = useRef(false);
@@ -112,13 +117,20 @@ export function MapeoVEMap({
         });
 
         map.addControl(new maplibregl.NavigationControl(), "bottom-right");
-        map.addControl(
-          new maplibregl.GeolocateControl({
-            positionOptions: { enableHighAccuracy: true },
-            trackUserLocation: true,
-          }),
-          "bottom-right"
-        );
+        const geolocate = new maplibregl.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          trackUserLocation: true,
+        });
+        map.addControl(geolocate, "bottom-right");
+
+        geolocate.on("geolocate", () => {
+          if (onRecenter) {
+            onRecenter();
+          }
+          if (onResetToGps) {
+            onResetToGps();
+          }
+        });
 
         map.on("load", () => {
           setMapLoaded(true);
@@ -327,13 +339,20 @@ export function MapeoVEMap({
 
     const handleMoveEnd = () => {
       handleMapUpdate();
+      if (isUserGestureRef.current) {
+        isUserGestureRef.current = false;
+        const center = map.getCenter();
+        if (onMapExplore) {
+          onMapExplore({ lat: center.lat, lng: center.lng });
+        }
+      }
     };
 
     map.on("moveend", handleMoveEnd);
     return () => {
       map.off("moveend", handleMoveEnd);
     };
-  }, [mapLoaded, layersReady]);
+  }, [mapLoaded, layersReady, onMapExplore]);
 
   // Keep isSelecting in a ref so click handlers always read the latest value
   const isSelectingRef = useRef(isSelecting);
@@ -659,7 +678,8 @@ export function MapeoVEMap({
     const map = mapRef.current;
     if (!map || !mapLoaded || !focusNearbyTrigger) return;
 
-    const refCenter = selectedGeocode || userLocation;
+    const center = map.getCenter();
+    const refCenter = selectedGeocode || (center ? { lat: center.lat, lng: center.lng } : null) || userLocation;
     const validBiz = (businesses || []).filter((b) => {
       const lat = Number(b.latitude);
       const lng = Number(b.longitude);
@@ -769,8 +789,11 @@ export function MapeoVEMap({
 
     const handleMoveStart = (e: any) => {
       // originalEvent is set only when triggered by user interaction (touch/mouse)
-      if (e.originalEvent && onStopFollowingRef.current) {
-        onStopFollowingRef.current();
+      if (e.originalEvent) {
+        isUserGestureRef.current = true;
+        if (onStopFollowingRef.current) {
+          onStopFollowingRef.current();
+        }
       }
     };
 
