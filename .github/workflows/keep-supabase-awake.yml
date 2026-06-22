@@ -1,0 +1,15 @@
+name: Keep Supabase Awake
+
+on:
+  schedule:
+    - cron: "0 8 */2 * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping MapeoVE API
+        run: |
+          curl -f "https://mapeo-ve-app.vercel.app/api/businesses?limit=1&keepalive=$(date +%s)"
