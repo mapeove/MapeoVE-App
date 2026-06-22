@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const limitStr = searchParams.get("limit") || "20";
 
     const page = Math.max(1, parseInt(pageStr, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(limitStr, 10) || 20));
+    const limit = Math.min(10000, Math.max(1, parseInt(limitStr, 10) || 20));
     const radiusKm = radiusStr ? parseFloat(radiusStr) : undefined;
     const userLat = lat ? parseFloat(lat) : undefined;
     const userLng = lng ? parseFloat(lng) : undefined;

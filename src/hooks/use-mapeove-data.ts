@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Business, Category } from "@/types/mapeove";
 import { fetchCategories, fetchBusinesses } from "@/lib/mapeove-api";
+import { haversineDistance, roundDistance } from "@/lib/geo";
 
 export function useMapeoveData(userLocation: { lat: number; lng: number } | null) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -13,97 +14,84 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
   const [isLoading, setIsLoading] = useState(true);
   const [loadingNearby, setLoadingNearby] = useState(false);
 
-  // Ref para rastrear si la carga inicial ya se hizo
-  const initialLoadDone = useRef(false);
-
-  // Ref para rastrear la ubicación usada en la última carga
-  // Se inicializa con la locationKey que tendrá la primera carga
-  const prevLocationRef = useRef<string>(userLocation
-    ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
-    : "null"
-  );
-
-  // Ref para rastrear los filtros activos al momento de la carga inicial
-  const initialCategoryRef = useRef<string | null>(null);
-  const initialSearchRef = useRef<string>("");
-
-  // Carga inicial — solo UNA vez
+  // Carga de categorías e inicialización (solo una vez)
   useEffect(() => {
-    if (initialLoadDone.current) return;
+    async function loadCats() {
+      try {
+        const cats = await fetchCategories();
+        setCategories(cats);
+      } catch (err) {
+        console.error("Error cargando categorias:", err);
+      }
+    }
+    loadCats();
+  }, []);
 
+  // Carga de negocios según activeCategory (incluye la carga inicial)
+  useEffect(() => {
+    let active = true;
     async function loadData() {
       try {
         setLoadingNearby(true);
-        const [cats, biz] = await Promise.all([
-          fetchCategories(),
-          fetchBusinesses({ 
-            lat: userLocation?.lat || undefined,
-            lng: userLocation?.lng || undefined,
-            radius: 20,
-            limit: 100 
-          }),
-        ]);
-        setCategories(cats);
-        setBusinesses(biz.businesses);
-        initialLoadDone.current = true;
-        // Registrar la locationKey usada en la carga inicial para evitar
-        // que el segundo efecto haga una llamada redundante inmediatamente
-        prevLocationRef.current = userLocation
-          ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
-          : "null";
-        // Registrar los filtros vigentes al momento de la carga inicial
-        initialCategoryRef.current = activeCategory;
-        initialSearchRef.current = searchQuery;
-      } catch (err) {
-        console.error("Error cargando datos:", err);
-      } finally {
-        setIsLoading(false);
-        setLoadingNearby(false);
-      }
-    }
-    loadData();
-  }, []);
-
-  // Recargar negocios cuando cambian categoría, búsqueda o ubicación
-  // Se ejecuta DESPUÉS de la carga inicial
-  useEffect(() => {
-    if (!initialLoadDone.current) return;
-
-    // Calcular la locationKey actual
-    const locationKey = userLocation
-      ? `${userLocation.lat.toFixed(3)},${userLocation.lng.toFixed(3)}`
-      : "null";
-
-    // Si la ubicación no cambió Y la categoría no cambió → no recargar
-    const locationChanged = locationKey !== prevLocationRef.current;
-    const categoryChanged = activeCategory !== initialCategoryRef.current;
-
-    if (!locationChanged && !categoryChanged) {
-      return; // Nada cambió — no recargar
-    }
-
-    prevLocationRef.current = locationKey;
-    initialCategoryRef.current = activeCategory;
-
-    async function loadByFilter() {
-      try {
-        setLoadingNearby(true);
-        const result = await fetchBusinesses({
+        const biz = await fetchBusinesses({
           category: activeCategory || undefined,
-          lat: userLocation?.lat,
-          lng: userLocation?.lng,
-          radius: 20,
-          limit: 100,
+          limit: 10000,
         });
-        setBusinesses(result.businesses);
+        if (active) {
+          setBusinesses(biz.businesses);
+          setIsLoading(false);
+        }
       } catch (err) {
         console.error("Error cargando negocios:", err);
       } finally {
-        setLoadingNearby(false);
+        if (active) {
+          setLoadingNearby(false);
+        }
       }
     }
-    loadByFilter();
-  }, [activeCategory, userLocation]);
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [activeCategory]);
+
+  // Calcular la distancia de cada negocio al GPS real en el cliente
+  const businessesWithDistance = useMemo(() => {
+    if (!userLocation) {
+      return businesses.map((b) => ({ ...b, distance: undefined }));
+    }
+    return businesses.map((b) => {
+      const dist = haversineDistance(
+        userLocation.lat,
+        userLocation.lng,
+        Number(b.latitude),
+        Number(b.longitude)
+      );
+      return {
+        ...b,
+        distance: roundDistance(dist),
+      };
+    });
+  }, [businesses, userLocation]);
+
+  // Mantener selectedBusiness sincronizado y con distancia calculada
+  const selectedBusinessWithDistance = useMemo(() => {
+    if (!selectedBusiness) return null;
+    const found = businessesWithDistance.find((b) => b.id === selectedBusiness.id);
+    if (found) return found;
+
+    if (!userLocation) return selectedBusiness;
+    const dist = haversineDistance(
+      userLocation.lat,
+      userLocation.lng,
+      Number(selectedBusiness.latitude),
+      Number(selectedBusiness.longitude)
+    );
+    return {
+      ...selectedBusiness,
+      distance: roundDistance(dist),
+    };
+  }, [selectedBusiness, businessesWithDistance, userLocation]);
 
   const handleMarkerClick = useCallback((business: Business) => {
     setSelectedBusiness(business);
@@ -135,10 +123,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
       setLoadingNearby(true);
       const result = await fetchBusinesses({
         category: activeCategory || undefined,
-        lat: userLocation?.lat,
-        lng: userLocation?.lng,
-        radius: 20,
-        limit: 100,
+        limit: 10000,
       });
       setBusinesses(result.businesses);
     } catch (err) {
@@ -146,17 +131,17 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     } finally {
       setLoadingNearby(false);
     }
-  }, [activeCategory, userLocation]);
+  }, [activeCategory]);
 
   return {
     categories,
-    businesses,
-    selectedBusiness,
+    businesses: businessesWithDistance,
+    selectedBusiness: selectedBusinessWithDistance,
     activeCategory,
     isLoading,
     loadingNearby,
     searchQuery,
-    businessCount: businesses.length,
+    businessCount: businessesWithDistance.length,
     handleMarkerClick,
     handleCategoryChange,
     handleSearch,

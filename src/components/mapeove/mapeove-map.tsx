@@ -398,8 +398,23 @@ export function MapeoVEMap({
 
     const selectedId = selectedBusiness?.id;
 
+    // Filter by viewport bounds to optimize DOM element count
+    const bounds = map.getBounds();
+    const businessesInViewport = (businesses || []).filter((b) => {
+      if (b.id === selectedId) return true; // Always keep selected
+      const lat = Number(b.latitude);
+      const lng = Number(b.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+      return (
+        lng >= bounds.getWest() &&
+        lng <= bounds.getEast() &&
+        lat >= bounds.getSouth() &&
+        lat <= bounds.getNorth()
+      );
+    });
+
     // Separate selected business from clustering so it is always rendered as its own marker
-    const businessesToCluster = (businesses || []).filter((b) => b.id !== selectedId);
+    const businessesToCluster = businessesInViewport.filter((b) => b.id !== selectedId);
 
     // Dynamic clustering logic based on screen distance (pixels)
     const clusters: any[] = [];
@@ -678,8 +693,7 @@ export function MapeoVEMap({
     const map = mapRef.current;
     if (!map || !mapLoaded || !focusNearbyTrigger) return;
 
-    const center = map.getCenter();
-    const refCenter = selectedGeocode || (center ? { lat: center.lat, lng: center.lng } : null) || userLocation;
+    const refCenter = userLocation;
     const validBiz = (businesses || []).filter((b) => {
       const lat = Number(b.latitude);
       const lng = Number(b.longitude);

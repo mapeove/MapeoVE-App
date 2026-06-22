@@ -55,12 +55,6 @@ export function MapeoVEHome() {
   const [isExplorationMode, setIsExplorationMode] = useState(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const queryLocation = selectedGeocode 
-    ? { lat: selectedGeocode.lat, lng: selectedGeocode.lng } 
-    : (isExplorationMode && exploreLocation)
-      ? exploreLocation
-      : userLocation;
-
   const {
     categories,
     businesses,
@@ -75,7 +69,7 @@ export function MapeoVEHome() {
     handleSelectBusinessFromSearch,
     handleCloseDetail,
     refreshBusinesses,
-  } = useMapeoveData(queryLocation);
+  } = useMapeoveData(userLocation);
 
   const [visibleBusinesses, setVisibleBusinesses] = useState<Business[]>([]);
   const [focusNearbyTrigger, setFocusNearbyTrigger] = useState(0);
@@ -89,7 +83,7 @@ export function MapeoVEHome() {
     !!selectedGeocode || 
     showList;
 
-  const nearbyBusinesses = queryLocation
+  const nearbyBusinesses = userLocation
     ? businesses.filter((b) => b.distance !== undefined && b.distance <= 20)
     : [];
 
