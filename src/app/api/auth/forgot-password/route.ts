@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import crypto from "crypto";
+import { resend } from "@/lib/resend";
+import { getResetPasswordEmailHtml } from "@/lib/email/templates/reset-password-email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,8 +50,32 @@ export async function POST(request: NextRequest) {
         },
       });
       
-      // Log for recovery preparation (normally SMTP would send this)
+      // Log for recovery preparation
       console.log(`[Recuperación de Contraseña] Token generado para ${normalizedEmail}: ${token}`);
+
+      // Send reset password email via Resend
+      if (resend) {
+        try {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mapeove.com";
+          const resetUrl = `${appUrl}/reset-password?token=${token}`;
+          const emailFrom = process.env.EMAIL_FROM || "onboarding@resend.dev";
+
+          await resend.emails.send({
+            from: emailFrom,
+            to: normalizedEmail,
+            subject: "Restablece tu contraseña de MapeoVE",
+            html: getResetPasswordEmailHtml({
+              identifier: user.name || normalizedEmail,
+              resetUrl,
+            }),
+          });
+          console.log(`[Resend] Correo de recuperación enviado a ${normalizedEmail}`);
+        } catch (mailError) {
+          console.error("[Resend Error] No se pudo enviar el correo de recuperación:", mailError);
+        }
+      } else {
+        console.log(`[Email Mock] Enlace de recuperación para ${normalizedEmail}: https://mapeove.com/reset-password?token=${token}`);
+      }
     }
 
     // Always return success with the same message to prevent user enumeration
