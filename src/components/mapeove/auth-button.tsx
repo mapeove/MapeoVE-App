@@ -105,7 +105,7 @@ export function AuthButton({
               className="w-full flex items-center gap-2.5 px-4 py-3.5 text-sm sm:text-xs sm:py-2 text-gray-700 hover:bg-gray-50 text-left transition-colors font-bold"
             >
               <Store size={16} className="text-gray-500" />
-              <span>{user.role === "OWNER" ? "Mi local" : "Registrar local"}</span>
+              <span>{user.role === "OWNER" ? "Mi negocio" : "Mi negocio"}</span>
             </button>
           )}
 
