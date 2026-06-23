@@ -1319,7 +1319,7 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
             {activeTab === "pagos" && (
               <div className="space-y-4 max-w-2xl">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs sm:text-sm font-black text-gray-800">Configuración de Pagos</h4>
+                  <h4 className="text-xs sm:text-sm font-black text-gray-800">Configuración de Pagos Cripto</h4>
                 </div>
 
                 {settingsMessage.text && (
@@ -1336,138 +1336,83 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                 ) : (
                   <form onSubmit={handleSaveSettings} className="space-y-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-100 shadow-sm">
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Precio Mensual</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      
+                      <div className="md:col-span-2">
+                        <h5 className="text-[11px] font-bold text-gray-800 mb-2 border-b border-gray-100 pb-2">Datos de Pago Cripto (USDC - BNB Smart Chain)</h5>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Moneda / Red</label>
+                        <div className="flex gap-2">
+                          <input type="text" value="USDC" disabled className="w-24 p-2 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-600" />
+                          <input type="text" value="BNB Smart Chain (BEP20)" disabled className="flex-1 p-2 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-600" />
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Wallet USDC Principal (BEP20) *</label>
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           required
-                          value={paymentSettings.monthlyPrice}
-                          onChange={e => setPaymentSettings({...paymentSettings, monthlyPrice: parseFloat(e.target.value)})}
-                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          value={paymentSettings.binanceWallet || ""}
+                          onChange={e => setPaymentSettings({...paymentSettings, binanceWallet: e.target.value})}
+                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono"
+                          placeholder="0x..."
                         />
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Precio Anual</label>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Wallet USDC Alternativa (BEP20)</label>
                         <input
-                          type="number"
-                          step="0.01"
-                          required
-                          value={paymentSettings.yearlyPrice}
-                          onChange={e => setPaymentSettings({...paymentSettings, yearlyPrice: parseFloat(e.target.value)})}
-                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          type="text"
+                          value={paymentSettings.binanceInfo || ""}
+                          onChange={e => setPaymentSettings({...paymentSettings, binanceInfo: e.target.value})}
+                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono"
+                          placeholder="0x..."
                         />
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Moneda (Ej. USD)</label>
-                      <input
-                        type="text"
-                        required
-                        value={paymentSettings.currency}
-                        onChange={e => setPaymentSettings({...paymentSettings, currency: e.target.value})}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones Pago Móvil</label>
-                      <textarea
-                        required
-                        value={paymentSettings.pagoMovilInfo}
-                        onChange={e => setPaymentSettings({...paymentSettings, pagoMovilInfo: e.target.value})}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones Transferencia Bancaria</label>
-                      <textarea
-                        required
-                        value={paymentSettings.transferInfo}
-                        onChange={e => setPaymentSettings({...paymentSettings, transferInfo: e.target.value})}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones Binance Pay</label>
-                      <textarea
-                        required
-                        value={paymentSettings.binanceInfo}
-                        onChange={e => setPaymentSettings({...paymentSettings, binanceInfo: e.target.value})}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-100">
-                      <h5 className="text-[11px] font-bold text-gray-800 mb-2">Configuración Avanzada Binance</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Red Binance *</label>
-                          <select
-                            required
-                            value={paymentSettings.binanceNetwork}
-                            onChange={e => setPaymentSettings({...paymentSettings, binanceNetwork: e.target.value})}
-                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                          >
-                            <option value="TRC20">Tron (TRC20)</option>
-                            <option value="BEP20">BNB Smart Chain (BEP20)</option>
-                            <option value="ERC20">Ethereum (ERC20)</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Wallet (Dirección) *</label>
-                          <input
-                            type="text"
-                            required
-                            value={paymentSettings.binanceWallet}
-                            onChange={e => setPaymentSettings({...paymentSettings, binanceWallet: e.target.value})}
-                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tipo de Comisión *</label>
-                          <select
-                            required
-                            value={paymentSettings.binanceFeeType}
-                            onChange={e => setPaymentSettings({...paymentSettings, binanceFeeType: e.target.value})}
-                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                          >
-                            <option value="FIXED">Fija (USD)</option>
-                            <option value="PERCENTAGE">Porcentaje (%)</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Valor Comisión *</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            required
-                            value={paymentSettings.binanceFeeValue}
-                            onChange={e => setPaymentSettings({...paymentSettings, binanceFeeValue: parseFloat(e.target.value)})}
-                            className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Comisión Operativa Fija (USD) *</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          required
+                          value={paymentSettings.binanceFeeValue || 0}
+                          onChange={e => setPaymentSettings({...paymentSettings, binanceFeeValue: parseFloat(e.target.value)})}
+                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold"
+                        />
                       </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Instrucciones al usuario para el pago cripto *</label>
+                        <textarea
+                          required
+                          rows={4}
+                          value={paymentSettings.pagoMovilInfo || ""}
+                          onChange={e => setPaymentSettings({...paymentSettings, pagoMovilInfo: e.target.value})}
+                          className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs"
+                          placeholder="Explica cómo enviar los USDC por BEP20..."
+                        />
+                      </div>
+
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={savingSettings}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      {savingSettings ? "Guardando..." : "Guardar Configuración"}
-                    </button>
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={savingSettings}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        {savingSettings ? "Guardando..." : "Guardar Configuración"}
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
             )}
+
           </div>
 
           {/* MODAL: EDITAR NEGOCIO */}

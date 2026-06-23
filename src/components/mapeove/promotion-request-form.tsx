@@ -297,13 +297,18 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
             <h5 className={\`text-sm font-bold \${promo.titleColor} mb-1\`}>{promo.title}</h5>
             <p className={\`text-xs \${promo.descColor}\`}>{promo.description}</p>
             <p className={\`text-xs font-bold \${promo.titleColor} mt-2\`}>Sugerido: {promo.basePrice} USD / mes</p>
+        <div key={promo.type} className={`${promo.bgColor} border ${promo.borderColor} p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between`}>
+          <div>
+            <h5 className={`text-sm font-bold ${promo.titleColor} mb-1`}>{promo.title}</h5>
+            <p className={`text-xs ${promo.descColor}`}>{promo.description}</p>
+            <p className={`text-xs font-bold ${promo.titleColor} mt-2`}>Sugerido: {promo.basePrice} USD / mes</p>
           </div>
           <button 
             type="button" 
             onClick={() => setSelectedPromo(promo)} 
-            className={\`w-full sm:w-auto px-4 py-2 text-white rounded-lg text-xs font-bold transition-colors \${promo.btnColor}\`}
+            className={`w-full sm:w-auto px-4 py-2 text-white rounded-lg text-xs font-bold transition-colors ${promo.btnColor}`}
           >
-            Solicitar promoción
+            Pagar con USDC
           </button>
         </div>
       ))}
