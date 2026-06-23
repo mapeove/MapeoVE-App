@@ -9,7 +9,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   try {
     const token = req.cookies?.get("mapeove-session")?.value || (req as any).headers?.get("cookie")?.split("mapeove-session=")[1]?.split(";")[0];
     const session = token ? verify(token) : null;
-    if (!session || !session || (session.role !== "ADMIN" && session.role !== "SUPERADMIN")) {
+    if (!session || (session.role !== "ADMIN" && session.role !== "SUPERADMIN" && session.role !== "SUPER_ADMIN")) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
     }
 

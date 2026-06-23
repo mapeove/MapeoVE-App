@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
       bannerImage,
       bannerCategory,
       bannerTemplate,
-      bannerPrice 
+      bannerPrice,
+      isRenewal
     } = body;
 
     if (!businessId || !type || !baseAmount || !transactionHash) {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const sessionUserId = session.userId;
     let isAuthorized = false;
 
-    if (session.role === "ADMIN" || session.role === "SUPERADMIN") {
+    if (session.role === "ADMIN" || session.role === "SUPERADMIN" || session.role === "SUPER_ADMIN") {
       isAuthorized = true;
     } else {
       // 1. Direct owner match
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
         totalAmount,
         transactionHash,
         userEmail: session.email!,
+        isRenewal: !!isRenewal,
       });
     } catch (emailError) {
       console.error("Error sending promotion emails:", emailError);
@@ -160,7 +162,7 @@ export async function GET(req: NextRequest) {
     const sessionUserId = session.userId;
     let isAuthorized = false;
 
-    if (session.role === "ADMIN" || session.role === "SUPERADMIN") {
+    if (session.role === "ADMIN" || session.role === "SUPERADMIN" || session.role === "SUPER_ADMIN") {
       isAuthorized = true;
     } else {
       if (business.ownerId === sessionUserId) {

@@ -54,6 +54,7 @@ export async function sendPromotionAdminNotificationEmail(params: {
   totalAmount: number;
   transactionHash: string;
   userEmail: string;
+  isRenewal?: boolean;
 }) {
   if (!resend) return;
 
@@ -76,14 +77,18 @@ export async function sendPromotionAdminNotificationEmail(params: {
         <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.businessName}</td>
       </tr>
       <tr>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Tipo de Solicitud:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold; color: ${params.isRenewal ? '#b45309' : '#0284c7'};">${params.isRenewal ? "Renovación" : "Primera solicitud"}</td>
+      </tr>
+      <tr style="background-color: #f9fafb;">
         <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Tipo de Promoción:</td>
         <td style="padding: 10px; border: 1px solid #e5e7eb; color: #2563eb; font-weight: bold;">${label}</td>
       </tr>
-      <tr style="background-color: #f9fafb;">
+      <tr>
         <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Monto Base:</td>
         <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.baseAmount} USD</td>
       </tr>
-      <tr>
+      <tr style="background-color: #f9fafb;">
         <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Comisión Operativa:</td>
         <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.feeAmount} USD</td>
       </tr>

@@ -54,7 +54,7 @@ interface BusinessRequestData {
 }
 
 export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesses }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "promociones" | "pagos">("negocios");
+  const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "promociones" | "pagos" | "pagos_recibidos">("negocios");
 
   // Local mirror of businesses that reflects deletes without a full page refresh
   const [localBusinesses, setLocalBusinesses] = useState<Business[]>([]);
@@ -67,7 +67,7 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
   const [promoActionSaving, setPromoActionSaving] = useState<string | null>(null);
   
   useEffect(() => {
-    if (activeTab === "promociones") {
+    if (activeTab === "promociones" || activeTab === "pagos_recibidos") {
       setLoadingPromotions(true);
       fetch("/api/admin/promotions")
         .then(res => res.json())
@@ -120,6 +120,48 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
       }
     } catch (err) {
       alert("Error de red");
+    } finally {
+      setPromoActionSaving(null);
+    }
+  };
+
+  const handleDeletePromotion = async (id: string) => {
+    if (!confirm("¿Seguro que deseas eliminar definitivamente este registro de promoción? El negocio no será modificado.")) return;
+    setPromoActionSaving(id);
+    try {
+      const res = await fetch(`/api/admin/promotions/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPromotions(prev => prev.filter(p => p.id !== id));
+        alert("Registro de promoción eliminado con éxito.");
+      } else {
+        alert(data.error || "Error al eliminar el registro.");
+      }
+    } catch (err) {
+      alert("Error de conexión al servidor.");
+    } finally {
+      setPromoActionSaving(null);
+    }
+  };
+
+  const handleRenewPromotion = async (id: string) => {
+    if (!confirm("¿Seguro que deseas renovar esta promoción y marcarla como PENDIENTE de verificación?")) return;
+    setPromoActionSaving(id);
+    try {
+      const res = await fetch(`/api/admin/promotions/${id}/renew`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPromotions(prev => prev.map(p => p.id === id ? { ...p, status: "PENDING", ...data.data } : p));
+        alert("Promoción marcada como PENDIENTE para revisión.");
+      } else {
+        alert(data.error || "Error al renovar la promoción.");
+      }
+    } catch (err) {
+      alert("Error de conexión al servidor.");
     } finally {
       setPromoActionSaving(null);
     }
@@ -751,17 +793,36 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                 )}
               </span>
             </button>
-              <button
-                onClick={() => setActiveTab("promociones")}
-                className={`flex-1 py-3 text-[11px] sm:text-xs font-bold transition-all border-b-2 flex items-center justify-center gap-1.5 ${
-                  activeTab === "promociones"
-                    ? "border-blue-600 text-blue-600 bg-blue-50/50"
-                    : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
-                }`}
-              >
-                <Store size={14} />
+            <button
+              onClick={() => setActiveTab("promociones")}
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2.5 px-3 py-2 sm:py-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
+                activeTab === "promociones"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <Store size={16} />
+              <span className="flex items-center gap-1.5">
                 <span>Promociones</span>
-              </button>
+                {promotions.filter((p: any) => p.status === "PENDING").length > 0 && (
+                  <span className="bg-yellow-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shrink-0">
+                    {promotions.filter((p: any) => p.status === "PENDING").length}
+                  </span>
+                )}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("pagos_recibidos")}
+              className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2.5 px-3 py-2 sm:py-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
+                activeTab === "pagos_recibidos"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <FileText size={16} />
+              <span>Pagos recibidos</span>
+            </button>
 
             <button
               onClick={() => setActiveTab("usuarios")}
@@ -1233,14 +1294,12 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
               </div>
             )}
 
-            {/* TAB: PAGOS */}
-            
             {activeTab === "promociones" && (
-              <div className="space-y-4 animate-fade-in">
+              <div className="space-y-4 animate-fade-in text-xs">
                 <div className="flex justify-between items-center bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
-                  <h4 className="font-bold text-gray-800 text-sm">Solicitudes de Promoción</h4>
-                  <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                    {promotions.length} Total
+                  <h4 className="font-bold text-gray-800 text-sm font-sans">Solicitudes de Promoción Pendientes</h4>
+                  <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full">
+                    {promotions.filter((p: any) => p.status === "PENDING").length} Pendientes
                   </span>
                 </div>
 
@@ -1249,31 +1308,26 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                     <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                     <span className="text-xs text-gray-500 font-bold">Cargando promociones...</span>
                   </div>
-                ) : promotions.length === 0 ? (
+                ) : promotions.filter((p: any) => p.status === "PENDING").length === 0 ? (
                   <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                    <p className="text-sm font-bold text-gray-500">No hay solicitudes de promoción.</p>
+                    <p className="text-sm font-bold text-gray-500">No hay solicitudes de promoción pendientes.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {promotions.map((promo) => (
+                    {promotions.filter((p: any) => p.status === "PENDING").map((promo) => (
                       <div key={promo.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
                         <div className="flex-1 space-y-2">
                           <div className="flex items-start justify-between">
                             <div>
                               <h4 className="text-sm font-black text-gray-900">{promo.business?.name || "Negocio eliminado"}</h4>
-                              <p className="text-[11px] text-gray-500">{promo.user?.name} - {promo.user?.email}</p>
+                              <p className="text-[11px] text-gray-550">{promo.user?.name} - {promo.user?.email}</p>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              promo.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
-                              promo.status === "APPROVED" ? "bg-green-100 text-green-800" :
-                              promo.status === "EXPIRED" ? "bg-gray-100 text-gray-800" :
-                              "bg-red-100 text-red-800"
-                            }`}>
-                              {promo.status}
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-805 border border-yellow-200">
+                              PENDIENTE
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 mt-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          <div className="grid grid-cols-2 gap-2 mt-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                             <div>
                               <p className="text-[9px] font-bold text-gray-400 uppercase">Tipo</p>
                               <p className="text-xs font-bold text-blue-700">{promo.type}</p>
@@ -1284,7 +1338,7 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                             </div>
                             <div className="col-span-2">
                               <p className="text-[9px] font-bold text-gray-400 uppercase">Hash / Comprobante</p>
-                              <p className="text-xs font-mono text-gray-800 break-all">{promo.transactionHash}</p>
+                              <p className="text-xs font-mono text-gray-805 break-all">{promo.transactionHash}</p>
                             </div>
                             {promo.userNote && (
                               <div className="col-span-2">
@@ -1292,27 +1346,136 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                                 <p className="text-xs text-gray-700 italic">"{promo.userNote}"</p>
                               </div>
                             )}
+                            {promo.type === "LOCAL_BANNER" && promo.bannerTitle && (
+                              <div className="col-span-2 bg-purple-50/50 p-2 rounded-lg border border-purple-100 space-y-1 mt-1">
+                                <p className="text-[9px] font-bold text-purple-900 uppercase">Datos del Banner Local</p>
+                                <p className="text-xs font-bold text-gray-900">{promo.bannerTitle}</p>
+                                <p className="text-[11px] text-gray-650">{promo.bannerDescription}</p>
+                                {promo.bannerPrice && <p className="text-[10px] text-yellow-750 font-bold">Oferta: {promo.bannerPrice}</p>}
+                                {promo.bannerImage && (
+                                  <a href={promo.bannerImage} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-650 underline block font-bold mt-1">
+                                    Ver Imagen Adjunta
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         
-                        {promo.status === "PENDING" && (
-                          <div className="flex md:flex-col gap-2 w-full md:w-auto shrink-0">
-                            <button
-                              onClick={() => handleApprovePromotion(promo.id)}
-                              disabled={promoActionSaving === promo.id}
-                              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
-                            >
-                              Aprobar
-                            </button>
-                            <button
-                              onClick={() => handleRejectPromotion(promo.id)}
-                              disabled={promoActionSaving === promo.id}
-                              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
-                            >
-                              Rechazar
-                            </button>
+                        <div className="flex md:flex-col gap-2 w-full md:w-auto shrink-0">
+                          <button
+                            onClick={() => handleApprovePromotion(promo.id)}
+                            disabled={promoActionSaving === promo.id}
+                            className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            onClick={() => handleRejectPromotion(promo.id)}
+                            disabled={promoActionSaving === promo.id}
+                            className="flex-1 px-4 py-2 bg-red-650 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                            style={{ backgroundColor: "#dc2626" }}
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "pagos_recibidos" && (
+              <div className="space-y-4 animate-fade-in text-xs">
+                <div className="flex justify-between items-center bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
+                  <h4 className="font-bold text-gray-800 text-sm">Historial de Pagos / Promociones Procesadas</h4>
+                  <span className="text-xs font-bold text-blue-750 bg-blue-100 px-2.5 py-1 rounded-full">
+                    {promotions.filter((p: any) => p.status !== "PENDING").length} Procesados
+                  </span>
+                </div>
+
+                {loadingPromotions ? (
+                  <div className="flex items-center justify-center py-12 gap-2">
+                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-500 font-bold">Cargando historial...</span>
+                  </div>
+                ) : promotions.filter((p: any) => p.status !== "PENDING").length === 0 ? (
+                  <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <p className="text-sm font-bold text-gray-500">No hay registros procesados.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {promotions.filter((p: any) => p.status !== "PENDING").map((promo: any) => (
+                      <div key={promo.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="text-sm font-black text-gray-900">{promo.business?.name || "Negocio eliminado"}</h4>
+                              <p className="text-[11px] text-gray-550">{promo.user?.name} - {promo.user?.email}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              promo.status === "APPROVED" ? "bg-green-100 text-green-800 border-green-200" :
+                              promo.status === "EXPIRED" ? "bg-gray-150 text-gray-700 border-gray-200" :
+                              "bg-red-105 text-red-800 border-red-200"
+                            }`} style={{ color: promo.status === "REJECTED" ? "#991b1b" : undefined, backgroundColor: promo.status === "REJECTED" ? "#fee2e2" : undefined }}>
+                              {promo.status}
+                            </span>
                           </div>
-                        )}
+
+                          <div className="grid grid-cols-2 gap-2 mt-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Tipo</p>
+                              <p className="font-bold text-blue-700">{promo.type}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Pago</p>
+                              <p className="font-bold text-green-700">{promo.totalAmount} {promo.currency}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Hash / Comprobante</p>
+                              <p className="font-mono text-gray-800 break-all">{promo.transactionHash}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Solicitud</p>
+                              <p className="text-gray-750">{new Date(promo.createdAt).toLocaleString("es-VE")}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Procesado</p>
+                              <p className="text-gray-750">{promo.reviewedAt ? new Date(promo.reviewedAt).toLocaleString("es-VE") : "N/A"}</p>
+                            </div>
+                            {promo.startsAt && promo.expiresAt && (
+                              <div className="col-span-2">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Vigencia</p>
+                                <p className="text-gray-750">Desde: {new Date(promo.startsAt).toLocaleDateString("es-VE")} | Hasta: {new Date(promo.expiresAt).toLocaleDateString("es-VE")}</p>
+                              </div>
+                            )}
+                            {promo.status === "REJECTED" && promo.rejectionReason && (
+                              <div className="col-span-2 bg-red-50 p-2.5 rounded border border-red-150 text-[11px]">
+                                <span className="font-bold text-red-800 uppercase block text-[9px] mb-0.5">Motivo del rechazo</span>
+                                <span className="text-red-900 font-medium">"{promo.rejectionReason}"</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex md:flex-col gap-2 w-full md:w-auto shrink-0">
+                          <button
+                            onClick={() => handleRenewPromotion(promo.id)}
+                            disabled={promoActionSaving === promo.id}
+                            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            Renovar
+                          </button>
+                          <button
+                            onClick={() => handleDeletePromotion(promo.id)}
+                            disabled={promoActionSaving === promo.id}
+                            className="flex-1 px-4 py-2 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50 bg-red-650 hover:bg-red-750"
+                            style={{ backgroundColor: "#dc2626" }}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

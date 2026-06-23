@@ -69,6 +69,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
 
   const [myPromotions, setMyPromotions] = useState<any[]>([]);
   const [loadingMyPromos, setLoadingMyPromos] = useState(false);
+  const [isRenewal, setIsRenewal] = useState(false);
 
   // States for prefabricated banners creator
   const [bannerCategory, setBannerCategory] = useState("Restaurante");
@@ -191,6 +192,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           bannerCategory: selectedPromo.type === "LOCAL_BANNER" ? bannerCategory : undefined,
           bannerTemplate: selectedPromo.type === "LOCAL_BANNER" ? bannerTemplate : undefined,
           bannerPrice: selectedPromo.type === "LOCAL_BANNER" ? bannerPrice : undefined,
+          isRenewal,
         }),
       });
       
@@ -575,7 +577,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           </div>
           <button 
             type="button" 
-            onClick={() => setSelectedPromo(promo)} 
+            onClick={() => { setSelectedPromo(promo); setIsRenewal(false); }} 
             className={`w-full sm:w-auto px-4 py-2 text-white rounded-lg text-xs font-bold transition-colors ${promo.btnColor}`}
           >
             Pagar con USDC
@@ -658,6 +660,24 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
                       <p>Inicio: {new Date(promo.startsAt).toLocaleDateString("es-VE")}</p>
                       <p>Fin: {new Date(promo.expiresAt).toLocaleDateString("es-VE")}</p>
                     </div>
+                  )}
+
+                  {promo.status !== "PENDING" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matchedPromo = PROMOTIONS.find(p => p.type === promo.type);
+                        if (matchedPromo) {
+                          setSelectedPromo(matchedPromo);
+                          setIsRenewal(true);
+                          setTransactionHash("");
+                          setUserNote("");
+                        }
+                      }}
+                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                    >
+                      Renovar promoción
+                    </button>
                   )}
                 </div>
               );

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { verify } from "@/lib/session";
 import { db as prisma } from "@/lib/db";
-import { sendPromotionRejectedEmail } from "@/lib/email";
-
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -13,52 +11,35 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { rejectionReason } = body;
-
-    if (!rejectionReason || !rejectionReason.trim()) {
-      return NextResponse.json({ success: false, error: "El motivo del rechazo es obligatorio" }, { status: 400 });
+    const { id } = params;
+    if (!id) {
+      return NextResponse.json({ success: false, error: "ID requerido" }, { status: 400 });
     }
 
     const promotion = await prisma.promotionRequest.findUnique({
-      where: { id: params.id },
-      include: { business: true, user: true },
+      where: { id },
     });
 
     if (!promotion) {
       return NextResponse.json({ success: false, error: "Promoción no encontrada" }, { status: 404 });
     }
 
-    if (promotion.status !== "PENDING") {
-      return NextResponse.json({ success: false, error: "La promoción ya fue procesada" }, { status: 400 });
-    }
-
     const updatedPromotion = await prisma.promotionRequest.update({
-      where: { id: params.id },
+      where: { id },
       data: {
-        status: "REJECTED",
-        reviewedAt: new Date(),
-        reviewedById: session.userId,
-        rejectionReason: rejectionReason || "Pago no verificado o datos incorrectos",
+        status: "PENDING",
+        createdAt: new Date(),
+        startsAt: null,
+        expiresAt: null,
+        reviewedAt: null,
+        reviewedById: null,
+        rejectionReason: null,
       },
     });
 
-    try {
-      if (promotion.user?.email) {
-        await sendPromotionRejectedEmail(
-          promotion.user.email,
-          promotion.business.name,
-          promotion.type,
-          updatedPromotion.rejectionReason!
-        );
-      }
-    } catch (emailError) {
-      console.error("Email send failed:", emailError);
-    }
-
     return NextResponse.json({ success: true, data: updatedPromotion });
   } catch (error) {
-    console.error("Error rejecting promotion:", error);
+    console.error("Error renewing promotion request:", error);
     return NextResponse.json({ success: false, error: "Error interno del servidor" }, { status: 500 });
   }
 }
