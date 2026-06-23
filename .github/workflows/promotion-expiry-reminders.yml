@@ -2,9 +2,8 @@ name: Promotion Expiry Reminders
 
 on:
   schedule:
-    # Run daily at 12:00 UTC
     - cron: '0 12 * * *'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   send-reminders:
@@ -12,6 +11,6 @@ jobs:
     steps:
       - name: Send Expiry Reminders
         run: |
-          curl -X GET "${{ secrets.NEXT_PUBLIC_APP_URL }}/api/cron/promotion-expiry-reminders" \
+          curl -f -X GET "https://mapeove.com/api/cron/promotion-expiry-reminders" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json"
