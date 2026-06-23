@@ -101,15 +101,40 @@ export function MapeoVEHome() {
 
   const visibleBanners = useMemo(() => {
     const now = new Date();
-    return visibleBusinesses.filter((b) => {
+    
+    // Determine the reference center for banner calculations
+    const refCenter = isRealLocation && userLocation
+      ? userLocation
+      : (exploreLocation || { lat: 10.2268, lng: -67.3312 });
+
+    return businesses.filter((b) => {
+      // 1. Must be a local banner promotion
       if (!b.promotionUntil) return false;
       const isExpired = new Date(b.promotionUntil) <= now;
       if (isExpired) return false;
       if (!b.promotionTitle || !b.promotionDescription) return false;
       if (closedBanners.includes(b.id)) return false;
-      return true;
+
+      // 2. Must be within 30 km of the reference center
+      let distanceKm = b.distance;
+      if (!isRealLocation || !userLocation) {
+        const lat = Number(b.latitude);
+        const lng = Number(b.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          distanceKm = haversineDistance(
+            refCenter.lat,
+            refCenter.lng,
+            lat,
+            lng
+          );
+        } else {
+          return false;
+        }
+      }
+
+      return distanceKm !== undefined && distanceKm <= 30;
     });
-  }, [visibleBusinesses, closedBanners]);
+  }, [businesses, exploreLocation, isRealLocation, userLocation, closedBanners]);
 
   useEffect(() => {
     if (visibleBanners.length <= 1) return;
@@ -160,12 +185,15 @@ export function MapeoVEHome() {
     showList;
 
   const nearbyBusinesses = useMemo(() => {
-    if (isRealLocation && userLocation) {
-      return businesses.filter((b) => b.distance !== undefined && b.distance <= 20);
-    } else {
-      return visibleBusinesses;
+    const list = isRealLocation && userLocation
+      ? businesses.filter((b) => b.distance !== undefined && b.distance <= 20)
+      : visibleBusinesses;
+
+    if (activeCategory) {
+      return list.filter((b) => b.category.slug === activeCategory);
     }
-  }, [businesses, visibleBusinesses, isRealLocation, userLocation]);
+    return list;
+  }, [businesses, visibleBusinesses, isRealLocation, userLocation, activeCategory]);
 
   const nearbyCount = nearbyBusinesses.length;
 
@@ -449,6 +477,7 @@ export function MapeoVEHome() {
         focusNearbyTrigger={focusNearbyTrigger}
         onMapExplore={handleMapExplore}
         onResetToGps={handleResetToGps}
+        activeCategory={activeCategory}
       />
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}

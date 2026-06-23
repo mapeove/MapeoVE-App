@@ -30,6 +30,7 @@ interface MapeoVEMapProps {
   focusNearbyTrigger?: number;
   onMapExplore?: (coords: { lat: number; lng: number }) => void;
   onResetToGps?: () => void;
+  activeCategory?: string | null;
 }
 
 
@@ -75,6 +76,7 @@ export function MapeoVEMap({
   focusNearbyTrigger = 0,
   onMapExplore,
   onResetToGps,
+  activeCategory = null,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -401,6 +403,7 @@ export function MapeoVEMap({
     // Filter by viewport bounds to optimize DOM element count
     const bounds = map.getBounds();
     const businessesInViewport = (businesses || []).filter((b) => {
+      if (activeCategory && b.category.slug !== activeCategory) return false;
       if (b.id === selectedId) return true; // Always keep selected
       const lat = Number(b.latitude);
       const lng = Number(b.longitude);
@@ -516,13 +519,31 @@ export function MapeoVEMap({
       const color = MAP_CATEGORY_COLORS[business.category.slug] || BRAND.blue;
       const svgIcon = getCategoryIconSvg(business.category.slug);
 
+      const now = new Date();
+      const isSponsored = !!(business.sponsoredCategory && (!business.sponsoredUntil || new Date(business.sponsoredUntil) > now));
+      const isFeatured = !!(business.featured && (!business.featuredUntil || new Date(business.featuredUntil) > now));
+
       const markerEl = document.createElement("div");
       markerEl.className = `mapeove-business-marker-wrapper animate-fade-in ${isSelected ? "selected" : ""}`;
+      if (isSponsored) {
+        markerEl.classList.add("sponsored");
+      } else if (isFeatured) {
+        markerEl.classList.add("featured");
+      }
+
       if (showLabels) {
         markerEl.classList.add("show-label");
       }
 
+      let badgeHtml = "";
+      if (isSponsored) {
+        badgeHtml = `<div class="marker-sponsored-badge">Patrocinado</div>`;
+      } else if (isFeatured) {
+        badgeHtml = `<div class="marker-featured-badge">Destacado</div>`;
+      }
+
       markerEl.innerHTML = `
+        ${badgeHtml}
         <div class="marker-icon-circle" style="background-color: ${color};">
           ${svgIcon}
         </div>
@@ -703,6 +724,7 @@ export function MapeoVEMap({
 
     const refCenter = isRealLocation ? userLocation : null;
     const validBiz = (businesses || []).filter((b) => {
+      if (activeCategory && b.category.slug !== activeCategory) return false;
       const lat = Number(b.latitude);
       const lng = Number(b.longitude);
       const isValid = Number.isFinite(lat) && Number.isFinite(lng);
@@ -904,6 +926,61 @@ export function MapeoVEMap({
         .maplibregl-ctrl-geolocate button {
           width: 40px !important;
           height: 40px !important;
+        }
+
+        /* Sponsored & Featured premium marker styles */
+        .mapeove-business-marker-wrapper.sponsored .marker-icon-circle {
+          border: 2px solid #F4C430 !important;
+          box-shadow: 0 0 0 2px rgba(244, 196, 48, 0.4), 0 0 12px #F4C430, 0 2px 6px rgba(0,0,0,0.3) !important;
+          transform: scale(1.1);
+        }
+        .mapeove-business-marker-wrapper.sponsored .marker-sponsored-badge {
+          position: absolute;
+          top: -14px;
+          background: #F4C430;
+          color: #000;
+          font-size: 7px;
+          font-weight: 900;
+          padding: 1px 4px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          white-space: nowrap;
+          border: 1px solid white;
+          z-index: 2;
+        }
+        .mapeove-business-marker-wrapper.sponsored .marker-name-label {
+          background: #F4C430 !important;
+          color: #000 !important;
+          font-weight: 900 !important;
+          border: 1px solid white;
+        }
+
+        .mapeove-business-marker-wrapper.featured .marker-icon-circle {
+          border: 2px solid #3b82f6 !important;
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4), 0 0 10px rgba(59, 130, 246, 0.6), 0 2px 6px rgba(0,0,0,0.3) !important;
+          transform: scale(1.05);
+        }
+        .mapeove-business-marker-wrapper.featured .marker-featured-badge {
+          position: absolute;
+          top: -14px;
+          background: #3b82f6;
+          color: white;
+          font-size: 7px;
+          font-weight: 900;
+          padding: 1px 4px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+          white-space: nowrap;
+          border: 1px solid white;
+          z-index: 2;
+        }
+        .mapeove-business-marker-wrapper.featured .marker-name-label {
+          background: #3b82f6 !important;
+          color: white !important;
+          font-weight: 800 !important;
+          border: 1px solid white;
         }
       `}</style>
     </>

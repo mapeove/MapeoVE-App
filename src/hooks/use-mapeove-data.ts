@@ -27,14 +27,13 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     loadCats();
   }, []);
 
-  // Carga de negocios según activeCategory (incluye la carga inicial)
+  // Carga de negocios (una sola vez al montar)
   useEffect(() => {
     let active = true;
     async function loadData() {
       try {
         setLoadingNearby(true);
         const biz = await fetchBusinesses({
-          category: activeCategory || undefined,
           limit: 10000,
         });
         if (active) {
@@ -53,7 +52,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     return () => {
       active = false;
     };
-  }, [activeCategory]);
+  }, []);
 
   // Calcular la distancia de cada negocio al GPS real en el cliente y ordenar premium/destacado/cercanía
   const businessesWithDistance = useMemo(() => {
@@ -146,7 +145,6 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     try {
       setLoadingNearby(true);
       const result = await fetchBusinesses({
-        category: activeCategory || undefined,
         limit: 10000,
       });
       setBusinesses(result.businesses);
@@ -155,7 +153,7 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     } finally {
       setLoadingNearby(false);
     }
-  }, [activeCategory]);
+  }, []);
 
   return {
     categories,

@@ -74,6 +74,11 @@ export function BusinessList({
                       Patrocinado
                     </span>
                   )}
+                  {business.featured && (!business.featuredUntil || new Date(business.featuredUntil) > new Date()) && (
+                    <span className="text-[8px] font-black text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full shrink-0 border border-blue-200">
+                      Destacado
+                    </span>
+                  )}
                   {business.verified ? (
                     <span className="flex items-center gap-0.5 text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full shrink-0 border border-blue-100">
                       <Shield size={7} />
