@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verify } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { resend } from "@/lib/resend";
+import { getBusinessApprovedEmailHtml } from "@/lib/email/templates/business-approved-email";
 
 export async function POST(
   request: NextRequest,
@@ -121,6 +123,42 @@ export async function POST(
         reviewedById: session.userId,
       },
     });
+
+    // Envío de correo de aprobación al propietario
+    try {
+      const requester = await db.user.findUnique({
+        where: { id: req.userId },
+        select: { name: true, email: true }
+      });
+
+      const recipientEmail = req.businessEmail || requester?.email;
+      const ownerName = requester?.name || "Propietario";
+
+      if (recipientEmail) {
+        if (resend) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mapeove.com";
+          const emailFrom = process.env.EMAIL_FROM || "onboarding@resend.dev";
+
+          await resend.emails.send({
+            from: emailFrom,
+            to: recipientEmail,
+            subject: "Tu negocio fue aprobado en MapeoVE",
+            html: getBusinessApprovedEmailHtml({
+              ownerName,
+              businessName: req.businessName,
+              appUrl,
+            }),
+          });
+          console.log(`[Resend] Correo de aprobación enviado a ${recipientEmail} para el negocio ${req.businessName}`);
+        } else {
+          console.log(`[Email Mock] Negocio aprobado: ${req.businessName} para ${recipientEmail}`);
+        }
+      } else {
+        console.warn(`[Warning] No se pudo enviar correo de aprobación para la solicitud ${id} porque no hay email disponible.`);
+      }
+    } catch (mailError) {
+      console.error("[Resend Error] No se pudo enviar el correo de aprobación:", mailError);
+    }
 
     return NextResponse.json({ success: true, request: updatedRequest, business });
   } catch (error) {
