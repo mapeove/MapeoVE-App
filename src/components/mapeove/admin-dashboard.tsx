@@ -986,9 +986,13 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                             }`}>
                               {biz.active ? "Activo" : "Inactivo"}
                             </span>
-                            {biz.verified && (
-                              <span className="bg-blue-50 text-blue-700 inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold">
+                            {biz.verified ? (
+                              <span className="bg-blue-50 text-blue-700 inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold border border-blue-100">
                                 Verificado
+                              </span>
+                            ) : (
+                              <span className="bg-gray-100 text-gray-500 inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-bold">
+                                No verificado
                               </span>
                             )}
                           </div>

@@ -669,7 +669,7 @@ export function BusinessDetail({
               <CircleDot size={8} className="md:w-[9px] md:h-[9px]" />
               {openLabel}
             </span>
-            {business.verified && (
+            {business.verified ? (
               <span 
                 className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold px-2.5 py-1 rounded-full"
                 style={{
@@ -680,6 +680,18 @@ export function BusinessDetail({
               >
                 <Shield size={9} className="md:w-2.5 md:h-2.5" />
                 Verificado
+              </span>
+            ) : (
+              <span 
+                className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold px-2.5 py-1 rounded-full"
+                style={{
+                  color: "#6b7280",
+                  background: "rgba(0,0,0,0.04)",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                }}
+              >
+                <Shield size={9} className="md:w-2.5 md:h-2.5" />
+                No verificado
               </span>
             )}
           </div>

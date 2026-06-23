@@ -2,7 +2,7 @@
 
 import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
-import { MapPin, Clock, Navigation } from "lucide-react";
+import { MapPin, Clock, Navigation, Shield } from "lucide-react";
 
 interface BusinessListProps {
   businesses: Business[];
@@ -65,8 +65,15 @@ export function BusinessList({
                   <h3 className="text-xs font-bold text-gray-900 truncate">
                     {business.name}
                   </h3>
-                  {business.verified && (
-                    <span className="text-green-500 text-[10px]">✓</span>
+                  {business.verified ? (
+                    <span className="flex items-center gap-0.5 text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full shrink-0 border border-blue-100">
+                      <Shield size={7} />
+                      Verificado
+                    </span>
+                  ) : (
+                    <span className="text-[8px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full shrink-0">
+                      Sin verificar
+                    </span>
                   )}
                 </div>
                 <p className="text-[11px] text-gray-500 truncate">

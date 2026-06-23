@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verify } from "@/lib/session";
 import { resend } from "@/lib/resend";
+import { supabase } from "@/lib/supabase";
 
 function normalizeUrl(url: string | null | undefined, type: "web" | "instagram" | "facebook" | "tiktok"): string | null {
   if (!url || !url.trim()) return null;
@@ -72,10 +73,6 @@ export async function POST(request: NextRequest) {
       description,
       openingHours,
       note,
-      paymentMethod,
-      paymentReference,
-      proofImageUrl,
-      plan,
       latitude,
       longitude,
       images,
@@ -86,27 +83,22 @@ export async function POST(request: NextRequest) {
       tiktok,
     } = body;
 
-    // Validate required fields
-    if (!businessName || !categoryId || !address || !phone || !whatsapp || !paymentMethod || !paymentReference || !plan) {
+    // Validate required fields (payment fields are NO LONGER required — registration is free)
+    if (!businessName || !categoryId || !address || !phone || !whatsapp) {
       return NextResponse.json(
         { error: "Faltan campos obligatorios para la solicitud" },
         { status: 400 }
       );
     }
-    // Validate plan
-    if (plan !== "MONTHLY" && plan !== "YEARLY") {
+
+    // Validate coordinates
+    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
       return NextResponse.json(
-        { error: "Plan no válido" },
+        { error: "Debes seleccionar la ubicación en el mapa" },
         { status: 400 }
       );
     }
-    // Validate payment method is valid enum value
-    if (paymentMethod !== "PAGO_MOVIL" && paymentMethod !== "TRANSFERENCIA" && paymentMethod !== "BINANCE") {
-      return NextResponse.json(
-        { error: "Método de pago no válido" },
-        { status: 400 }
-      );
-    }
+
     // Check if category exists
     const categoryExists = await db.category.findUnique({
       where: { id: categoryId },
@@ -121,7 +113,87 @@ export async function POST(request: NextRequest) {
     const normFacebook = normalizeUrl(facebook, "facebook");
     const normTiktok = normalizeUrl(tiktok, "tiktok");
 
-    // Save request to database
+    // ──────────────────────────────────────────────────────
+    // NEW FLOW: Registration is FREE — create business DIRECTLY
+    // ──────────────────────────────────────────────────────
+
+    // 1. Create the business immediately (active, NOT verified — admin verifies later)
+    const business = await db.business.create({
+      data: {
+        name: businessName.trim(),
+        categoryId,
+        address: address.trim(),
+        phone: phone.trim(),
+        whatsapp: whatsapp.trim(),
+        description: description?.trim() || null,
+        hours: openingHours?.trim() || null,
+        ownerId: session.userId,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        city: "La Victoria",
+        state: "Aragua",
+        country: "Venezuela",
+        verified: false,   // NOT verified by default — admin can verify later
+        active: true,      // IMMEDIATELY visible on the map
+        businessEmail: businessEmail?.trim() || null,
+        website: normWebsite,
+        instagram: normInstagram,
+        facebook: normFacebook,
+        tiktok: normTiktok,
+      },
+    });
+
+    // 2. Process uploaded images — move from temp to permanent storage
+    const imagesArray = Array.isArray(images) ? images : [];
+    if (imagesArray.length > 0) {
+      for (let i = 0; i < imagesArray.length; i++) {
+        const tempUrl = imagesArray[i];
+        try {
+          const urlParts = tempUrl.split("/business-images/");
+          const tempPath = urlParts[1];
+          if (tempPath) {
+            const filename = tempPath.split("/").pop();
+            const newPath = `${business.id}/${filename}`;
+
+            // Copy file in Supabase storage
+            const { error: copyError } = await supabase.storage
+              .from("business-images")
+              .copy(tempPath, newPath);
+
+            if (!copyError) {
+              // Delete old temp file
+              await supabase.storage.from("business-images").remove([tempPath]);
+
+              // Get public URL for new file
+              const { data: { publicUrl } } = supabase.storage
+                .from("business-images")
+                .getPublicUrl(newPath);
+
+              // Create BusinessImage record
+              await db.businessImage.create({
+                data: {
+                  businessId: business.id,
+                  url: publicUrl,
+                  isPrimary: i === 0,
+                },
+              });
+            } else {
+              console.error("Error copying image on business creation:", copyError);
+            }
+          }
+        } catch (err) {
+          console.error("Error processing image on business creation:", err);
+        }
+      }
+    }
+
+    // 3. Update user role to OWNER
+    await db.user.update({
+      where: { id: session.userId },
+      data: { role: "OWNER" },
+    });
+
+    // 4. Also create a BusinessRequest record for tracking (auto-approved)
     const req = await db.businessRequest.create({
       data: {
         userId: session.userId,
@@ -133,14 +205,12 @@ export async function POST(request: NextRequest) {
         description: description?.trim() || null,
         openingHours: openingHours?.trim() || null,
         note: note?.trim() || null,
-        plan,
-        paymentMethod,
-        paymentReference: paymentReference.trim(),
-        proofImageUrl: proofImageUrl || null,
         latitude: latitude ? parseFloat(latitude) : null,
         longitude: longitude ? parseFloat(longitude) : null,
-        images: Array.isArray(images) ? images : [],
-        status: "PENDING",
+        images: imagesArray,
+        status: "APPROVED",   // Auto-approved since it's free
+        businessId: business.id,
+        reviewedAt: new Date(),
         businessEmail: businessEmail?.trim() || null,
         website: normWebsite,
         instagram: normInstagram,
@@ -149,7 +219,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Fetch requester user info for notification mail
+    // 5. Send admin notification email (informational only — no approval needed)
     const requester = await db.user.findUnique({
       where: { id: session.userId },
       select: { name: true, email: true }
@@ -159,9 +229,8 @@ export async function POST(request: NextRequest) {
     const requesterName = requester?.name || "Usuario MapeoVE";
     const requesterEmail = requester?.email || "Sin email";
 
-    // Attempt to send email via Resend
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "mapeove@gmail.com";
-    const emailFrom = process.env.EMAIL_FROM || "onboarding@resend.dev"; // default sandbox sender
+    const emailFrom = process.env.EMAIL_FROM || "onboarding@resend.dev";
 
     const adminPanelUrl =
       process.env.ADMIN_PANEL_URL ||
@@ -173,18 +242,23 @@ export async function POST(request: NextRequest) {
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e1e4e8;">
           <!-- Header -->
           <div style="background-color: #0B3D91; padding: 25px 30px; text-align: center; border-bottom: 3px solid #F4C430;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">Nueva solicitud de negocio en MapeoVE</h1>
+            <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">Nuevo negocio registrado en MapeoVE</h1>
           </div>
           
           <!-- Body -->
           <div style="padding: 30px;">
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+              <p style="color: #166534; font-size: 13px; margin: 0; font-weight: bold;">✅ Negocio publicado automáticamente (registro gratuito)</p>
+              <p style="color: #166534; font-size: 12px; margin: 4px 0 0 0;">El negocio ya es visible en el mapa. Puedes verificarlo desde el panel de administración.</p>
+            </div>
+
             <p style="color: #333333; font-size: 14px; line-height: 1.6; margin-top: 0; margin-bottom: 25px;">
-              Se ha recibido una nueva solicitud de negocio en MapeoVE. Revisa los datos y entra al panel administrativo para aprobarla o rechazarla.
+              Se ha registrado un nuevo negocio en MapeoVE. El negocio ya está visible en el mapa como <strong>No Verificado</strong>.
             </p>
 
-            <!-- SECCIÓN 1 — DATOS DEL SOLICITANTE -->
+            <!-- Datos del Solicitante -->
             <div style="margin-bottom: 25px;">
-              <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">1. Datos del Solicitante</h3>
+              <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">1. Datos del Propietario</h3>
               <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <tr>
                   <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Nombre:</td>
@@ -194,20 +268,16 @@ export async function POST(request: NextRequest) {
                   <td style="padding: 6px 0; color: #666666; font-weight: bold;">Email:</td>
                   <td style="padding: 6px 0; color: #111111;">${requesterEmail}</td>
                 </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">ID Usuario:</td>
-                  <td style="padding: 6px 0; color: #111111; font-family: monospace; font-size: 11px;">${session.userId}</td>
-                </tr>
               </table>
             </div>
 
-            <!-- SECCIÓN 2 — DATOS DEL NEGOCIO -->
+            <!-- Datos del Negocio -->
             <div style="margin-bottom: 25px;">
               <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">2. Datos del Negocio</h3>
               <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <tr>
-                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Nombre Comercial:</td>
-                  <td style="padding: 6px 0; color: #111111; font-weight: bold;">${req.businessName}</td>
+                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Nombre:</td>
+                  <td style="padding: 6px 0; color: #111111; font-weight: bold;">${business.name}</td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #666666; font-weight: bold;">Categoría:</td>
@@ -215,105 +285,16 @@ export async function POST(request: NextRequest) {
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #666666; font-weight: bold;">Dirección:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.address}</td>
+                  <td style="padding: 6px 0; color: #111111;">${business.address}</td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #666666; font-weight: bold;">Teléfono:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.phone}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">WhatsApp:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.whatsapp}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Email Privado:</td>
-                  <td style="padding: 6px 0; color: #e12d2d; font-weight: bold;">${req.businessEmail || "No provisto"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Horario:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.openingHours || "No provisto"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Descripción:</td>
-                  <td style="padding: 6px 0; color: #111111; line-height: 1.4;">${req.description || "Sin descripción"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Oferta / Nota:</td>
-                  <td style="padding: 6px 0; color: #111111; font-style: italic;">${req.note || "Ninguna"}</td>
+                  <td style="padding: 6px 0; color: #111111;">${business.phone}</td>
                 </tr>
               </table>
             </div>
 
-            <!-- SECCIÓN 3 — WEB Y REDES SOCIALES -->
-            <div style="margin-bottom: 25px;">
-              <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">3. Web y Redes Sociales</h3>
-              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Página Web:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.website ? `<a href="${req.website}" style="color: #0B3D91; text-decoration: underline;">${req.website}</a>` : "No provisto"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Instagram:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.instagram ? `<a href="${req.instagram}" style="color: #0B3D91; text-decoration: underline;">${req.instagram}</a>` : "No provisto"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Facebook:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.facebook ? `<a href="${req.facebook}" style="color: #0B3D91; text-decoration: underline;">${req.facebook}</a>` : "No provisto"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">TikTok:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.tiktok ? `<a href="${req.tiktok}" style="color: #0B3D91; text-decoration: underline;">${req.tiktok}</a>` : "No provisto"}</td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- SECCIÓN 4 — UBICACIÓN -->
-            <div style="margin-bottom: 25px;">
-              <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">4. Ubicación</h3>
-              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Dirección:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.address}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Latitud:</td>
-                  <td style="padding: 6px 0; color: #111111; font-family: monospace;">${req.latitude !== null ? req.latitude : "No especificada"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Longitud:</td>
-                  <td style="padding: 6px 0; color: #111111; font-family: monospace;">${req.longitude !== null ? req.longitude : "No especificada"}</td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- SECCIÓN 5 — SUSCRIPCIÓN / PAGO -->
-            <div style="margin-bottom: 30px;">
-              <h3 style="color: #0B3D91; border-bottom: 2px solid #e1e4e8; padding-bottom: 6px; margin-top: 0; margin-bottom: 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">5. Suscripción / Pago</h3>
-              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; width: 150px; font-weight: bold;">Plan elegido:</td>
-                  <td style="padding: 6px 0; color: #111111; font-weight: bold;">${req.plan === "YEARLY" ? "Anual" : "Mensual"}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Método de Pago:</td>
-                  <td style="padding: 6px 0; color: #111111;">${req.paymentMethod}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Referencia de Pago:</td>
-                  <td style="padding: 6px 0; color: #111111; font-family: monospace;">${req.paymentReference}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #666666; font-weight: bold;">Fecha de Solicitud:</td>
-                  <td style="padding: 6px 0; color: #111111;">${new Date(req.createdAt).toLocaleString()}</td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- SECCIÓN 6 — ACCIÓN -->
-            <div style="background-color: #f8f9fa; border-left: 4px solid #0B3D91; padding: 15px; border-radius: 4px; font-size: 13px; color: #555555; line-height: 1.5; margin-bottom: 25px;">
-              Accede al panel de administración de MapeoVE para aprobar o rechazar esta solicitud.
-            </div>
-
+            <!-- CTA -->
             <div style="text-align: center; margin-top: 15px; margin-bottom: 10px;">
               <a href="${adminPanelUrl}" target="_blank" style="background-color: #0B3D91; color: #ffffff; padding: 12px 24px; text-decoration: none; font-size: 13px; font-weight: bold; border-radius: 6px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                 Abrir Panel de Administración
@@ -334,33 +315,20 @@ export async function POST(request: NextRequest) {
         await resend.emails.send({
           from: emailFrom,
           to: adminEmail,
-          subject: `🔔 Nueva solicitud de negocio - ${req.businessName}`,
+          subject: `🆕 Nuevo negocio registrado - ${business.name}`,
           html: emailHtml,
         });
-        console.log(`[Resend] Correo de notificación enviado a ${adminEmail} para ${req.businessName}`);
+        console.log(`[Resend] Notificación de nuevo negocio enviada a ${adminEmail} para ${business.name}`);
       } catch (error) {
         console.error("[MapeoVE Email] Error enviando notificación:", error);
       }
     } else {
-      console.log(`[Email Mock] Notificación de solicitud a ${adminEmail}:
-- Nombre: ${req.businessName}
-- Categoría: ${categoryName}
-- Dirección: ${req.address}
-- Teléfono: ${req.phone}
-- WhatsApp: ${req.whatsapp}
-- Email privado: ${req.businessEmail}
-- Web: ${req.website}
-- Instagram: ${req.instagram}
-- Facebook: ${req.facebook}
-- TikTok: ${req.tiktok}
-- Solicitante: ${requesterName} (${requesterEmail})
-- Plan: ${req.plan}
-- Método Pago: ${req.paymentMethod} (Ref: ${req.paymentReference})`);
+      console.log(`[Email Mock] Nuevo negocio registrado: ${business.name} por ${requesterName} (${requesterEmail})`);
     }
 
-    return NextResponse.json({ success: true, request: req });
+    return NextResponse.json({ success: true, request: req, business });
   } catch (error) {
-    console.error("Error creating business request:", error);
-    return NextResponse.json({ error: "Error en el servidor al enviar la solicitud" }, { status: 500 });
+    console.error("Error creating business:", error);
+    return NextResponse.json({ error: "Error en el servidor al registrar el negocio" }, { status: 500 });
   }
 }

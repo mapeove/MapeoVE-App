@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Store, CreditCard, Clock, MessageCircle, Phone, MapPin, CheckCircle, AlertTriangle, Camera, Upload, Trash2, Edit2 } from "lucide-react";
+import { X, Store, Clock, MessageCircle, Phone, MapPin, CheckCircle, Camera, Upload, Trash2, Edit2 } from "lucide-react";
 import { BRAND } from "@/types/mapeove";
 import dynamic from "next/dynamic";
 
@@ -28,18 +28,7 @@ interface RequestData {
   createdAt: string;
 }
 
-interface PaymentSettings {
-  monthlyPrice: number;
-  yearlyPrice: number;
-  currency: string;
-  pagoMovilInfo: string;
-  transferInfo: string;
-  binanceInfo: string;
-  binanceNetwork?: string;
-  binanceWallet?: string;
-  binanceFeeType?: string;
-  binanceFeeValue?: number;
-}
+// PaymentSettings interface removed — registration is now free
 
 export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModalProps) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -50,8 +39,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [success, setSuccess] = useState(false);
   const [forceShowForm, setForceShowForm] = useState(false);
 
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null);
-  const [loadingSettings, setLoadingSettings] = useState(true);
+  // Payment settings removed — registration is now free
 
   // Form Fields
   const [businessName, setBusinessName] = useState("");
@@ -62,9 +50,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [description, setDescription] = useState("");
   const [openingHours, setOpeningHours] = useState("");
   const [note, setNote] = useState("");
-  const [plan, setPlan] = useState("MONTHLY");
-  const [paymentMethod, setPaymentMethod] = useState("PAGO_MOVIL");
-  const [paymentReference, setPaymentReference] = useState("");
+  // Payment fields removed — registration is now free
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
@@ -95,9 +81,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setDescription("");
     setOpeningHours("");
     setNote("");
-    setPlan("MONTHLY");
-    setPaymentMethod("PAGO_MOVIL");
-    setPaymentReference("");
     setLatitude(null);
     setLongitude(null);
     setUploadedImages([]);
@@ -159,25 +142,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
       }
     }
 
-    async function loadPaymentSettings() {
-      try {
-        const res = await fetch("/api/payment-settings");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.settings) {
-            setPaymentSettings(data.settings);
-          }
-        }
-      } catch (err) {
-        console.error("Error loading payment settings:", err);
-      } finally {
-        setLoadingSettings(false);
-      }
-    }
-
     loadCategories();
     loadRequests();
-    loadPaymentSettings();
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -283,7 +249,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setError("");
     setSuccess(false);
 
-    if (!businessName || !categoryId || !address || !phone || !whatsapp || !paymentMethod || !paymentReference) {
+    if (!businessName || !categoryId || !address || !phone || !whatsapp) {
       setError("Por favor completa todos los campos requeridos");
       return;
     }
@@ -312,11 +278,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           description,
           openingHours,
           note,
-          plan,
           latitude,
           longitude,
-          paymentMethod,
-          paymentReference,
           images: imagesPayload,
           businessEmail: businessEmail.trim() || null,
           website: website.trim() || null,
@@ -437,25 +400,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     }
   };
 
-  const getBasePrice = () => {
-    if (!paymentSettings) return 0;
-    return plan === "MONTHLY" ? paymentSettings.monthlyPrice : paymentSettings.yearlyPrice;
-  };
-
-  const calculateBinanceTotal = (base: number) => {
-    if (!paymentSettings || paymentMethod !== "BINANCE") return base;
-    if (!paymentSettings.binanceFeeType || paymentSettings.binanceFeeValue == null) return base;
-
-    if (paymentSettings.binanceFeeType === "FIXED") {
-      return base + paymentSettings.binanceFeeValue;
-    } else if (paymentSettings.binanceFeeType === "PERCENTAGE") {
-      return base / (1 - paymentSettings.binanceFeeValue / 100);
-    }
-    return base;
-  };
-
-  const basePrice = getBasePrice();
-  const totalToPay = calculateBinanceTotal(basePrice);
+  // Payment price calculation removed — registration is now free
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -757,15 +702,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                         {getStatusBadge(req.status)}
                       </div>
                       <div className="text-[11px] text-gray-550 space-y-0.5 mt-1">
-                        <p>Método de pago: {req.paymentMethod}</p>
-                        <p>Referencia: {req.paymentReference}</p>
                         <p>Fecha: {new Date(req.createdAt).toLocaleDateString()}</p>
                       </div>
-                      {req.status === "PENDING" && (
-                        <p className="text-[10px] text-gray-450 italic mt-1">
-                          Tu pago se encuentra en proceso de validación.
-                        </p>
-                      )}
                     </div>
 
                     {req.status === "APPROVED" && req.businessId && (
@@ -815,9 +753,9 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                 <CheckCircle size={24} />
               </div>
               <div className="space-y-1">
-                <h4 className="text-sm font-bold text-gray-900">¡Solicitud recibida con éxito!</h4>
+                <h4 className="text-sm font-bold text-gray-900">¡Negocio registrado con éxito!</h4>
                 <p className="text-xs text-gray-500 px-4 leading-relaxed">
-                  Hemos registrado los datos de tu negocio y la referencia de pago. En breve nuestro equipo lo verificará y activará el acceso.
+                  Tu negocio ya está visible en el mapa de MapeoVE. Un administrador podrá verificarlo próximamente.
                 </p>
               </div>
               <button
@@ -1102,116 +1040,21 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                 </div>
               </div>
 
-              {/* Payment Details */}
-              <div className="space-y-3 pt-2 border-t border-gray-100">
-                <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                  <CreditCard size={14} className="text-blue-600" />
-                  <span>Método de Pago Manual</span>
-                </h4>
-
-                {loadingSettings ? (
-                  <p className="text-xs text-gray-500">Cargando métodos de pago...</p>
-                ) : !paymentSettings ? (
-                  <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs font-medium">
-                    Los métodos de pago aún no están configurados. No puedes enviar la solicitud.
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPlan("MONTHLY")}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          plan === "MONTHLY"
-                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                        }`}
-                      >
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Mensual</p>
-                        <p className="text-lg font-black text-gray-900 mt-0.5">
-                          {paymentSettings.monthlyPrice} <span className="text-xs">{paymentSettings.currency}</span>
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPlan("YEARLY")}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          plan === "YEARLY"
-                            ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
-                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                        }`}
-                      >
-                        <p className="text-[10px] font-bold text-gray-500 uppercase">Anual</p>
-                        <p className="text-lg font-black text-gray-900 mt-0.5">
-                          {paymentSettings.yearlyPrice} <span className="text-xs">{paymentSettings.currency}</span>
-                        </p>
-                      </button>
-                    </div>
-
-                    {/* Instructions */}
-                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-2 text-[10px] text-blue-800">
-                      <p className="font-bold">Realiza el pago por el monto seleccionado y coloca la referencia abajo:</p>
-                      <div className="grid grid-cols-1 gap-1 divide-y divide-blue-200/50">
-                        <p className="pt-1"><strong>Pago Móvil:</strong> {paymentSettings.pagoMovilInfo}</p>
-                        <p className="pt-1"><strong>Transferencia:</strong> {paymentSettings.transferInfo}</p>
-                        <p className="pt-1"><strong>Binance Pay (USDT):</strong> {paymentSettings.binanceInfo}</p>
-                      </div>
-                    </div>
-
-                    {paymentMethod === "BINANCE" && paymentSettings.binanceWallet && (
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-900 text-[10px] space-y-1.5 animate-fade-in mt-2">
-                        <p className="font-bold flex items-center gap-1"><AlertTriangle size={12} /> Pago vía Binance ({paymentSettings.binanceNetwork})</p>
-                        <p><strong>Wallet a transferir:</strong> <span className="select-all font-mono bg-yellow-100 px-1 py-0.5 rounded">{paymentSettings.binanceWallet}</span></p>
-                        {paymentSettings.binanceFeeValue != null && paymentSettings.binanceFeeValue > 0 && (
-                          <div className="pt-1 mt-1 border-t border-yellow-200/50 text-[9px] opacity-80">
-                            <p>Precio Base: {basePrice} {paymentSettings.currency}</p>
-                            <p>Comisión Estimada: {(totalToPay - basePrice).toFixed(2)} {paymentSettings.currency}</p>
-                          </div>
-                        )}
-                        <p className="text-[11px] font-black mt-2 pt-1 border-t border-yellow-200">
-                          Debes enviar exactamente {totalToPay.toFixed(2)} USDT para que lleguen netos {basePrice} USDT.
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Método utilizado *</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 font-medium"
-                    >
-                      <option value="PAGO_MOVIL">Pago Móvil</option>
-                      <option value="TRANSFERENCIA">Transferencia</option>
-                      <option value="BINANCE">Binance Pay</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Referencia de Pago *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Nro. de transacción o hash"
-                      value={paymentReference}
-                      onChange={(e) => setPaymentReference(e.target.value)}
-                      className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
-                    />
-                  </div>
-                </div>
+              {/* Free registration notice */}
+              <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-[11px] space-y-1">
+                <p className="font-bold flex items-center gap-1">🎉 ¡Registro completamente gratuito!</p>
+                <p>Tu negocio aparecerá inmediatamente en el mapa de MapeoVE.</p>
               </div>
 
               {/* Submit */}
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={submitting || !paymentSettings}
+                  disabled={submitting}
                   className="w-full py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center justify-center"
                   style={{ backgroundColor: BRAND.blue }}
                 >
-                  {submitting ? "Enviando solicitud..." : "Enviar Solicitud y Registrar"}
+                  {submitting ? "Registrando negocio..." : "Registrar Mi Negocio Gratis"}
                 </button>
               </div>
             </form>

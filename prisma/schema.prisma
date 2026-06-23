@@ -65,6 +65,18 @@ model Business {
   facebook      String?
   tiktok        String?
 
+  // Future monetization fields (prepared, not active yet)
+  featured          Boolean   @default(false)
+  featuredUntil     DateTime? @map("featured_until")
+  sponsoredCategory Boolean   @default(false) @map("sponsored_category")
+  sponsoredUntil    DateTime? @map("sponsored_until")
+  promotionTitle    String?   @map("promotion_title")
+  promotionDescription String? @map("promotion_description")
+  promotionImage    String?   @map("promotion_image")
+  promotionUntil    DateTime? @map("promotion_until")
+  planType          BusinessPlanType @default(FREE) @map("plan_type")
+  premiumUntil      DateTime? @map("premium_until")
+
   @@index([categoryId])
   @@index([active])
   @@index([city])
@@ -96,12 +108,12 @@ model BusinessRequest {
   note             String?
   latitude         Float?
   longitude        Float?
-  paymentReference String                @map("payment_reference")
+  paymentReference String?               @map("payment_reference")
   proofImageUrl    String?               @map("proof_image_url")
   createdAt        DateTime              @default(now()) @map("created_at")
   reviewedAt       DateTime?             @map("reviewed_at")
   reviewedById     String?               @map("reviewed_by_id")
-  paymentMethod    PaymentMethod         @map("payment_method")
+  paymentMethod    PaymentMethod?        @map("payment_method")
   status           BusinessRequestStatus @default(PENDING)
   plan             SubscriptionPlan?
   images           String[]              @default([])
@@ -149,6 +161,11 @@ enum BusinessRequestStatus {
 enum SubscriptionPlan {
   MONTHLY
   YEARLY
+}
+
+enum BusinessPlanType {
+  FREE
+  PREMIUM
 }
 
 enum BinanceFeeType {
