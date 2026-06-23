@@ -36,7 +36,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [forceShowForm, setForceShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"datos" | "fotos" | "promocionar">("datos");
   
 
@@ -92,7 +91,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setTiktok("");
     setError("");
     setSuccess(false);
-    setForceShowForm(false);
 
     // Reset edit states
     setEditingBusinessId(null);
@@ -128,7 +126,12 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
         if (res.ok) {
           const data = await res.json();
           if (data && data.success) {
-            setExistingRequests(Array.isArray(data.requests) ? data.requests : []);
+            const reqs = Array.isArray(data.requests) ? data.requests : [];
+            setExistingRequests(reqs);
+            const approvedReq = reqs.find((r: any) => r.status === "APPROVED" && r.businessId);
+            if (approvedReq) {
+              handleStartEdit(approvedReq.businessId);
+            }
           } else {
             setError("Error al obtener tus solicitudes.");
           }
@@ -732,63 +735,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                 </button>
               </div>
             </form>
-          ) : !forceShowForm && (Array.isArray(existingRequests) && existingRequests.length > 0) && !success ? (
-            /* Show status of existing requests */
-            <div className="space-y-4">
-              <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">Tus Solicitudes</h4>
-              <div className="space-y-2">
-                {(Array.isArray(existingRequests) ? existingRequests : []).map((req) => (
-                  <div key={req.id} className="p-4 pb-5 bg-gray-50 border border-gray-200 rounded-xl space-y-2 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start">
-                        <p className="text-xs font-black text-gray-900">{req.businessName}</p>
-                        {getStatusBadge(req.status)}
-                      </div>
-                      <div className="text-[11px] text-gray-550 space-y-0.5 mt-1">
-                        <p>Fecha: {new Date(req.createdAt).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-
-                    {req.status === "APPROVED" && req.businessId && (
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(req.businessId!)}
-                        className="mt-2.5 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
-                      >
-                        <Edit2 size={12} />
-                        <span>Editar Datos de Local</span>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Allow sending another request if previous is rejected */}
-              {(Array.isArray(existingRequests) ? existingRequests : []).some(r => r.status === "REJECTED") && (
-                <button
-                  onClick={() => setExistingRequests([])}
-                  className="w-full py-2 border border-blue-600 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-colors"
-                >
-                  Enviar nueva solicitud
-                </button>
-              )}
-            </div>
-          ) : !forceShowForm && user?.role === "OWNER" && (!Array.isArray(existingRequests) || existingRequests.length === 0) && !success ? (
-            /* Show "No tienes solicitudes todavía" for OWNERs without requests */
-            <div className="py-8 text-center space-y-4">
-              <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-400 border border-gray-200">
-                <Store size={24} />
-              </div>
-              <p className="text-xs text-gray-500 font-medium">
-                No tienes solicitudes todavía
-              </p>
-              <button
-                onClick={() => setForceShowForm(true)}
-                className="mt-2 px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 active:scale-95 transition-all w-full max-w-xs mx-auto"
-              >
-                Registrar mi local
-              </button>
-            </div>
           ) : success ? (
             /* Success View */
             <div className="py-8 text-center space-y-4 animate-fade-in">
