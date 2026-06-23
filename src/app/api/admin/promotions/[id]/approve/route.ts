@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         startsAt,
         expiresAt,
         reviewedAt: new Date(),
-        reviewedById: session.id,
+        reviewedById: session.userId,
       },
     });
 

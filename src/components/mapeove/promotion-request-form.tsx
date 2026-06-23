@@ -67,6 +67,9 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
   const [copiedAlt, setCopiedAlt] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState<any>(null);
 
+  const [myPromotions, setMyPromotions] = useState<any[]>([]);
+  const [loadingMyPromos, setLoadingMyPromos] = useState(false);
+
   // States for prefabricated banners creator
   const [bannerCategory, setBannerCategory] = useState("Restaurante");
   const [bannerTemplate, setBannerTemplate] = useState("Oferta del día");
@@ -121,6 +124,25 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
       })
       .catch(console.error);
   }, []);
+
+  const fetchMyPromotions = async () => {
+    setLoadingMyPromos(true);
+    try {
+      const res = await fetch(`/api/promotions?businessId=${businessId}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMyPromotions(data.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching my promotions:", err);
+    } finally {
+      setLoadingMyPromos(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyPromotions();
+  }, [businessId, success]);
 
 
   const handleCopy = (isAlt: boolean = false) => {
@@ -560,6 +582,89 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           </button>
         </div>
       ))}
+
+      {/* Sección Mis Promociones */}
+      <div className="mt-8 pt-6 border-t border-gray-200 space-y-4">
+        <h4 className="text-sm font-black text-gray-800 uppercase tracking-wider">Mis promociones</h4>
+        {loadingMyPromos ? (
+          <div className="flex items-center gap-2 py-4 justify-center text-xs text-gray-500">
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span>Cargando tus promociones...</span>
+          </div>
+        ) : myPromotions.length === 0 ? (
+          <p className="text-xs text-gray-500 italic bg-gray-55 p-4 rounded-xl border border-gray-150 text-center">
+            No tienes solicitudes de promoción registradas para este negocio.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {myPromotions.map((promo) => {
+              const promoTypeLabel = PROMOTIONS.find(p => p.type === promo.type)?.title || promo.type;
+              
+              let statusBadgeColor = "bg-gray-100 text-gray-700";
+              let statusText = promo.status;
+              let descriptionText = "";
+
+              if (promo.status === "PENDING") {
+                statusBadgeColor = "bg-yellow-100 text-yellow-850 border border-yellow-200";
+                statusText = "Pendiente";
+                descriptionText = "Comprobando recibo. Tu promoción será revisada en un plazo máximo de 5 horas.";
+              } else if (promo.status === "APPROVED") {
+                statusBadgeColor = "bg-green-100 text-green-800 border border-green-200";
+                statusText = "Aprobada";
+              } else if (promo.status === "REJECTED") {
+                statusBadgeColor = "bg-red-100 text-red-805 border border-red-200";
+                statusText = "Rechazada";
+                descriptionText = `Pago no validado: ${promo.rejectionReason || "Datos de transacción inválidos o pago no verificado."}`;
+              } else if (promo.status === "EXPIRED") {
+                statusBadgeColor = "bg-gray-200 text-gray-800";
+                statusText = "Expirada";
+              }
+
+              return (
+                <div key={promo.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-900">{promoTypeLabel}</span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${statusBadgeColor}`}>
+                      {statusText}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-650 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                    <div>
+                      <span className="font-bold block text-gray-400 text-[9px] uppercase">Fecha de solicitud</span>
+                      <span>{new Date(promo.createdAt).toLocaleString("es-VE")}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold block text-gray-400 text-[9px] uppercase">Total pagado</span>
+                      <span className="font-semibold text-green-700">{promo.totalAmount} USDC</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-bold block text-gray-400 text-[9px] uppercase">Hash / Comprobante</span>
+                      <span className="font-mono text-gray-800 break-all">{promo.transactionHash}</span>
+                    </div>
+                  </div>
+
+                  {descriptionText && (
+                    <p className={`text-[11px] leading-relaxed p-2 rounded-lg border ${
+                      promo.status === "PENDING" ? "bg-yellow-50/50 text-yellow-800 border-yellow-100" : "bg-red-50/50 text-red-800 border-red-100"
+                    }`}>
+                      {descriptionText}
+                    </p>
+                  )}
+
+                  {promo.status === "APPROVED" && promo.startsAt && promo.expiresAt && (
+                    <div className="bg-green-50/50 border border-green-100 text-green-800 p-2.5 rounded-lg text-[11px] space-y-0.5">
+                      <p><strong>Vigencia de la promoción:</strong></p>
+                      <p>Inicio: {new Date(promo.startsAt).toLocaleDateString("es-VE")}</p>
+                      <p>Fin: {new Date(promo.expiresAt).toLocaleDateString("es-VE")}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

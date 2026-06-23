@@ -106,12 +106,24 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Optionally send "received" email via a background task or right here
+    // Optionally send "received" email and admin notification email
     try {
-      const { sendPromotionReceivedEmail } = await import("@/lib/email");
+      const { sendPromotionReceivedEmail, sendPromotionAdminNotificationEmail } = await import("@/lib/email");
+      // Send receipt to user
       await sendPromotionReceivedEmail(session.email!, business.name, type);
+      
+      // Send notification to admin/superadmin
+      await sendPromotionAdminNotificationEmail({
+        businessName: business.name,
+        type,
+        baseAmount: calculatedBaseAmount,
+        feeAmount,
+        totalAmount,
+        transactionHash,
+        userEmail: session.email!,
+      });
     } catch (emailError) {
-      console.error("Error sending promotion received email:", emailError);
+      console.error("Error sending promotion emails:", emailError);
       // Don't break the flow
     }
 
@@ -119,5 +131,65 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Error creating promotion request:", error);
     return NextResponse.json({ success: false, error: "Error de servidor al crear la solicitud" }, { status: 500 });
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const token = req.cookies?.get("mapeove-session")?.value || (req as any).headers?.get("cookie")?.split("mapeove-session=")[1]?.split(";")[0];
+    const session = token ? verify(token) : null;
+    if (!session) {
+      return NextResponse.json({ success: false, error: "No autenticado" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const businessId = searchParams.get("businessId");
+
+    if (!businessId) {
+      return NextResponse.json({ success: false, error: "Falta businessId" }, { status: 400 });
+    }
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business) {
+      return NextResponse.json({ success: false, error: "Negocio no encontrado" }, { status: 404 });
+    }
+
+    const sessionUserId = session.userId;
+    let isAuthorized = false;
+
+    if (session.role === "ADMIN" || session.role === "SUPERADMIN") {
+      isAuthorized = true;
+    } else {
+      if (business.ownerId === sessionUserId) {
+        isAuthorized = true;
+      } else {
+        const businessRequest = await prisma.businessRequest.findFirst({
+          where: {
+            businessId: business.id,
+            userId: sessionUserId,
+          },
+        });
+        if (businessRequest) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json({ success: false, error: "No autorizado para este negocio" }, { status: 403 });
+    }
+
+    const promotions = await prisma.promotionRequest.findMany({
+      where: { businessId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ success: true, data: promotions });
+  } catch (error) {
+    console.error("Error fetching promotions for business:", error);
+    return NextResponse.json({ success: false, error: "Error de servidor" }, { status: 500 });
   }
 }

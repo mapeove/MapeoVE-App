@@ -16,6 +16,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const body = await req.json();
     const { rejectionReason } = body;
 
+    if (!rejectionReason || !rejectionReason.trim()) {
+      return NextResponse.json({ success: false, error: "El motivo del rechazo es obligatorio" }, { status: 400 });
+    }
+
     const promotion = await prisma.promotionRequest.findUnique({
       where: { id: params.id },
       include: { business: true, user: true },
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: {
         status: "REJECTED",
         reviewedAt: new Date(),
-        reviewedById: session.id,
+        reviewedById: session.userId,
         rejectionReason: rejectionReason || "Pago no verificado o datos incorrectos",
       },
     });

@@ -45,3 +45,85 @@ export async function sendPromotionExpiryReminderEmail(to: string, businessName:
     html: promotionExpiryReminderEmail(businessName, type, approvedAt.toISOString(), expiresAt.toISOString()),
   });
 }
+
+export async function sendPromotionAdminNotificationEmail(params: {
+  businessName: string;
+  type: string;
+  baseAmount: number;
+  feeAmount: number;
+  totalAmount: number;
+  transactionHash: string;
+  userEmail: string;
+}) {
+  if (!resend) return;
+
+  const typeLabels: Record<string, string> = {
+    FEATURED: "Negocio destacado",
+    SPONSORED_CATEGORY: "Categoría patrocinada",
+    LOCAL_BANNER: "Banner local",
+    PREMIUM: "Plan Premium"
+  };
+  const label = typeLabels[params.type] || params.type;
+
+  const content = `
+    <h2 style="color: #0B3D91; margin-bottom: 20px; text-align: center;">Nueva Solicitud de Promoción</h2>
+    <p style="color: #4b5563; font-size: 15px; margin-bottom: 15px;">
+      Se ha recibido una nueva solicitud de promoción para verificar en MapeoVE:
+    </p>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px; border: 1px solid #e5e7eb;">
+      <tr style="background-color: #f9fafb;">
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Negocio:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.businessName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Tipo de Promoción:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; color: #2563eb; font-weight: bold;">${label}</td>
+      </tr>
+      <tr style="background-color: #f9fafb;">
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Monto Base:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.baseAmount} USD</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Comisión Operativa:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.feeAmount} USD</td>
+      </tr>
+      <tr style="background-color: #f0fdf4;">
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Total Pagado:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; color: #166534; font-weight: bold;">${params.totalAmount} USDC</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Hash/Comprobante:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-family: monospace; word-break: break-all;">${params.transactionHash}</td>
+      </tr>
+      <tr style="background-color: #f9fafb;">
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Usuario (Email):</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb;">${params.userEmail}</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #e5e7eb; font-weight: bold;">Fecha Solicitud:</td>
+        <td style="padding: 10px; border: 1px solid #e5e7eb;">${new Date().toLocaleString("es-VE", { timeZone: "America/Caracas" })}</td>
+      </tr>
+    </table>
+    <div style="text-align: center; margin-top: 25px;">
+      <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://mapeo-ve-app.vercel.app'}" style="display: inline-block; background-color: #0B3D91; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 15px;">
+        Ver en el Panel de Administración
+      </a>
+    </div>
+  `;
+
+  const destinations = ["mapeove@gmail.com"];
+  if (process.env.ADMIN_NOTIFICATION_EMAIL) {
+    destinations.push(process.env.ADMIN_NOTIFICATION_EMAIL);
+  }
+  const uniqueDestinations = Array.from(new Set(destinations));
+
+  const { getEmailLayout } = await import("./email-layout");
+
+  return resend.emails.send({
+    from: fromEmail,
+    to: uniqueDestinations,
+    subject: "Nueva solicitud de promoción en MapeoVE",
+    html: getEmailLayout({ title: "Nueva solicitud de promoción", contentHtml: content }),
+  });
+}
+

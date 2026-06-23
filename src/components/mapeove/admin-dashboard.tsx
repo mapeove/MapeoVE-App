@@ -98,14 +98,18 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
   };
 
   const handleRejectPromotion = async (id: string) => {
-    const reason = prompt("Ingresa el motivo del rechazo (ej. Pago no verificado):", "Pago no verificado o hash inválido");
+    const reason = prompt("Ingresa el motivo del rechazo (ej. Pago no verificado):", "");
     if (reason === null) return;
+    if (!reason.trim()) {
+      alert("El motivo del rechazo es obligatorio.");
+      return;
+    }
     setPromoActionSaving(id);
     try {
       const res = await fetch(`/api/admin/promotions/${id}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: reason })
+        body: JSON.stringify({ rejectionReason: reason.trim() })
       });
       const data = await res.json();
       if (res.ok && data.success) {
