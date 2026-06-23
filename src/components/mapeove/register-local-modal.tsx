@@ -690,51 +690,18 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               {/* Botones de Guardar / Cancelar */}
               
               <div className={activeTab === "promocionar" ? "space-y-3" : "hidden"}>
-                <div className="space-y-4">
-                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-yellow-900 mb-1">Negocio destacado</h5>
-                      <p className="text-xs text-yellow-800">Aparece arriba en búsquedas y listados dentro de tu zona.</p>
-                      <p className="text-xs font-bold text-yellow-900 mt-2">Sugerido: 5 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
+                {editingBusinessId ? (
+                  <PromotionRequestForm businessId={editingBusinessId} />
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center space-y-2">
+                    <p className="text-xs text-blue-900 font-medium">
+                      Para solicitar una promoción, primero debes registrar tu negocio de forma gratuita.
+                    </p>
+                    <p className="text-[11px] text-blue-700">
+                      Una vez registrado, vuelve a esta sección para pagar con USDC y activar la promoción que desees.
+                    </p>
                   </div>
-
-                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-blue-900 mb-1">Categoría patrocinada</h5>
-                      <p className="text-xs text-blue-800">Aparece como patrocinado dentro de tu categoría.</p>
-                      <p className="text-xs font-bold text-blue-900 mt-2">Sugerido: 10 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
-                  </div>
-
-                  <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-purple-900 mb-1">Banner local</h5>
-                      <p className="text-xs text-purple-800">Promociona una oferta visible para usuarios de tu ciudad.</p>
-                      <p className="text-xs font-bold text-purple-900 mt-2">Sugerido: 15 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
-                  </div>
-
-                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-gray-900 mb-1">Plan Premium</h5>
-                      <p className="text-xs text-gray-600">Más fotos, promociones, videos y estadísticas cuando esté disponible.</p>
-                      <p className="text-xs font-bold text-gray-900 mt-2">Sugerido: 3-5 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className={activeTab === "fotos" ? "space-y-3" : "hidden"}><p className="text-xs text-gray-500 py-4 text-center">La edición de fotos está disponible en la versión Premium o registrando un nuevo local.</p></div>
@@ -1143,51 +1110,18 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
 
               
               <div className={activeTab === "promocionar" ? "space-y-3" : "hidden"}>
-                <div className="space-y-4">
-                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-yellow-900 mb-1">Negocio destacado</h5>
-                      <p className="text-xs text-yellow-800">Aparece arriba en búsquedas y listados dentro de tu zona.</p>
-                      <p className="text-xs font-bold text-yellow-900 mt-2">Sugerido: 5 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
+                {editingBusinessId ? (
+                  <PromotionRequestForm businessId={editingBusinessId} />
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center space-y-2">
+                    <p className="text-xs text-blue-900 font-medium">
+                      Para solicitar una promoción, primero debes registrar tu negocio de forma gratuita.
+                    </p>
+                    <p className="text-[11px] text-blue-700">
+                      Una vez registrado, vuelve a esta sección para pagar con USDC y activar la promoción que desees.
+                    </p>
                   </div>
-
-                  <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-blue-900 mb-1">Categoría patrocinada</h5>
-                      <p className="text-xs text-blue-800">Aparece como patrocinado dentro de tu categoría.</p>
-                      <p className="text-xs font-bold text-blue-900 mt-2">Sugerido: 10 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
-                  </div>
-
-                  <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-purple-900 mb-1">Banner local</h5>
-                      <p className="text-xs text-purple-800">Promociona una oferta visible para usuarios de tu ciudad.</p>
-                      <p className="text-xs font-bold text-purple-900 mt-2">Sugerido: 15 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
-                  </div>
-
-                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div>
-                      <h5 className="text-sm font-bold text-gray-900 mb-1">Plan Premium</h5>
-                      <p className="text-xs text-gray-600">Más fotos, promociones, videos y estadísticas cuando esté disponible.</p>
-                      <p className="text-xs font-bold text-gray-900 mt-2">Sugerido: 3-5 USD / mes</p>
-                    </div>
-                    <button type="button" onClick={() => alert("Próximamente podrás solicitar esta promoción desde MapeoVE. Para activarla, contacta con el administrador.")} className="w-full sm:w-auto px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-bold transition-colors">
-                      Solicitar promoción
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className={activeTab === "datos" || activeTab === "fotos" ? "block" : "hidden"}>

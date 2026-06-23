@@ -45,7 +45,7 @@ const PROMOTIONS = [
     type: "PREMIUM",
     title: "Plan Premium",
     description: "Más fotos, promociones, videos y estadísticas cuando esté disponible.",
-    basePrice: 4, // Average of 3-5
+    basePrice: 5,
     bgColor: "bg-gray-50",
     borderColor: "border-gray-200",
     titleColor: "text-gray-900",
@@ -139,7 +139,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           <CheckCircle size={24} />
         </div>
         <div className="space-y-1">
-          <h4 className="text-sm font-bold text-gray-900">Solicitud recibida</h4>
+          <h4 className="text-sm font-bold text-gray-900">Comprobante recibido</h4>
           <p className="text-xs text-gray-600 px-4 leading-relaxed">
             Tu promoción aparecerá después de verificar el pago. Tiempo máximo estimado: 5 horas.
           </p>
@@ -153,7 +153,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           }}
           className="px-6 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-all"
         >
-          Solicitar otra promoción
+          Pagar otra promoción
         </button>
       </div>
     );
@@ -176,25 +176,25 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           </button>
         </div>
 
-        <div className={\`\${selectedPromo.bgColor} border \${selectedPromo.borderColor} p-4 rounded-xl\`}>
-          <h5 className={\`text-sm font-bold \${selectedPromo.titleColor} mb-1\`}>{selectedPromo.title}</h5>
+        <div className={`${selectedPromo.bgColor} border ${selectedPromo.borderColor} p-4 rounded-xl`}>
+          <h5 className={`text-sm font-bold ${selectedPromo.titleColor} mb-1`}>{selectedPromo.title}</h5>
           <div className="flex justify-between items-center mt-2">
-            <span className={\`text-xs \${selectedPromo.descColor}\`}>Precio Base:</span>
-            <span className={\`text-xs font-bold \${selectedPromo.titleColor}\`}>{selectedPromo.basePrice} USD</span>
+            <span className={`text-xs ${selectedPromo.descColor}`}>Precio Base:</span>
+            <span className={`text-xs font-bold ${selectedPromo.titleColor}`}>{selectedPromo.basePrice} USD</span>
           </div>
           <div className="flex justify-between items-center mt-1">
-            <span className={\`text-xs \${selectedPromo.descColor}\`}>Comisión Operativa:</span>
-            <span className={\`text-xs font-bold \${selectedPromo.titleColor}\`}>1 USD</span>
+            <span className={`text-xs ${selectedPromo.descColor}`}>Comisión Operativa:</span>
+            <span className={`text-xs font-bold ${selectedPromo.titleColor}`}>1 USD</span>
           </div>
           <div className="flex justify-between items-center mt-2 pt-2 border-t border-black/10">
-            <span className={\`text-sm font-bold \${selectedPromo.titleColor}\`}>Total a Pagar:</span>
-            <span className={\`text-sm font-black \${selectedPromo.titleColor}\`}>{totalAmount} USDC</span>
+            <span className={`text-sm font-bold ${selectedPromo.titleColor}`}>Total a Pagar:</span>
+            <span className={`text-sm font-black ${selectedPromo.titleColor}`}>{totalAmount} USDC</span>
           </div>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3">
           <p className="text-xs text-blue-900 leading-relaxed font-medium">
-            {paymentSettings?.pagoMovilInfo || "Envía exactamente el total indicado en USDC por la red BNB Smart Chain (BEP20). El monto incluye comisión operativa. Después de pagar, coloca el hash o comprobante de la transacción. Tu promoción será revisada y activada en un plazo máximo de 5 horas."}
+            {paymentSettings?.pagoMovilInfo || "Envía exactamente el total indicado en USDC por la red BNB Smart Chain (BEP20). El monto incluye 1 USD de comisión operativa. Después de pagar, coloca el hash o comprobante de la transacción. Tu promoción será revisada y activada en un plazo máximo de 5 horas."}
           </p>
           
           <div className="space-y-1">
@@ -263,7 +263,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
             <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">Nota (Opcional)</label>
             <input
               type="text"
-              placeholder="Ej. Mi usuario en Binance es @juan, o el título de mi oferta"
+              placeholder="Ej. Detalles de la transacción o título de mi oferta"
               value={userNote}
               onChange={(e) => setUserNote(e.target.value)}
               className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
@@ -279,10 +279,10 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           {isSubmitting ? (
             <>
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Enviando solicitud...</span>
+              <span>Enviando comprobante...</span>
             </>
           ) : (
-            <span>Enviar solicitud de promoción</span>
+            <span>Enviar comprobante</span>
           )}
         </button>
       </form>
@@ -292,11 +292,6 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
   return (
     <div className="space-y-4">
       {PROMOTIONS.map((promo) => (
-        <div key={promo.type} className={\`\${promo.bgColor} border \${promo.borderColor} p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between\`}>
-          <div>
-            <h5 className={\`text-sm font-bold \${promo.titleColor} mb-1\`}>{promo.title}</h5>
-            <p className={\`text-xs \${promo.descColor}\`}>{promo.description}</p>
-            <p className={\`text-xs font-bold \${promo.titleColor} mt-2\`}>Sugerido: {promo.basePrice} USD / mes</p>
         <div key={promo.type} className={`${promo.bgColor} border ${promo.borderColor} p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between`}>
           <div>
             <h5 className={`text-sm font-bold ${promo.titleColor} mb-1`}>{promo.title}</h5>

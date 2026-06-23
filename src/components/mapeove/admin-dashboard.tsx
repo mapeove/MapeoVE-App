@@ -495,14 +495,14 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
   const [paymentSettings, setPaymentSettings] = useState({
     monthlyPrice: 0,
     yearlyPrice: 0,
-    currency: "USD",
-    pagoMovilInfo: "",
+    currency: "USDC",
+    pagoMovilInfo: "Envía exactamente el total indicado en USDC por la red BNB Smart Chain (BEP20). El monto incluye 1 USD de comisión operativa. Después de pagar, coloca el hash o comprobante de la transacción. Tu promoción será revisada y activada en un plazo máximo de 5 horas.",
     transferInfo: "",
-    binanceInfo: "",
-    binanceNetwork: "TRC20",
-    binanceWallet: "",
+    binanceInfo: "0x8bc72cc8ff3638aa1045869fe6c5efb6a87a92c4",
+    binanceNetwork: "BNB Smart Chain (BEP20)",
+    binanceWallet: "0x1fded59b2460d421cc53f8256e2c7ac2ea771909",
     binanceFeeType: "FIXED",
-    binanceFeeValue: 0,
+    binanceFeeValue: 1,
   });
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
