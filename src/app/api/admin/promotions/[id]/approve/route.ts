@@ -5,8 +5,14 @@ import { sendPromotionApprovedEmail } from "@/lib/email";
 
 import { NextRequest } from "next/server";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> | { id: string } }
+) {
   try {
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+
     const token = req.cookies?.get("mapeove-session")?.value || (req as any).headers?.get("cookie")?.split("mapeove-session=")[1]?.split(";")[0];
     const session = token ? verify(token) : null;
     if (!session || (session.role !== "ADMIN" && session.role !== "SUPERADMIN" && session.role !== "SUPER_ADMIN")) {
@@ -14,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const promotion = await prisma.promotionRequest.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { business: true, user: true },
     });
 
@@ -32,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // Update promotion request
     const updatedPromotion = await prisma.promotionRequest.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: "APPROVED",
         startsAt,
