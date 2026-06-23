@@ -39,8 +39,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Negocio no encontrado" }, { status: 404 });
     }
 
-    // Verify ownership
-    if (business.ownerId !== session.id && session.role !== "ADMIN" && session.role !== "SUPERADMIN") {
+    // Verify ownership or legitimate relationship (BusinessRequest)
+    const sessionUserId = session.userId;
+    let isAuthorized = false;
+
+    if (session.role === "ADMIN" || session.role === "SUPERADMIN") {
+      isAuthorized = true;
+    } else {
+      // 1. Direct owner match
+      if (business.ownerId === sessionUserId) {
+        isAuthorized = true;
+      } else {
+        // 2. Legitimate relationship through BusinessRequest
+        const businessRequest = await prisma.businessRequest.findFirst({
+          where: {
+            businessId: business.id,
+            userId: sessionUserId,
+          },
+        });
+        if (businessRequest) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
       return NextResponse.json({ success: false, error: "No autorizado para este negocio" }, { status: 403 });
     }
 
@@ -64,7 +87,7 @@ export async function POST(req: NextRequest) {
     const promotion = await prisma.promotionRequest.create({
       data: {
         businessId,
-        userId: session.id,
+        userId: sessionUserId,
         type,
         status: "PENDING",
         baseAmount: calculatedBaseAmount,
