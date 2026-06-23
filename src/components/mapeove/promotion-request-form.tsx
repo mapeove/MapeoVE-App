@@ -67,6 +67,49 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
   const [copiedAlt, setCopiedAlt] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState<any>(null);
 
+  // States for prefabricated banners creator
+  const [bannerCategory, setBannerCategory] = useState("Restaurante");
+  const [bannerTemplate, setBannerTemplate] = useState("Oferta del día");
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [bannerDescription, setBannerDescription] = useState("");
+  const [bannerPrice, setBannerPrice] = useState("");
+  const [showBannerPreview, setShowBannerPreview] = useState(false);
+  const [bannerImage, setBannerImage] = useState("");
+  const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
+
+  const handleBannerImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    if (file.size > 5 * 1024 * 1024) {
+      alert("El tamaño máximo permitido es de 5MB por imagen.");
+      return;
+    }
+    
+    setUploadingBannerImage(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("path", `promotion-banners/${businessId}`);
+    
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBannerImage(data.url);
+      } else {
+        alert(data.error || "Error al subir la imagen");
+      }
+    } catch (err) {
+      console.error("Error uploading banner image:", err);
+      alert("Error de conexión al subir la imagen");
+    } finally {
+      setUploadingBannerImage(false);
+    }
+  };
+
   // Fetch settings on mount
   import("react").then(React => {
     React.useEffect(() => {
@@ -101,6 +144,13 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
       setError("Debes ingresar el hash o comprobante de la transacción");
       return;
     }
+
+    if (selectedPromo.type === "LOCAL_BANNER") {
+      if (!bannerTitle.trim() || !bannerDescription.trim()) {
+        setError("El título y la descripción del banner son obligatorios");
+        return;
+      }
+    }
     
     setIsSubmitting(true);
     setError("");
@@ -115,6 +165,12 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
           baseAmount: selectedPromo.basePrice,
           transactionHash,
           userNote,
+          bannerTitle: selectedPromo.type === "LOCAL_BANNER" ? bannerTitle : undefined,
+          bannerDescription: selectedPromo.type === "LOCAL_BANNER" ? bannerDescription : undefined,
+          bannerImage: selectedPromo.type === "LOCAL_BANNER" ? bannerImage : undefined,
+          bannerCategory: selectedPromo.type === "LOCAL_BANNER" ? bannerCategory : undefined,
+          bannerTemplate: selectedPromo.type === "LOCAL_BANNER" ? bannerTemplate : undefined,
+          bannerPrice: selectedPromo.type === "LOCAL_BANNER" ? bannerPrice : undefined,
         }),
       });
       
@@ -190,6 +246,204 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
             <span className={`text-sm font-bold ${selectedPromo.titleColor}`}>Total a Pagar:</span>
             <span className={`text-sm font-black ${selectedPromo.titleColor}`}>{totalAmount} USDC</span>
           </div>
+
+        {selectedPromo.type === "LOCAL_BANNER" && (
+          <div className="bg-purple-50/50 border border-purple-100 p-4 rounded-xl space-y-3">
+            <h5 className="text-xs font-black text-purple-950 uppercase tracking-wider">Crear banner promocional</h5>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Categoría</label>
+                <select
+                  value={bannerCategory}
+                  onChange={(e) => setBannerCategory(e.target.value)}
+                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs font-medium"
+                >
+                  <option value="Restaurante">Restaurante</option>
+                  <option value="Farmacia">Farmacia</option>
+                  <option value="Taller">Taller</option>
+                  <option value="Hotel">Hotel</option>
+                  <option value="Comercio">Comercio</option>
+                  <option value="Salud">Salud</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Plantilla</label>
+                <select
+                  value={bannerTemplate}
+                  onChange={(e) => setBannerTemplate(e.target.value)}
+                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs font-medium"
+                >
+                  <option value="Oferta del día">Oferta del día</option>
+                  <option value="Delivery disponible">Delivery disponible</option>
+                  <option value="Servicio 24 horas">Servicio 24 horas</option>
+                  <option value="Descuento especial">Descuento especial</option>
+                  <option value="Promoción de apertura">Promoción de apertura</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Título del banner *</label>
+              <input
+                type="text"
+                placeholder="Ej. Combos Especiales de Fin de Semana"
+                value={bannerTitle}
+                onChange={(e) => setBannerTitle(e.target.value)}
+                className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Descripción corta *</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Pide 2 y llévate el tercero gratis"
+                  value={bannerDescription}
+                  onChange={(e) => setBannerDescription(e.target.value)}
+                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Precio u oferta</label>
+                <input
+                  type="text"
+                  placeholder="Ej. $10 o 2x1"
+                  value={bannerPrice}
+                  onChange={(e) => setBannerPrice(e.target.value)}
+                  className="w-full p-2 bg-white border border-gray-200 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[9px] font-bold text-gray-500 uppercase mb-1">Imagen del Producto/Promoción (Opcional)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleBannerImageUpload}
+                  className="hidden"
+                  id="banner-image-upload"
+                  disabled={uploadingBannerImage}
+                />
+                <label
+                  htmlFor="banner-image-upload"
+                  className="flex-1 flex items-center justify-center gap-1.5 p-2 bg-white border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-650 cursor-pointer hover:bg-gray-50 transition-colors"
+                >
+                  {uploadingBannerImage ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                      <span>Subiendo...</span>
+                    </>
+                  ) : bannerImage ? (
+                    <span>Cambiar imagen</span>
+                  ) : (
+                    <span>Seleccionar imagen</span>
+                  )}
+                </label>
+                {bannerImage && (
+                  <button
+                    type="button"
+                    onClick={() => { setBannerImage(""); }}
+                    className="p-2 bg-red-50 hover:bg-red-100 text-red-650 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    Eliminar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowBannerPreview(true)}
+                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+              >
+                Vista previa
+              </button>
+            </div>
+
+            {showBannerPreview && (
+              <div className="pt-2">
+                <label className="block text-[9px] font-bold text-purple-900 uppercase mb-1.5 font-sans">Vista previa local del banner</label>
+                <div className="relative overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 text-white shadow-lg min-h-[110px] flex flex-col justify-between p-0">
+                  <div className="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-purple-500/20 blur-xl pointer-events-none" />
+                  
+                  {bannerImage ? (
+                    <div className="flex h-full min-h-[110px]">
+                      <div className="w-1/3 relative bg-slate-950 shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={bannerImage} 
+                          alt="Banner promo" 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                      <div className="w-2/3 p-3 flex flex-col justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-[9px] font-extrabold uppercase tracking-wide">
+                              {bannerCategory}
+                            </span>
+                            <span className="text-[9px] text-purple-300 font-bold uppercase tracking-wider line-clamp-1">
+                              • {bannerTemplate}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-black tracking-tight line-clamp-1">
+                            {bannerTitle || "Título del banner"}
+                          </h4>
+                          <p className="text-[10px] text-slate-300 line-clamp-2 leading-tight">
+                            {bannerDescription || "Descripción corta de tu banner publicitario."}
+                          </p>
+                        </div>
+                        {bannerPrice && (
+                          <div className="mt-1 self-start bg-yellow-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded shadow-sm">
+                            {bannerPrice}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 flex flex-col justify-between h-full min-h-[110px]">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-[9px] font-extrabold uppercase tracking-wide">
+                              {bannerCategory}
+                            </span>
+                            <span className="text-[9px] text-purple-300 font-bold uppercase tracking-wider">
+                              • {bannerTemplate}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-black tracking-tight line-clamp-1">
+                            {bannerTitle || "Título del banner"}
+                          </h4>
+                          <p className="text-xs text-slate-300 line-clamp-2 leading-tight">
+                            {bannerDescription || "Aquí aparecerá la descripción corta de tu banner publicitario."}
+                          </p>
+                        </div>
+
+                        {bannerPrice && (
+                          <div className="bg-yellow-400 text-slate-950 font-black text-xs px-2.5 py-1.5 rounded-lg flex shrink-0 items-center justify-center shadow-md animate-pulse">
+                            {bannerPrice}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="px-4 py-1.5 bg-black/30 border-t border-white/5 flex justify-between items-center text-[9px] text-slate-400">
+                    <span>Banner Promocional MapeoVE</span>
+                    <span className="font-bold text-purple-300">Activo por 30 dias</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         </div>
 
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3">

@@ -13,7 +13,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { businessId, type, baseAmount, transactionHash, userNote } = body;
+    const { 
+      businessId, 
+      type, 
+      baseAmount, 
+      transactionHash, 
+      userNote,
+      bannerTitle,
+      bannerDescription,
+      bannerImage,
+      bannerCategory,
+      bannerTemplate,
+      bannerPrice 
+    } = body;
 
     if (!businessId || !type || !baseAmount || !transactionHash) {
       return NextResponse.json({ success: false, error: "Faltan datos requeridos" }, { status: 400 });
@@ -62,6 +74,12 @@ export async function POST(req: NextRequest) {
         walletAddress,
         transactionHash,
         userNote,
+        bannerTitle: type === "LOCAL_BANNER" ? bannerTitle : null,
+        bannerDescription: type === "LOCAL_BANNER" ? bannerDescription : null,
+        bannerImage: type === "LOCAL_BANNER" ? bannerImage : null,
+        bannerCategory: type === "LOCAL_BANNER" ? bannerCategory : null,
+        bannerTemplate: type === "LOCAL_BANNER" ? bannerTemplate : null,
+        bannerPrice: type === "LOCAL_BANNER" ? bannerPrice : null,
       },
     });
 

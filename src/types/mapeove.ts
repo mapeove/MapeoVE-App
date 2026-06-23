@@ -33,6 +33,13 @@ export interface Business {
   instagram?: string | null;
   facebook?: string | null;
   tiktok?: string | null;
+  promotionTitle?: string | null;
+  promotionDescription?: string | null;
+  promotionImage?: string | null;
+  promotionUntil?: string | null;
+  promotionCategory?: string | null;
+  promotionTemplate?: string | null;
+  promotionPrice?: string | null;
   category: {
     id: string;
     name: string;

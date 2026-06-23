@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { SplashOverlay } from "@/components/mapeove/splash-overlay";
 import { SearchBar } from "@/components/mapeove/search-bar";
@@ -74,6 +74,48 @@ export function MapeoVEHome() {
   const [visibleBusinesses, setVisibleBusinesses] = useState<Business[]>([]);
   const [focusNearbyTrigger, setFocusNearbyTrigger] = useState(0);
   const [showList, setShowList] = useState(false);
+
+  // Promotional Banners States
+  const [closedBanners, setClosedBanners] = useState<string[]>([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
+  const visibleBanners = useMemo(() => {
+    const now = new Date();
+    return visibleBusinesses.filter((b) => {
+      if (!b.promotionUntil) return false;
+      const isExpired = new Date(b.promotionUntil) <= now;
+      if (isExpired) return false;
+      if (!b.promotionTitle || !b.promotionDescription) return false;
+      if (closedBanners.includes(b.id)) return false;
+      return true;
+    });
+  }, [visibleBusinesses, closedBanners]);
+
+  useEffect(() => {
+    if (visibleBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % visibleBanners.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [visibleBanners.length]);
+
+  useEffect(() => {
+    setCurrentBannerIndex(0);
+  }, [visibleBanners.length]);
+
+  const handleBannerDirections = (business: Business) => {
+    setIsNavigationActive(true);
+    setIsFollowing(true);
+    const start = userLocation || null;
+    const end = { lat: Number(business.latitude), lng: Number(business.longitude) };
+    setOriginCoords(start);
+    setDestCoords(end);
+    if (start) {
+      calculateRoute("driving-car", start, end);
+    } else {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${business.latitude},${business.longitude}`, "_blank");
+    }
+  };
 
   const isAnyModalOrSheetOpen = 
     dashboardOpen || 
@@ -655,6 +697,97 @@ export function MapeoVEHome() {
           isOpen={authModalOpen} 
           onClose={() => setAuthModalOpen(false)} 
         />
+      )}
+
+      {/* Floating Banner */}
+      {!isNavigationActive && visibleBanners.length > 0 && (
+        (() => {
+          const bannerBiz = visibleBanners[currentBannerIndex];
+          if (!bannerBiz) return null;
+          
+          return (
+            <div className="fixed bottom-16 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm w-auto bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl text-white p-0 overflow-hidden flex flex-col pointer-events-auto transition-all animate-scale-in duration-300">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 h-20 w-20 rounded-full bg-purple-500/20 blur-xl pointer-events-none" />
+              
+              <div className="flex h-full min-h-[90px]">
+                {bannerBiz.promotionImage && (
+                  <div className="w-1/4 relative bg-slate-950 shrink-0 border-r border-white/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={bannerBiz.promotionImage} 
+                      alt="Promo" 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                )}
+                
+                <div className={`p-3 flex flex-col justify-between flex-1 min-w-0 ${bannerBiz.promotionImage ? "w-3/4" : "w-full"}`}>
+                  <div>
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {bannerBiz.promotionCategory && (
+                          <span className="px-1.5 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-[8px] font-extrabold uppercase tracking-wide">
+                            {bannerBiz.promotionCategory}
+                          </span>
+                        )}
+                        {bannerBiz.promotionTemplate && (
+                          <span className="text-[8px] text-purple-300 font-bold uppercase tracking-wider">
+                            • {bannerBiz.promotionTemplate}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setClosedBanners((prev) => [...prev, bannerBiz.id]);
+                        }}
+                        className="p-1 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
+                        title="Cerrar banner"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                    
+                    <h4 className="text-[11px] font-black tracking-tight text-white mt-1 line-clamp-1">
+                      {bannerBiz.promotionTitle || bannerBiz.name}
+                    </h4>
+                    <p className="text-[10px] text-slate-300 line-clamp-2 leading-tight mt-0.5">
+                      {bannerBiz.promotionDescription}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/5">
+                    {bannerBiz.promotionPrice ? (
+                      <span className="bg-yellow-400 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded shadow-sm">
+                        {bannerBiz.promotionPrice}
+                      </span>
+                    ) : (
+                      <span className="text-[8px] text-slate-500">{bannerBiz.name}</span>
+                    )}
+                    
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          handleMarkerClick(bannerBiz);
+                        }}
+                        className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-[9px] font-bold transition-all"
+                      >
+                        Ver negocio
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleBannerDirections(bannerBiz);
+                        }}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black transition-all"
+                      >
+                        Cómo llegar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()
       )}
     </div>
   );

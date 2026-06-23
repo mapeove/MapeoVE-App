@@ -76,6 +76,9 @@ model Business {
   promotionDescription String? @map("promotion_description")
   promotionImage    String?   @map("promotion_image")
   promotionUntil    DateTime? @map("promotion_until")
+  promotionCategory String?   @map("promotion_category")
+  promotionTemplate String?   @map("promotion_template")
+  promotionPrice    String?   @map("promotion_price")
   planType          BusinessPlanType @default(FREE) @map("plan_type")
   premiumUntil      DateTime? @map("premium_until")
 
@@ -224,6 +227,14 @@ model PromotionRequest {
   reviewedAt      DateTime?       @map("reviewed_at")
   reviewedById    String?         @map("reviewed_by_id")
   rejectionReason String?         @map("rejection_reason")
+  
+  // Custom Banner Fields
+  bannerTitle       String?       @map("banner_title")
+  bannerDescription String?       @map("banner_description")
+  bannerImage       String?       @map("banner_image")
+  bannerCategory    String?       @map("banner_category")
+  bannerTemplate    String?       @map("banner_template")
+  bannerPrice       String?       @map("banner_price")
 
   business        Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   user            User?           @relation(fields: [userId], references: [id], onDelete: SetNull)

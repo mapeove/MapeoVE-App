@@ -52,8 +52,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       businessUpdateData.sponsoredUntil = expiresAt;
     } else if (promotion.type === "LOCAL_BANNER") {
       businessUpdateData.promotionUntil = expiresAt;
-      // We assume the user note contains the title or it will be set later
-      businessUpdateData.promotionTitle = promotion.userNote || "Oferta Especial";
+      businessUpdateData.promotionTitle = promotion.bannerTitle || "Oferta Especial";
+      businessUpdateData.promotionDescription = promotion.bannerDescription || "";
+      businessUpdateData.promotionImage = promotion.bannerImage || null;
+      businessUpdateData.promotionCategory = promotion.bannerCategory || null;
+      businessUpdateData.promotionTemplate = promotion.bannerTemplate || null;
+      businessUpdateData.promotionPrice = promotion.bannerPrice || null;
     } else if (promotion.type === "PREMIUM") {
       businessUpdateData.planType = "PREMIUM";
       businessUpdateData.premiumUntil = expiresAt;
