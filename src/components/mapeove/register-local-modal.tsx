@@ -23,8 +23,6 @@ interface RequestData {
   id: string;
   businessName: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
-  paymentMethod: string;
-  paymentReference: string;
   createdAt: string;
 }
 
@@ -1043,7 +1041,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
               {/* Free registration notice */}
               <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-[11px] space-y-1">
                 <p className="font-bold flex items-center gap-1">🎉 ¡Registro completamente gratuito!</p>
-                <p>Tu negocio aparecerá inmediatamente en el mapa de MapeoVE.</p>
+                <p>El registro de negocios en MapeoVE es gratuito. Tu local será publicado automáticamente como No verificado. El equipo de MapeoVE podrá revisarlo posteriormente para marcarlo como Verificado.</p>
               </div>
 
               {/* Submit */}
