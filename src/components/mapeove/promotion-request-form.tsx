@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, Copy, AlertCircle } from "lucide-react";
 
 interface PromotionRequestFormProps {
@@ -111,18 +111,16 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
   };
 
   // Fetch settings on mount
-  import("react").then(React => {
-    React.useEffect(() => {
-      fetch("/api/payment-settings")
-        .then(r => r.json())
-        .then(data => {
-          if (data && data.success && data.settings) {
-            setPaymentSettings(data.settings);
-          }
-        })
-        .catch(console.error);
-    }, []);
-  });
+  useEffect(() => {
+    fetch("/api/payment-settings")
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.success && data.settings) {
+          setPaymentSettings(data.settings);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
 
   const handleCopy = (isAlt: boolean = false) => {
