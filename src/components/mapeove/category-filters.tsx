@@ -7,6 +7,7 @@ interface CategoryFiltersProps {
   activeCategory: string | null;
   onCategoryChange: (slug: string | null) => void;
   categoryCounts?: Record<string, number>;
+  totalCount?: number;
 }
 
 export function CategoryFilters({
@@ -14,6 +15,7 @@ export function CategoryFilters({
   activeCategory,
   onCategoryChange,
   categoryCounts,
+  totalCount: customTotalCount,
 }: CategoryFiltersProps) {
   const orderedSlugs = [
     "restaurantes",
@@ -36,7 +38,9 @@ export function CategoryFilters({
         .filter((item): item is { cat: Category; count: number; slug: string } => !!item.cat && item.count > 0)
     : [];
 
-  const totalCount = filteredCategories.reduce((acc, curr) => acc + curr.count, 0);
+  const totalCount = customTotalCount !== undefined 
+    ? customTotalCount 
+    : filteredCategories.reduce((acc, curr) => acc + curr.count, 0);
 
   return (
     <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1.5 scrollbar-hide -mx-3 px-4 md:mx-0 md:px-0 snap-x snap-mandatory touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>

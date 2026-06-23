@@ -99,24 +99,15 @@ export function MapeoVEHome() {
 
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
-  const visibleBanners = useMemo(() => {
-    const now = new Date();
-    
-    // Determine the reference center for banner calculations
+  // Dynamic list of businesses within 30 km of reference center (user GPS or map center/fallback)
+  const activeAreaBusinesses = useMemo(() => {
     const refCenter = isRealLocation && userLocation
       ? userLocation
-      : (exploreLocation || { lat: 10.2268, lng: -67.3312 });
+      : (selectedGeocode || exploreLocation || { lat: 10.2268, lng: -67.3312 });
 
-    return businesses.filter((b) => {
-      // 1. Must be a local banner promotion
-      if (!b.promotionUntil) return false;
-      const isExpired = new Date(b.promotionUntil) <= now;
-      if (isExpired) return false;
-      if (!b.promotionTitle || !b.promotionDescription) return false;
-      if (closedBanners.includes(b.id)) return false;
-
-      // 2. Must be within 30 km of the reference center
+    return businesses.map((b) => {
       let distanceKm = b.distance;
+      // If no GPS, calculate distance relative to map center / fallback
       if (!isRealLocation || !userLocation) {
         const lat = Number(b.latitude);
         const lng = Number(b.longitude);
@@ -127,14 +118,29 @@ export function MapeoVEHome() {
             lat,
             lng
           );
-        } else {
-          return false;
         }
       }
-
-      return distanceKm !== undefined && distanceKm <= 30;
+      return { 
+        ...b, 
+        areaDistance: distanceKm,
+        distance: distanceKm !== undefined ? Math.round(distanceKm * 100) / 100 : undefined
+      };
+    }).filter((b) => {
+      return b.areaDistance !== undefined && b.areaDistance <= 30;
     });
-  }, [businesses, exploreLocation, isRealLocation, userLocation, closedBanners]);
+  }, [businesses, exploreLocation, selectedGeocode, isRealLocation, userLocation]);
+
+  const visibleBanners = useMemo(() => {
+    const now = new Date();
+    return activeAreaBusinesses.filter((b) => {
+      if (!b.promotionUntil) return false;
+      const isExpired = new Date(b.promotionUntil) <= now;
+      if (isExpired) return false;
+      if (!b.promotionTitle || !b.promotionDescription) return false;
+      if (closedBanners.includes(b.id)) return false;
+      return true;
+    });
+  }, [activeAreaBusinesses, closedBanners]);
 
   useEffect(() => {
     if (visibleBanners.length <= 1) return;
@@ -148,19 +154,19 @@ export function MapeoVEHome() {
     setCurrentBannerIndex(0);
   }, [visibleBanners.length]);
 
-  // Dynamic category counts per current map zone (visibleBusinesses)
+  // Dynamic category counts per current active area (activeAreaBusinesses)
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     categories.forEach((c) => {
       counts[c.slug] = 0;
     });
-    visibleBusinesses.forEach((b) => {
+    activeAreaBusinesses.forEach((b) => {
       if (b.category?.slug) {
         counts[b.category.slug] = (counts[b.category.slug] || 0) + 1;
       }
     });
     return counts;
-  }, [categories, visibleBusinesses]);
+  }, [categories, activeAreaBusinesses]);
 
   const handleBannerDirections = (business: Business) => {
     setIsNavigationActive(true);
@@ -185,15 +191,11 @@ export function MapeoVEHome() {
     showList;
 
   const nearbyBusinesses = useMemo(() => {
-    const list = isRealLocation && userLocation
-      ? businesses.filter((b) => b.distance !== undefined && b.distance <= 20)
-      : visibleBusinesses;
-
     if (activeCategory) {
-      return list.filter((b) => b.category.slug === activeCategory);
+      return activeAreaBusinesses.filter((b) => b.category.slug === activeCategory);
     }
-    return list;
-  }, [businesses, visibleBusinesses, isRealLocation, userLocation, activeCategory]);
+    return activeAreaBusinesses;
+  }, [activeAreaBusinesses, activeCategory]);
 
   const nearbyCount = nearbyBusinesses.length;
 
@@ -453,7 +455,7 @@ export function MapeoVEHome() {
 
       {/* Mapa — solo cliente */}
       <MapeoVEMap
-        businesses={businesses}
+        businesses={activeAreaBusinesses}
         selectedBusiness={selectedBusiness}
         onMarkerClick={handleMarkerClick}
         userLocation={isActiveNavigation && liveNav.livePosition ? liveNav.livePosition : userLocation}
@@ -516,6 +518,7 @@ export function MapeoVEHome() {
               activeCategory={activeCategory}
               onCategoryChange={handleCategoryChange}
               categoryCounts={categoryCounts}
+              totalCount={activeAreaBusinesses.length}
             />
             {isRealLocation === false && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/70 border border-amber-200/50 rounded-xl text-[10px] font-bold text-amber-800 transition-all justify-center">

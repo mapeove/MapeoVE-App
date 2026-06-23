@@ -730,7 +730,7 @@ export function MapeoVEMap({
       const isValid = Number.isFinite(lat) && Number.isFinite(lng);
       if (!isValid) return false;
       if (refCenter) {
-        return b.distance !== undefined && b.distance <= 20;
+        return b.distance !== undefined && b.distance <= 30;
       }
       return true;
     });
