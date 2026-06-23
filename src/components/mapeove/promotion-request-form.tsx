@@ -54,7 +54,7 @@ const PROMOTIONS = [
   },
 ];
 
-const WALLET_ADDRESS = "0x1fded59b2460d421cc53f8256e2c7ac2ea771909";
+// Settings will be loaded from DB
 
 export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) {
   const [selectedPromo, setSelectedPromo] = useState<any | null>(null);
@@ -64,11 +64,35 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedAlt, setCopiedAlt] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState<any>(null);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(WALLET_ADDRESS);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Fetch settings on mount
+  import("react").then(React => {
+    React.useEffect(() => {
+      fetch("/api/payment-settings")
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.success && data.settings) {
+            setPaymentSettings(data.settings);
+          }
+        })
+        .catch(console.error);
+    }, []);
+  });
+
+
+  const handleCopy = (isAlt: boolean = false) => {
+    const address = isAlt ? paymentSettings?.binanceInfo : paymentSettings?.binanceWallet;
+    if (!address) return;
+    navigator.clipboard.writeText(address);
+    if (isAlt) {
+      setCopiedAlt(true);
+      setTimeout(() => setCopiedAlt(false), 2000);
+    } else {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,7 +160,8 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
   }
 
   if (selectedPromo) {
-    const totalAmount = selectedPromo.basePrice + 1; // +1 USD fee
+    const fee = paymentSettings?.binanceFeeValue || 1;
+    const totalAmount = selectedPromo.basePrice + fee;
 
     return (
       <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
@@ -169,28 +194,49 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
 
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3">
           <p className="text-xs text-blue-900 leading-relaxed font-medium">
-            Debes enviar el monto exacto indicado en <strong>USDC</strong> por la red <strong>BNB Smart Chain (BEP20)</strong>. 
-            Una vez enviado el pago, coloca el comprobante o hash de transacción.
+            {paymentSettings?.pagoMovilInfo || "Envía exactamente el total indicado en USDC por la red BNB Smart Chain (BEP20). El monto incluye comisión operativa. Después de pagar, coloca el hash o comprobante de la transacción. Tu promoción será revisada y activada en un plazo máximo de 5 horas."}
           </p>
           
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-blue-800 uppercase">Billetera de Destino (USDC BEP20)</label>
+            <label className="text-[10px] font-bold text-blue-800 uppercase">Billetera Principal (USDC BEP20)</label>
             <div className="flex items-center gap-2">
               <input 
                 type="text" 
                 readOnly 
-                value={WALLET_ADDRESS}
+                value={paymentSettings?.binanceWallet || "0x1fded59b2460d421cc53f8256e2c7ac2ea771909"}
                 className="w-full p-2 bg-white border border-blue-200 rounded-lg text-xs font-mono text-gray-700 outline-none"
               />
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={() => handleCopy(false)}
                 className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex shrink-0 items-center justify-center"
                 title="Copiar billetera"
               >
                 {copied ? <CheckCircle size={16} /> : <Copy size={16} />}
               </button>
             </div>
+            
+            {(paymentSettings?.binanceInfo || "0x8bc72cc8ff3638aa1045869fe6c5efb6a87a92c4") && (
+              <div className="pt-2">
+                <label className="text-[10px] font-bold text-blue-800 uppercase">Billetera Alternativa (USDC BEP20)</label>
+                <div className="flex items-center gap-2 mt-1">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={paymentSettings?.binanceInfo || "0x8bc72cc8ff3638aa1045869fe6c5efb6a87a92c4"}
+                    className="w-full p-2 bg-white border border-blue-200 rounded-lg text-xs font-mono text-gray-700 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(true)}
+                    className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex shrink-0 items-center justify-center"
+                    title="Copiar billetera"
+                  >
+                    {copiedAlt ? <CheckCircle size={16} /> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

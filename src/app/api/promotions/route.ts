@@ -32,9 +32,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "No autorizado para este negocio" }, { status: 403 });
     }
 
-    const feeAmount = 1;
-    const totalAmount = baseAmount + feeAmount;
-    const walletAddress = "0x1fded59b2460d421cc53f8256e2c7ac2ea771909";
+    
+    const paymentSettings = await prisma.paymentSettings.findFirst();
+    const feeAmount = paymentSettings?.binanceFeeValue ?? 1;
+    
+    let calculatedBaseAmount = 0;
+    switch(type) {
+      case "FEATURED": calculatedBaseAmount = 5; break;
+      case "SPONSORED_CATEGORY": calculatedBaseAmount = 10; break;
+      case "LOCAL_BANNER": calculatedBaseAmount = 15; break;
+      case "PREMIUM": calculatedBaseAmount = 5; break;
+      default: return NextResponse.json({ success: false, error: "Tipo de promoción inválido" }, { status: 400 });
+    }
+
+    const totalAmount = calculatedBaseAmount + feeAmount;
+    const walletAddress = paymentSettings?.binanceWallet || "0x1fded59b2460d421cc53f8256e2c7ac2ea771909";
+
 
     const promotion = await prisma.promotionRequest.create({
       data: {
@@ -42,7 +55,7 @@ export async function POST(req: NextRequest) {
         userId: session.id,
         type,
         status: "PENDING",
-        baseAmount,
+        baseAmount: calculatedBaseAmount,
         feeAmount,
         totalAmount,
         currency: "USDC",

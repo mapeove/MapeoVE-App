@@ -15,57 +15,36 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
     const { 
-      monthlyPrice, 
-      yearlyPrice, 
-      currency, 
-      pagoMovilInfo, 
-      transferInfo, 
-      binanceInfo,
-      binanceNetwork,
       binanceWallet,
-      binanceFeeType,
-      binanceFeeValue
+      binanceInfo,
+      binanceFeeValue,
+      pagoMovilInfo
     } = body;
-
-    if (monthlyPrice == null || yearlyPrice == null || !currency || !pagoMovilInfo || !transferInfo || !binanceInfo) {
-      return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
-    }
 
     const existingSettings = await db.paymentSettings.findFirst();
 
-    const validFeeType = binanceFeeType === "FIXED" || binanceFeeType === "PERCENTAGE" ? binanceFeeType : null;
+    const dataToSave = {
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      currency: "USDC",
+      pagoMovilInfo: pagoMovilInfo || "Envía exactamente el total indicado en USDC por la red BNB Smart Chain (BEP20). El monto incluye 1 USD de comisión operativa. Después de pagar, coloca el hash o comprobante de la transacción. Tu promoción será revisada y activada en un plazo máximo de 5 horas.",
+      transferInfo: "",
+      binanceInfo: binanceInfo || "",
+      binanceNetwork: "BNB Smart Chain (BEP20)",
+      binanceWallet: binanceWallet || "",
+      binanceFeeType: "FIXED" as any,
+      binanceFeeValue: binanceFeeValue != null ? Number(binanceFeeValue) : 1,
+    };
 
     let settings;
     if (existingSettings) {
       settings = await db.paymentSettings.update({
         where: { id: existingSettings.id },
-        data: {
-          monthlyPrice: Number(monthlyPrice),
-          yearlyPrice: Number(yearlyPrice),
-          currency,
-          pagoMovilInfo,
-          transferInfo,
-          binanceInfo,
-          binanceNetwork: binanceNetwork || null,
-          binanceWallet: binanceWallet || null,
-          binanceFeeType: validFeeType,
-          binanceFeeValue: binanceFeeValue != null ? Number(binanceFeeValue) : null,
-        },
+        data: dataToSave,
       });
     } else {
       settings = await db.paymentSettings.create({
-        data: {
-          monthlyPrice: Number(monthlyPrice),
-          yearlyPrice: Number(yearlyPrice),
-          currency,
-          pagoMovilInfo,
-          transferInfo,
-          binanceInfo,
-          binanceNetwork: binanceNetwork || null,
-          binanceWallet: binanceWallet || null,
-          binanceFeeType: validFeeType,
-          binanceFeeValue: binanceFeeValue != null ? Number(binanceFeeValue) : null,
-        },
+        data: dataToSave,
       });
     }
 
