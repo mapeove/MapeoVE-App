@@ -12,7 +12,7 @@ import { BRAND, Business } from "@/types/mapeove";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useMapeoveData } from "@/hooks/use-mapeove-data";
 import { useLiveNavigation } from "@/hooks/use-live-navigation";
-import { MapPin, List, X, Locate } from "lucide-react";
+import { MapPin, List, X, Locate, ChevronLeft, ChevronRight } from "lucide-react";
 import { AuthButton } from "@/components/mapeove/auth-button";
 import { AdminDashboard } from "@/components/mapeove/admin-dashboard";
 import { AuthModal } from "@/components/mapeove/auth-modal";
@@ -69,14 +69,34 @@ export function MapeoVEHome() {
     handleSelectBusinessFromSearch,
     handleCloseDetail,
     refreshBusinesses,
-  } = useMapeoveData(userLocation);
+  } = useMapeoveData(isRealLocation ? userLocation : null);
 
   const [visibleBusinesses, setVisibleBusinesses] = useState<Business[]>([]);
   const [focusNearbyTrigger, setFocusNearbyTrigger] = useState(0);
   const [showList, setShowList] = useState(false);
 
-  // Promotional Banners States
+  // Fullscreen image state
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+
+  // Closed banners loaded from sessionStorage to persist during tab session
   const [closedBanners, setClosedBanners] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("closed-banners");
+      if (stored) {
+        setClosedBanners(JSON.parse(stored));
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleCloseBanner = (id: string) => {
+    const updated = [...closedBanners, id];
+    setClosedBanners(updated);
+    try {
+      sessionStorage.setItem("closed-banners", JSON.stringify(updated));
+    } catch (e) {}
+  };
+
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
   const visibleBanners = useMemo(() => {
@@ -95,13 +115,27 @@ export function MapeoVEHome() {
     if (visibleBanners.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentBannerIndex((prev) => (prev + 1) % visibleBanners.length);
-    }, 8000);
+    }, 5000); // Rota cada 5 segundos
     return () => clearInterval(interval);
   }, [visibleBanners.length]);
 
   useEffect(() => {
     setCurrentBannerIndex(0);
   }, [visibleBanners.length]);
+
+  // Dynamic category counts per current map zone (visibleBusinesses)
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    categories.forEach((c) => {
+      counts[c.slug] = 0;
+    });
+    visibleBusinesses.forEach((b) => {
+      if (b.category?.slug) {
+        counts[b.category.slug] = (counts[b.category.slug] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [categories, visibleBusinesses]);
 
   const handleBannerDirections = (business: Business) => {
     setIsNavigationActive(true);
@@ -125,9 +159,13 @@ export function MapeoVEHome() {
     !!selectedGeocode || 
     showList;
 
-  const nearbyBusinesses = userLocation
-    ? businesses.filter((b) => b.distance !== undefined && b.distance <= 20)
-    : [];
+  const nearbyBusinesses = useMemo(() => {
+    if (isRealLocation && userLocation) {
+      return businesses.filter((b) => b.distance !== undefined && b.distance <= 20);
+    } else {
+      return visibleBusinesses;
+    }
+  }, [businesses, visibleBusinesses, isRealLocation, userLocation]);
 
   const nearbyCount = nearbyBusinesses.length;
 
@@ -415,10 +453,10 @@ export function MapeoVEHome() {
 
       {/* Barra superior: Búsqueda + Categorías (Hidden during navigation) */}
       {!isNavigationActive && (
-        <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none px-3 pt-2"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)" }}
         >
-          <div className="px-3 pt-2 pb-1 space-y-2 pointer-events-auto md:px-4 md:pt-3 md:space-y-2.5">
+          <div className="w-full max-w-lg mx-auto bg-white/90 backdrop-blur-md border border-gray-200/40 rounded-2xl shadow-lg p-2 space-y-2 pointer-events-auto transition-all">
             <div className="flex items-center gap-2">
               <div className="flex-1 min-w-0">
                 <SearchBar
@@ -448,11 +486,12 @@ export function MapeoVEHome() {
               categories={categories}
               activeCategory={activeCategory}
               onCategoryChange={handleCategoryChange}
+              categoryCounts={categoryCounts}
             />
             {isRealLocation === false && (
-              <div className="mx-auto max-w-[90%] md:max-w-sm flex items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-md text-[11px] font-bold text-gray-700 transition-all pointer-events-auto mt-1.5 justify-center">
-                <span className="text-yellow-500 text-sm">📍</span>
-                <span>Activa tu ubicación para centrar el mapa en tu posición.</span>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50/70 border border-amber-200/50 rounded-xl text-[10px] font-bold text-amber-800 transition-all justify-center">
+                <span className="text-amber-500">📍</span>
+                <span>Ubicación GPS inactiva. Mostrando zona actual del mapa.</span>
               </div>
             )}
           </div>
@@ -489,7 +528,7 @@ export function MapeoVEHome() {
                   <>
                     <MapPin size={12} />
                     <span>
-                      {nearbyCount} negocio{nearbyCount !== 1 ? "s" : ""} cercano{nearbyCount !== 1 ? "s" : ""}
+                      {nearbyCount} negocio{nearbyCount !== 1 ? "s" : ""} {isRealLocation ? `cercano${nearbyCount !== 1 ? "s" : ""}` : "en esta zona"}
                     </span>
                   </>
                 )}
@@ -569,7 +608,7 @@ export function MapeoVEHome() {
               <div className="sticky top-0 bg-white px-4 pt-3 pb-2 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-gray-900">
-                    Negocios cercanos
+                    {isRealLocation ? "Negocios cercanos" : "Negocios en esta zona"}
                   </h3>
                   <button
                     onClick={() => setShowList(false)}
@@ -584,7 +623,7 @@ export function MapeoVEHome() {
                   businesses={nearbyBusinesses}
                   onSelectBusiness={handleMarkerClick}
                   selectedId={selectedBusiness?.id || null}
-                  userLocation={userLocation}
+                  userLocation={isRealLocation ? userLocation : null}
                 />
               </div>
             </div>
@@ -705,79 +744,115 @@ export function MapeoVEHome() {
           const bannerBiz = visibleBanners[currentBannerIndex];
           if (!bannerBiz) return null;
           
+          const hasImage = !!bannerBiz.promotionImage;
+          const multipleBanners = visibleBanners.length > 1;
+          
           return (
-            <div className="fixed bottom-16 sm:bottom-4 left-3 right-3 sm:left-auto sm:right-4 z-40 max-w-sm w-auto bg-gradient-to-r from-purple-950 via-indigo-950 to-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl text-white p-0 overflow-hidden flex flex-col pointer-events-auto transition-all animate-scale-in duration-300">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 h-20 w-20 rounded-full bg-purple-500/20 blur-xl pointer-events-none" />
-              
-              <div className="flex h-full min-h-[90px]">
-                {bannerBiz.promotionImage && (
-                  <div className="w-1/4 relative bg-slate-950 shrink-0 border-r border-white/5">
+            <div className={`fixed bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 z-40 max-w-md w-[calc(100%-24px)] sm:w-[400px] rounded-2xl shadow-2xl text-white p-3.5 overflow-hidden flex flex-col pointer-events-auto transition-all duration-300 border ${
+              multipleBanners ? "px-8" : "px-4"
+            } ${
+              hasImage 
+                ? "bg-slate-900/95 border-white/10" 
+                : "bg-gradient-to-br from-indigo-900 via-purple-800 to-pink-700 border-purple-500/30"
+            }`}>
+              {/* Close Button */}
+              <button
+                onClick={() => handleCloseBanner(bannerBiz.id)}
+                className="absolute top-2 right-2 p-1.5 bg-black/20 hover:bg-white/10 rounded-full text-slate-300 hover:text-white transition-colors z-10"
+                title="Cerrar banner"
+              >
+                <X size={14} />
+              </button>
+
+              {/* Prev/Next arrows if multiple */}
+              {multipleBanners && (
+                <>
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setCurrentBannerIndex((prev) => (prev - 1 + visibleBanners.length) % visibleBanners.length); 
+                    }}
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 border border-white/10 text-white/80 hover:text-white transition-all active:scale-90"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      setCurrentBannerIndex((prev) => (prev + 1) % visibleBanners.length); 
+                    }}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-black/30 hover:bg-black/50 border border-white/10 text-white/80 hover:text-white transition-all active:scale-90"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </>
+              )}
+
+              {/* Content Layout */}
+              <div className="flex gap-3">
+                {hasImage ? (
+                  /* Left Image */
+                  <div className="w-[100px] h-[100px] sm:w-[110px] sm:h-[110px] relative bg-slate-950 rounded-xl overflow-hidden shrink-0 border border-white/10 cursor-zoom-in group">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img 
-                      src={bannerBiz.promotionImage} 
+                      src={bannerBiz.promotionImage!} 
                       alt="Promo" 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onClick={() => setFullscreenImage(bannerBiz.promotionImage!)}
                     />
                   </div>
-                )}
-                
-                <div className={`p-3 flex flex-col justify-between flex-1 min-w-0 ${bannerBiz.promotionImage ? "w-3/4" : "w-full"}`}>
-                  <div>
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {bannerBiz.promotionCategory && (
-                          <span className="px-1.5 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-[8px] font-extrabold uppercase tracking-wide">
-                            {bannerBiz.promotionCategory}
-                          </span>
-                        )}
-                        {bannerBiz.promotionTemplate && (
-                          <span className="text-[8px] text-purple-300 font-bold uppercase tracking-wider">
-                            • {bannerBiz.promotionTemplate}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          setClosedBanners((prev) => [...prev, bannerBiz.id]);
-                        }}
-                        className="p-1 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
-                        title="Cerrar banner"
-                      >
-                        <X size={12} />
-                      </button>
+                ) : null}
+
+                {/* Right/Main Content Column */}
+                <div className="flex-1 flex flex-col justify-between min-w-0">
+                  <div className={!hasImage ? "text-center pr-3" : ""}>
+                    <div className={`flex items-center gap-1.5 flex-wrap ${!hasImage ? "justify-center" : ""}`}>
+                      {bannerBiz.promotionCategory && (
+                        <span className="px-1.5 py-0.5 bg-purple-500/30 border border-purple-400/30 rounded-full text-[8px] font-extrabold uppercase tracking-wide">
+                          {bannerBiz.promotionCategory}
+                        </span>
+                      )}
+                      {bannerBiz.promotionTemplate && (
+                        <span className="text-[8px] text-purple-300 font-bold uppercase tracking-wider">
+                          • {bannerBiz.promotionTemplate}
+                        </span>
+                      )}
                     </div>
                     
-                    <h4 className="text-[11px] font-black tracking-tight text-white mt-1 line-clamp-1">
+                    <h4 className={`font-black tracking-tight text-white mt-1.5 truncate ${
+                      hasImage ? "text-xs" : "text-sm"
+                    }`}>
                       {bannerBiz.promotionTitle || bannerBiz.name}
                     </h4>
-                    <p className="text-[10px] text-slate-300 line-clamp-2 leading-tight mt-0.5">
+                    <p className={`text-slate-200 leading-snug mt-1.5 line-clamp-2 ${
+                      hasImage ? "text-[11px]" : "text-xs"
+                    }`}>
                       {bannerBiz.promotionDescription}
                     </p>
                   </div>
-                  
-                  <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/5">
+
+                  {/* Footer details & Action buttons */}
+                  <div className={`flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-white/10 ${
+                    !hasImage ? "w-full" : ""
+                  }`}>
                     {bannerBiz.promotionPrice ? (
-                      <span className="bg-yellow-400 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded shadow-sm">
+                      <span className="bg-yellow-400 text-slate-950 font-black text-[10px] px-1.5 py-0.5 rounded shadow-sm">
                         {bannerBiz.promotionPrice}
                       </span>
                     ) : (
-                      <span className="text-[8px] text-slate-500">{bannerBiz.name}</span>
+                      <span className="text-[9px] text-slate-400 truncate max-w-[80px]">{bannerBiz.name}</span>
                     )}
-                    
+
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => {
-                          handleMarkerClick(bannerBiz);
-                        }}
-                        className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-[9px] font-bold transition-all"
+                        onClick={() => handleMarkerClick(bannerBiz)}
+                        className="px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-bold transition-all active:scale-95"
                       >
                         Ver negocio
                       </button>
                       <button
-                        onClick={() => {
-                          handleBannerDirections(bannerBiz);
-                        }}
-                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black transition-all"
+                        onClick={() => handleBannerDirections(bannerBiz)}
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black transition-all active:scale-95 shadow-md shadow-blue-500/20"
                       >
                         Cómo llegar
                       </button>
@@ -785,9 +860,44 @@ export function MapeoVEHome() {
                   </div>
                 </div>
               </div>
+
+              {/* Indicator bullet dots for cycling */}
+              {multipleBanners && (
+                <div className="flex justify-center gap-1 mt-2.5">
+                  {visibleBanners.map((_, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`h-1 rounded-full transition-all duration-300 ${
+                        idx === currentBannerIndex ? "w-3 bg-white" : "w-1 bg-white/30"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })()
+      )}
+
+      {/* Fullscreen Image Modal */}
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm pointer-events-auto cursor-zoom-out animate-fade-in"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            onClick={() => setFullscreenImage(null)}
+          >
+            <X size={24} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src={fullscreenImage} 
+            alt="Fullscreen Promo" 
+            className="max-w-[95%] max-h-[85vh] object-contain rounded-lg shadow-2xl animate-scale-in"
+          />
+        </div>
       )}
     </div>
   );

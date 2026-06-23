@@ -33,6 +33,10 @@ export interface Business {
   instagram?: string | null;
   facebook?: string | null;
   tiktok?: string | null;
+  featured?: boolean;
+  featuredUntil?: string | null;
+  sponsoredCategory?: boolean;
+  sponsoredUntil?: string | null;
   promotionTitle?: string | null;
   promotionDescription?: string | null;
   promotionImage?: string | null;

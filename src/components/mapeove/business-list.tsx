@@ -25,10 +25,14 @@ export function BusinessList({
       <div className="px-4 py-8 text-center">
         <div className="text-4xl mb-3">🔍</div>
         <p className="text-sm text-gray-500 font-medium">
-          No se encontraron negocios
+          {showDistances
+            ? "No hay negocios cercanos registrados en esta zona"
+            : "No hay negocios registrados en esta zona"}
         </p>
         <p className="text-xs text-gray-400 mt-1">
-          Intenta con otra búsqueda o categoría
+          {showDistances
+            ? "Intenta moverte o cambiar de categoría"
+            : "Intenta mover el mapa o cambiar de categoría"}
         </p>
       </div>
     );
@@ -65,6 +69,11 @@ export function BusinessList({
                   <h3 className="text-xs font-bold text-gray-900 truncate">
                     {business.name}
                   </h3>
+                  {business.sponsoredCategory && (!business.sponsoredUntil || new Date(business.sponsoredUntil) > new Date()) && (
+                    <span className="text-[8px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0 border border-amber-200">
+                      Patrocinado
+                    </span>
+                  )}
                   {business.verified ? (
                     <span className="flex items-center gap-0.5 text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full shrink-0 border border-blue-100">
                       <Shield size={7} />

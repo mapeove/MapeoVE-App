@@ -567,7 +567,15 @@ export function MapeoVEMap({
   useEffect(() => {
     const maplibregl = maplibreRef.current;
     const map = mapRef.current;
-    if (!map || !userLocation || !mapLoaded || !maplibregl) return;
+    if (!map || !userLocation || !mapLoaded || !maplibregl || !isRealLocation) {
+      if (userMarkerRef.current) {
+        try {
+          (userMarkerRef.current as any).remove();
+        } catch (e) {}
+        userMarkerRef.current = null;
+      }
+      return;
+    }
 
     const lat = Number(userLocation.lat);
     const lng = Number(userLocation.lng);
@@ -693,7 +701,7 @@ export function MapeoVEMap({
     const map = mapRef.current;
     if (!map || !mapLoaded || !focusNearbyTrigger) return;
 
-    const refCenter = userLocation;
+    const refCenter = isRealLocation ? userLocation : null;
     const validBiz = (businesses || []).filter((b) => {
       const lat = Number(b.latitude);
       const lng = Number(b.longitude);

@@ -55,12 +55,14 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
     };
   }, [activeCategory]);
 
-  // Calcular la distancia de cada negocio al GPS real en el cliente
+  // Calcular la distancia de cada negocio al GPS real en el cliente y ordenar premium/destacado/cercanía
   const businessesWithDistance = useMemo(() => {
-    if (!userLocation) {
-      return businesses.map((b) => ({ ...b, distance: undefined }));
-    }
-    return businesses.map((b) => {
+    const now = new Date();
+
+    const mapped = businesses.map((b) => {
+      if (!userLocation) {
+        return { ...b, distance: undefined };
+      }
       const dist = haversineDistance(
         userLocation.lat,
         userLocation.lng,
@@ -71,6 +73,28 @@ export function useMapeoveData(userLocation: { lat: number; lng: number } | null
         ...b,
         distance: roundDistance(dist),
       };
+    });
+
+    return mapped.sort((a, b) => {
+      const aSponsored = !!(a.sponsoredCategory && (!a.sponsoredUntil || new Date(a.sponsoredUntil) > now));
+      const bSponsored = !!(b.sponsoredCategory && (!b.sponsoredUntil || new Date(b.sponsoredUntil) > now));
+
+      if (aSponsored && !bSponsored) return -1;
+      if (!aSponsored && bSponsored) return 1;
+
+      const aFeatured = !!(a.featured && (!a.featuredUntil || new Date(a.featuredUntil) > now));
+      const bFeatured = !!(b.featured && (!b.featuredUntil || new Date(b.featuredUntil) > now));
+
+      if (aFeatured && !bFeatured) return -1;
+      if (!aFeatured && bFeatured) return 1;
+
+      if (a.distance !== undefined && b.distance !== undefined) {
+        return a.distance - b.distance;
+      }
+      if (a.distance !== undefined) return -1;
+      if (b.distance !== undefined) return 1;
+
+      return a.name.localeCompare(b.name);
     });
   }, [businesses, userLocation]);
 

@@ -6,12 +6,14 @@ interface CategoryFiltersProps {
   categories: Category[];
   activeCategory: string | null;
   onCategoryChange: (slug: string | null) => void;
+  categoryCounts?: Record<string, number>;
 }
 
 export function CategoryFilters({
   categories,
   activeCategory,
   onCategoryChange,
+  categoryCounts,
 }: CategoryFiltersProps) {
   const orderedSlugs = [
     "restaurantes",
@@ -26,14 +28,15 @@ export function CategoryFilters({
   const filteredCategories = Array.isArray(categories)
     ? orderedSlugs
         .map((slug) => categories.find((c) => c?.slug === slug))
-        .filter((c): c is Category => !!c && c.businessCount > 0)
+        .filter((c): c is Category => !!c)
     : [];
 
   return (
-    <div className="flex flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-3 px-4 md:mx-0 md:px-0 snap-x snap-mandatory touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1.5 scrollbar-hide -mx-3 px-4 md:mx-0 md:px-0 snap-x snap-mandatory touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
       {filteredCategories.map((category) => {
         const isActive = activeCategory === category.slug;
         const color = CATEGORY_COLORS[category.slug] || BRAND.blue;
+        const currentCount = categoryCounts ? (categoryCounts[category.slug] ?? 0) : category.businessCount;
 
         return (
           <button
@@ -41,10 +44,10 @@ export function CategoryFilters({
             onClick={() =>
               onCategoryChange(isActive ? null : category.slug)
             }
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 border flex-shrink-0 snap-start ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all duration-200 border flex-shrink-0 snap-start ${
               isActive
-                ? "text-white shadow-md scale-[1.03]"
-                : "bg-white text-gray-600 border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                ? "text-white shadow-sm scale-[1.02]"
+                : "bg-slate-50 text-slate-600 border-slate-100/50 hover:bg-slate-100/70 hover:border-slate-200/50"
             }`}
             style={
               isActive
@@ -56,16 +59,16 @@ export function CategoryFilters({
                 : {}
             }
           >
-            <span className="text-sm">{category.icon}</span>
+            <span className="text-xs">{category.icon}</span>
             <span>{category.name}</span>
             <span
-              className={`text-[10px] px-1 py-0.5 rounded-full leading-none ${
+              className={`text-[9px] px-1.5 py-0.5 rounded-full font-black leading-none ${
                 isActive
                   ? "bg-white/25 text-white"
-                  : "bg-gray-100 text-gray-500"
+                  : "bg-slate-200/60 text-slate-500"
               }`}
             >
-              {category.businessCount}
+              {currentCount}
             </span>
           </button>
         );
