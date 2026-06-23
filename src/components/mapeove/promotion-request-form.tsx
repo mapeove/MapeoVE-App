@@ -136,8 +136,8 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
     if (!transactionHash.trim()) {
       setError("Debes ingresar el hash o comprobante de la transacción");
       return;
@@ -218,7 +218,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
     const totalAmount = selectedPromo.basePrice + fee;
 
     return (
-      <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
+      <div className="space-y-4 animate-fade-in">
         <div className="flex items-center justify-between pb-3 border-b border-gray-100">
           <h4 className="text-sm font-bold text-gray-800">Completar Pago de Promoción</h4>
           <button
@@ -524,7 +524,8 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
         </div>
 
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={isSubmitting}
           className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
         >
@@ -537,7 +538,7 @@ export function PromotionRequestForm({ businessId }: PromotionRequestFormProps) 
             <span>Enviar comprobante</span>
           )}
         </button>
-      </form>
+      </div>
     );
   }
 
