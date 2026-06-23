@@ -403,37 +403,57 @@ export function BusinessDetail({
       {/* ── PORTAL FOR MOBILE ACTION BAR (z-index 99999 to guarantee visibility on phone overlays) ── */}
       {mounted && createPortal(
         <div
-          className="fixed bottom-0 left-0 right-0 z-[99999] bg-white border-t border-gray-100 shadow-[0_-8px_24px_-4px_rgba(0,0,0,0.12)] md:hidden pointer-events-auto"
+          className="fixed bottom-0 left-0 right-0 z-[99999] md:hidden pointer-events-auto"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <div className="px-3 pt-3 pb-2">
-            <div className="flex gap-2">
-              <button
-                onClick={handleCall}
-                disabled={!phoneNumber}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-40"
-                style={{ backgroundColor: BRAND.blue }}
-              >
-                <Phone size={14} />
-                <span>Llamar</span>
-              </button>
-              <button
-                onClick={handleWhatsApp}
-                disabled={!whatsappNumber}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-40"
-                style={{ backgroundColor: "#25D366" }}
-              >
-                <MessageCircle size={14} />
-                <span>WhatsApp</span>
-              </button>
-              <button
-                onClick={onStartNavigation}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all"
-                style={{ backgroundColor: BRAND.red }}
-              >
-                <Navigation size={14} />
-                <span>Cómo llegar</span>
-              </button>
+          {/* Glassmorphism background */}
+          <div 
+            className="mx-3 mb-2 rounded-2xl overflow-hidden"
+            style={{
+              background: "rgba(255,255,255,0.92)",
+              backdropFilter: "blur(20px) saturate(180%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              boxShadow: "0 -4px 32px -4px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.6) inset",
+            }}
+          >
+            <div className="px-3 py-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCall}
+                  disabled={!phoneNumber}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-40"
+                  style={{
+                    background: `linear-gradient(135deg, ${BRAND.blue}, ${BRAND.blue}dd)`,
+                    boxShadow: `0 4px 14px -2px ${BRAND.blue}50`,
+                  }}
+                >
+                  <Phone size={14} />
+                  <span>Llamar</span>
+                </button>
+                <button
+                  onClick={handleWhatsApp}
+                  disabled={!whatsappNumber}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all disabled:opacity-40"
+                  style={{
+                    background: "linear-gradient(135deg, #25D366, #20BD5A)",
+                    boxShadow: "0 4px 14px -2px rgba(37,211,102,0.35)",
+                  }}
+                >
+                  <MessageCircle size={14} />
+                  <span>WhatsApp</span>
+                </button>
+                <button
+                  onClick={onStartNavigation}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all"
+                  style={{
+                    background: `linear-gradient(135deg, ${BRAND.red}, ${BRAND.red}dd)`,
+                    boxShadow: `0 4px 14px -2px ${BRAND.red}50`,
+                  }}
+                >
+                  <Navigation size={14} />
+                  <span>Cómo llegar</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>,
@@ -441,17 +461,21 @@ export function BusinessDetail({
       )}
 
       {/* ── EMBEDDED SHEET FOR DESKTOP & MOBILE WRAPPER ── */}
-      <div className={`relative bg-white rounded-t-2xl shadow-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
+      <div className={`relative bg-white rounded-t-2xl overflow-hidden transition-all duration-300 ease-in-out flex flex-col md:max-w-[420px] md:mx-auto md:rounded-2xl md:mb-3 ${
         isExpanded ? "h-[80vh]" : "max-h-[60vh] md:h-auto md:max-h-none"
-      }`}>
+      }`}
+        style={{
+          boxShadow: "0 -8px 40px -8px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04)",
+        }}
+      >
         {/* Imagen, carrusel o placeholder */}
         {(() => {
           if (sortedImages.length > 0) {
             return (
-              <div className="relative h-[130px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-50 md:bg-gray-55 border-b border-gray-100">
+              <div className="relative h-[150px] md:h-[300px] overflow-hidden flex-shrink-0 bg-gray-900">
                 {/* Drag handle overlay (mobile only) */}
                 <div 
-                  className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-white/50 backdrop-blur-sm z-20 md:hidden cursor-pointer hover:bg-white/75 active:bg-white transition-colors"
+                  className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/60 backdrop-blur-sm z-20 md:hidden cursor-pointer hover:bg-white/80 active:bg-white transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsExpanded(!isExpanded);
@@ -465,28 +489,54 @@ export function BusinessDetail({
                   onClick={() => setIsVisorOpen(true)}
                 >
                   {sortedImages.map((img, idx) => (
-                    <div key={img.id || idx} className="w-full h-full flex-shrink-0 snap-start relative bg-gray-50 md:bg-transparent flex items-center justify-center">
+                    <div key={img.id || idx} className="w-full h-full flex-shrink-0 snap-start relative bg-gray-900 flex items-center justify-center">
                       <img
                         src={img.url}
                         alt={business.name}
                         className="w-full h-full object-contain md:object-cover select-none"
                       />
+                      {/* Gradient overlay at bottom for text readability */}
+                      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
                       {img.isPrimary && (
-                        <span className="absolute top-3 left-3 bg-blue-650/90 text-white text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shadow-sm backdrop-blur-sm z-10"
-                          style={{ backgroundColor: BRAND.blue }}
+                        <span 
+                          className="absolute top-3 left-3 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-full shadow-lg z-10"
+                          style={{ 
+                            background: `linear-gradient(135deg, ${BRAND.blue}, ${BRAND.blue}cc)`,
+                            backdropFilter: "blur(8px)",
+                          }}
                         >
-                          Principal
+                          ★ Principal
                         </span>
                       )}
                     </div>
                   ))}
                 </div>
 
+                {/* Category badge floating on the image */}
+                <div 
+                  className="absolute bottom-3 left-3 flex items-center gap-1.5 z-10"
+                >
+                  <div 
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold shadow-lg"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${categoryColor}, ${categoryColor}cc)`,
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    <span className="text-sm">{business.category.icon}</span>
+                    <span>{business.category.name}</span>
+                  </div>
+                </div>
+
                 {/* Left Arrow Button */}
                 {sortedImages.length > 1 && (
                   <button
                     onClick={handlePrevImage}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-all z-10 active:scale-90"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-white transition-all z-10 active:scale-90"
+                    style={{
+                      background: "rgba(0,0,0,0.35)",
+                      backdropFilter: "blur(8px)",
+                    }}
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
@@ -496,29 +546,46 @@ export function BusinessDetail({
                 {sortedImages.length > 1 && (
                   <button
                     onClick={handleNextImage}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-all z-10 active:scale-90"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full text-white transition-all z-10 active:scale-90"
+                    style={{
+                      background: "rgba(0,0,0,0.35)",
+                      backdropFilter: "blur(8px)",
+                    }}
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 )}
 
-                {/* Indicadores inferiores tipo ● ○ ○ ○ */}
+                {/* Dot indicators */}
                 {sortedImages.length > 1 && (
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 bg-black/30 px-2.5 py-1 rounded-full backdrop-blur-sm">
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 px-2.5 py-1 rounded-full"
+                    style={{
+                      background: "rgba(0,0,0,0.3)",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
                     {sortedImages.map((_, idx) => (
                       <div
                         key={idx}
-                        className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                          idx === currentImageIndex ? "bg-white scale-110" : "bg-white/40"
+                        className={`rounded-full transition-all duration-300 ${
+                          idx === currentImageIndex 
+                            ? "bg-white w-4 h-1.5" 
+                            : "bg-white/40 w-1.5 h-1.5"
                         }`}
                       />
                     ))}
                   </div>
                 )}
 
-                {/* Contador de fotos (ej. 1/5) */}
+                {/* Photo counter */}
                 {sortedImages.length > 1 && (
-                  <div className="absolute bottom-3 right-3 bg-black/55 text-[10px] font-bold px-2.5 py-0.5 rounded-full text-white z-10 backdrop-blur-sm">
+                  <div 
+                    className="absolute bottom-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full text-white z-10"
+                    style={{
+                      background: "rgba(0,0,0,0.4)",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
                     {currentImageIndex + 1}/{sortedImages.length}
                   </div>
                 )}
@@ -526,23 +593,42 @@ export function BusinessDetail({
             );
           } else {
             return (
-              <div className="relative h-[130px] md:h-[280px] overflow-hidden flex-shrink-0 bg-gray-50 border-b border-gray-100 flex items-center justify-center">
+              <div className="relative h-[150px] md:h-[300px] overflow-hidden flex-shrink-0 flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(135deg, ${categoryColor}15, ${categoryColor}08)`,
+                }}
+              >
                 {/* Drag handle overlay (mobile only) */}
                 <div 
-                  className="absolute top-2.5 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-gray-300 z-20 md:hidden cursor-pointer hover:bg-gray-450 transition-colors"
+                  className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-gray-300 z-20 md:hidden cursor-pointer hover:bg-gray-400 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsExpanded(!isExpanded);
                   }}
                 />
                 
-                <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center text-gray-300 gap-1.5">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21 15 16 10 5 21"/>
-                  </svg>
-                  <span className="text-[9px] font-black tracking-wider text-gray-400 uppercase">Sin imágenes</span>
+                <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                  <div 
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${categoryColor}20, ${categoryColor}10)`,
+                      border: `1px solid ${categoryColor}20`,
+                    }}
+                  >
+                    {business.category.icon}
+                  </div>
+                  <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Sin imágenes</span>
+                </div>
+
+                {/* Category badge */}
+                <div className="absolute bottom-3 left-3 z-10">
+                  <div 
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-white text-[10px] font-bold shadow-sm"
+                    style={{ backgroundColor: categoryColor }}
+                  >
+                    <span className="text-sm">{business.category.icon}</span>
+                    <span>{business.category.name}</span>
+                  </div>
                 </div>
               </div>
             );
@@ -550,98 +636,143 @@ export function BusinessDetail({
         })()}
 
         {/* Contenido scrolleable */}
-        <div className="overflow-y-auto px-4 pt-3 pb-32 md:pb-4 flex-1 min-h-0 space-y-2.5">
-          {/* Header Row: Category Icon + Category Badge + Close button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div 
-                className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center text-sm md:text-lg shadow-sm text-white shrink-0"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {business.category.icon}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span 
-                  className="inline-block text-[9px] md:text-[10px] font-black uppercase tracking-wider px-2 md:px-2.5 py-0.5 rounded-full text-white w-fit"
-                  style={{ backgroundColor: categoryColor }}
-                >
-                  {business.category.name}
-                </span>
-              </div>
+        <div className="overflow-y-auto px-4 pt-4 pb-32 md:pb-4 flex-1 min-h-0">
+          
+          {/* ── Header: Name + Close ── */}
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base md:text-lg font-extrabold text-gray-900 leading-tight tracking-tight">
+                {business.name}
+              </h2>
             </div>
             <button
               onClick={onClose}
-              className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-500 shrink-0"
+              className="w-7 h-7 flex items-center justify-center rounded-full transition-all shrink-0 active:scale-90"
+              style={{
+                background: "rgba(0,0,0,0.05)",
+              }}
             >
-              <X size={12} className="md:w-3.5 md:h-3.5" />
+              <X size={13} className="text-gray-500" />
             </button>
           </div>
 
-          {/* Nombre */}
-          <h2 className="text-sm md:text-base font-extrabold text-gray-900 leading-tight">
-            {business.name}
-          </h2>
-
-          {/* Badges: estado + verificado */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          {/* ── Status badges ── */}
+          <div className="flex items-center gap-1.5 flex-wrap mb-3">
             <span
-              className={`flex items-center gap-1 text-[10px] md:text-[11px] font-semibold px-2 md:px-2.5 py-0.5 rounded-full ${
-                isOpen
-                  ? "text-green-700 bg-green-50"
-                  : "text-gray-500 bg-gray-100"
-              }`}
+              className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors"
+              style={{
+                color: isOpen ? "#15803d" : "#6b7280",
+                background: isOpen ? "rgba(34,197,94,0.08)" : "rgba(0,0,0,0.04)",
+                border: `1px solid ${isOpen ? "rgba(34,197,94,0.15)" : "rgba(0,0,0,0.06)"}`,
+              }}
             >
               <CircleDot size={8} className="md:w-[9px] md:h-[9px]" />
               {openLabel}
             </span>
             {business.verified && (
-              <span className="flex items-center gap-0.5 text-[10px] md:text-[11px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+              <span 
+                className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold px-2.5 py-1 rounded-full"
+                style={{
+                  color: BRAND.blue,
+                  background: `${BRAND.blue}0a`,
+                  border: `1px solid ${BRAND.blue}18`,
+                }}
+              >
                 <Shield size={9} className="md:w-2.5 md:h-2.5" />
                 Verificado
               </span>
             )}
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-gray-100 my-1" />
-
-          {/* Info rows */}
-          <div className="space-y-2 md:space-y-2.5">
-            <div className="flex items-start gap-2">
-              <MapPin size={12} className="text-gray-400 flex-shrink-0 mt-0.5 md:w-3.5 md:h-3.5" />
-              <span className="text-[11px] md:text-xs text-gray-650 font-medium leading-relaxed">{business.address}</span>
+          {/* ── Info cards grid ── */}
+          <div 
+            className="rounded-xl overflow-hidden mb-3"
+            style={{
+              border: "1px solid rgba(0,0,0,0.06)",
+              background: "rgba(0,0,0,0.015)",
+            }}
+          >
+            {/* Address */}
+            <div className="flex items-start gap-3 px-3.5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                style={{ 
+                  background: `${BRAND.blue}0c`,
+                }}
+              >
+                <MapPin size={14} style={{ color: BRAND.blue }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">Dirección</span>
+                <span className="text-[11.5px] md:text-xs text-gray-700 font-medium leading-relaxed block">{business.address}</span>
+              </div>
             </div>
+
+            {/* Hours */}
             {business.hours && (
-              <div className="flex items-start gap-2">
-                <Clock size={12} className="text-gray-400 flex-shrink-0 mt-0.5 md:w-3.5 md:h-3.5" />
-                <span className="text-[11px] md:text-xs text-gray-650 font-medium leading-relaxed">{business.hours}</span>
+              <div className="flex items-start gap-3 px-3.5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ background: "rgba(245,158,11,0.08)" }}
+                >
+                  <Clock size={14} className="text-amber-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">Horario</span>
+                  <span className="text-[11.5px] md:text-xs text-gray-700 font-medium leading-relaxed block">{business.hours}</span>
+                </div>
               </div>
             )}
+
+            {/* Phone */}
             {phoneNumber && (
-              <div className="flex items-center gap-2">
-                <Phone size={12} className="text-gray-400 flex-shrink-0 md:w-3.5 md:h-3.5" />
-                <span className="text-[11px] md:text-xs text-gray-650 font-medium">{business.phone}</span>
+              <div className="flex items-center gap-3 px-3.5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "rgba(34,197,94,0.08)" }}
+                >
+                  <Phone size={14} className="text-green-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">Teléfono</span>
+                  <span className="text-[11.5px] md:text-xs text-gray-700 font-medium block">{business.phone}</span>
+                </div>
               </div>
             )}
+
+            {/* Distance */}
             {hasValidDistance && (
-              <div className="flex items-center gap-2">
-                <Navigation size={12} className="text-gray-400 flex-shrink-0 md:w-3.5 md:h-3.5" />
-                <span className="text-[11px] md:text-xs font-bold" style={{ color: BRAND.blue }}>
-                  {business.distance} km de distancia
-                </span>
+              <div className="flex items-center gap-3 px-3.5 py-3">
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: `${BRAND.red}0c` }}
+                >
+                  <Navigation size={14} style={{ color: BRAND.red }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">Distancia</span>
+                  <span className="text-[11.5px] md:text-xs font-bold block" style={{ color: BRAND.blue }}>
+                    {business.distance} km de tu ubicación
+                  </span>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Social Links Row */}
+          {/* ── Social Links Row ── */}
           {(business.website || business.instagram || business.facebook || business.tiktok) && (
-            <div className="flex flex-wrap gap-2 pt-2 pb-1">
+            <div className="flex flex-wrap gap-2 mb-1">
               {business.website && (
                 <a
                   href={business.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold transition-all hover:bg-blue-100 hover:scale-105 active:scale-95 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    color: BRAND.blue,
+                    background: `${BRAND.blue}08`,
+                    border: `1px solid ${BRAND.blue}15`,
+                  }}
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                   <span>Web</span>
@@ -652,7 +783,12 @@ export function BusinessDetail({
                   href={business.instagram}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-50 text-pink-700 text-[10px] font-bold transition-all hover:bg-pink-100 hover:scale-105 active:scale-95 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    color: "#E1306C",
+                    background: "rgba(225,48,108,0.06)",
+                    border: "1px solid rgba(225,48,108,0.12)",
+                  }}
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
                   <span>Instagram</span>
@@ -663,7 +799,12 @@ export function BusinessDetail({
                   href={business.facebook}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 text-blue-800 text-[10px] font-bold transition-all hover:bg-blue-100 hover:scale-105 active:scale-95 shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    color: "#1877F2",
+                    background: "rgba(24,119,242,0.06)",
+                    border: "1px solid rgba(24,119,242,0.12)",
+                  }}
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
                   <span>Facebook</span>
@@ -674,7 +815,12 @@ export function BusinessDetail({
                   href={business.tiktok}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 text-gray-800 text-[10px] font-bold transition-all hover:bg-gray-150 hover:scale-105 active:scale-95 shadow-sm border border-gray-200"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    color: "#010101",
+                    background: "rgba(0,0,0,0.04)",
+                    border: "1px solid rgba(0,0,0,0.08)",
+                  }}
                 >
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
                   <span>TikTok</span>
@@ -684,14 +830,17 @@ export function BusinessDetail({
           )}
         </div>
 
-        {/* Acciones principales ── Solo se muestran dentro del sheet en escritorio (hidden md:block) */}
-        <div className="hidden md:block px-4 pb-4 pt-3 border-t border-gray-100 bg-white flex-shrink-0">
+        {/* ── Desktop action buttons ── */}
+        <div className="hidden md:block px-4 pb-4 pt-3 bg-white flex-shrink-0" style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
           <div className="flex gap-2">
             <button
               onClick={handleCall}
               disabled={!phoneNumber}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow disabled:opacity-40"
-              style={{ backgroundColor: BRAND.blue }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow-lg disabled:opacity-40"
+              style={{
+                background: `linear-gradient(135deg, ${BRAND.blue}, ${BRAND.blue}dd)`,
+                boxShadow: `0 4px 14px -2px ${BRAND.blue}30`,
+              }}
             >
               <Phone size={14} />
               <span>Llamar</span>
@@ -699,16 +848,22 @@ export function BusinessDetail({
             <button
               onClick={handleWhatsApp}
               disabled={!whatsappNumber}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow disabled:opacity-40"
-              style={{ backgroundColor: "#25D366" }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow-lg disabled:opacity-40"
+              style={{
+                background: "linear-gradient(135deg, #25D366, #20BD5A)",
+                boxShadow: "0 4px 14px -2px rgba(37,211,102,0.3)",
+              }}
             >
               <MessageCircle size={14} />
               <span>WhatsApp</span>
             </button>
             <button
               onClick={onStartNavigation}
-              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow-lg hover:shadow-red-500/10"
-              style={{ backgroundColor: BRAND.red }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white text-xs font-bold active:scale-95 transition-all hover:shadow-lg"
+              style={{
+                background: `linear-gradient(135deg, ${BRAND.red}, ${BRAND.red}dd)`,
+                boxShadow: `0 4px 14px -2px ${BRAND.red}30`,
+              }}
             >
               <Navigation size={14} />
               <span>Cómo llegar</span>
