@@ -54,13 +54,73 @@ interface BusinessRequestData {
 }
 
 export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesses }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "pagos">("negocios");
+  const [activeTab, setActiveTab] = useState<"negocios" | "usuarios" | "solicitudes" | "promociones" | "pagos">("negocios");
 
   // Local mirror of businesses that reflects deletes without a full page refresh
   const [localBusinesses, setLocalBusinesses] = useState<Business[]>([]);
   useEffect(() => { setLocalBusinesses(businesses); }, [businesses]);
 
   // Search / filter
+  
+  const [promotions, setPromotions] = useState<any[]>([]);
+  const [loadingPromotions, setLoadingPromotions] = useState(false);
+  const [promoActionSaving, setPromoActionSaving] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (activeTab === "promociones") {
+      setLoadingPromotions(true);
+      fetch("/api/admin/promotions")
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.success) setPromotions(data.data || []);
+        })
+        .finally(() => setLoadingPromotions(false));
+    }
+  }, [activeTab]);
+
+  const handleApprovePromotion = async (id: string) => {
+    if (!confirm("¿Seguro que deseas aprobar esta promoción y activarla por 30 días?")) return;
+    setPromoActionSaving(id);
+    try {
+      const res = await fetch(`/api/admin/promotions/${id}/approve`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPromotions(prev => prev.map(p => p.id === id ? { ...p, status: "APPROVED" } : p));
+        alert("Promoción aprobada y correo enviado");
+      } else {
+        alert(data.error || "Error al aprobar la promoción");
+      }
+    } catch (err) {
+      alert("Error de red");
+    } finally {
+      setPromoActionSaving(null);
+    }
+  };
+
+  const handleRejectPromotion = async (id: string) => {
+    const reason = prompt("Ingresa el motivo del rechazo (ej. Pago no verificado):", "Pago no verificado o hash inválido");
+    if (reason === null) return;
+    setPromoActionSaving(id);
+    try {
+      const res = await fetch(`/api/admin/promotions/${id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason: reason })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPromotions(prev => prev.map(p => p.id === id ? { ...p, status: "REJECTED" } : p));
+        alert("Promoción rechazada y correo enviado");
+      } else {
+        alert(data.error || "Error al rechazar la promoción");
+      }
+    } catch (err) {
+      alert("Error de red");
+    } finally {
+      setPromoActionSaving(null);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredBusinesses = localBusinesses.filter((biz) => {
@@ -687,6 +747,18 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
                 )}
               </span>
             </button>
+              <button
+                onClick={() => setActiveTab("promociones")}
+                className={`flex-1 py-3 text-[11px] sm:text-xs font-bold transition-all border-b-2 flex items-center justify-center gap-1.5 ${
+                  activeTab === "promociones"
+                    ? "border-blue-600 text-blue-600 bg-blue-50/50"
+                    : "border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                }`}
+              >
+                <Store size={14} />
+                <span>Promociones</span>
+              </button>
+
             <button
               onClick={() => setActiveTab("usuarios")}
               className={`flex-1 md:flex-none flex items-center justify-center md:justify-start gap-2.5 px-3 py-2 sm:py-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
@@ -1158,6 +1230,92 @@ export function AdminDashboard({ isOpen, onClose, businesses, onRefreshBusinesse
             )}
 
             {/* TAB: PAGOS */}
+            
+            {activeTab === "promociones" && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="flex justify-between items-center bg-gray-50 p-3 sm:p-4 rounded-xl border border-gray-200">
+                  <h4 className="font-bold text-gray-800 text-sm">Solicitudes de Promoción</h4>
+                  <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                    {promotions.length} Total
+                  </span>
+                </div>
+
+                {loadingPromotions ? (
+                  <div className="flex items-center justify-center py-12 gap-2">
+                    <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-500 font-bold">Cargando promociones...</span>
+                  </div>
+                ) : promotions.length === 0 ? (
+                  <div className="py-12 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                    <p className="text-sm font-bold text-gray-500">No hay solicitudes de promoción.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {promotions.map((promo) => (
+                      <div key={promo.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="text-sm font-black text-gray-900">{promo.business?.name || "Negocio eliminado"}</h4>
+                              <p className="text-[11px] text-gray-500">{promo.user?.name} - {promo.user?.email}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              promo.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
+                              promo.status === "APPROVED" ? "bg-green-100 text-green-800" :
+                              promo.status === "EXPIRED" ? "bg-gray-100 text-gray-800" :
+                              "bg-red-100 text-red-800"
+                            }`}>
+                              {promo.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 mt-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Tipo</p>
+                              <p className="text-xs font-bold text-blue-700">{promo.type}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Pago</p>
+                              <p className="text-xs font-bold text-green-700">{promo.totalAmount} {promo.currency} (Base {promo.baseAmount} + Com {promo.feeAmount})</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-[9px] font-bold text-gray-400 uppercase">Hash / Comprobante</p>
+                              <p className="text-xs font-mono text-gray-800 break-all">{promo.transactionHash}</p>
+                            </div>
+                            {promo.userNote && (
+                              <div className="col-span-2">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Nota del Usuario</p>
+                                <p className="text-xs text-gray-700 italic">"{promo.userNote}"</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {promo.status === "PENDING" && (
+                          <div className="flex md:flex-col gap-2 w-full md:w-auto shrink-0">
+                            <button
+                              onClick={() => handleApprovePromotion(promo.id)}
+                              disabled={promoActionSaving === promo.id}
+                              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              onClick={() => handleRejectPromotion(promo.id)}
+                              disabled={promoActionSaving === promo.id}
+                              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                            >
+                              Rechazar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === "pagos" && (
               <div className="space-y-4 max-w-2xl">
                 <div className="flex items-center justify-between">

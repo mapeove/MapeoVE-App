@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Store, Clock, MessageCircle, Phone, MapPin, CheckCircle, Camera, Upload, Trash2, Edit2 } from "lucide-react";
 import { BRAND } from "@/types/mapeove";
+import { PromotionRequestForm } from "./promotion-request-form";
 import dynamic from "next/dynamic";
 
 const LocationSelectorMap = dynamic(() => import("./location-selector-map"), { ssr: false });
@@ -37,6 +38,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [success, setSuccess] = useState(false);
   const [forceShowForm, setForceShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"datos" | "fotos" | "promocionar">("datos");
+  
 
   // Payment settings removed — registration is now free
 
