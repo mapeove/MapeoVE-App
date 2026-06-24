@@ -3,15 +3,45 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Check, X } from "lucide-react";
-import { MAP_STYLE, INITIAL_MAP_CONFIG } from "@/lib/map-config";
+import { Check, X, Satellite, Map } from "lucide-react";
+import { INITIAL_MAP_CONFIG } from "@/lib/map-config";
 
-export default function LocationSelectorMap({ 
-  onSelect, 
+// Street map style (OpenStreetMap)
+const STREET_STYLE = {
+  version: 8 as const,
+  sources: {
+    osm: {
+      type: "raster" as const,
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "&copy; OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm",
+      type: "raster" as const,
+      source: "osm",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
+
+// Satellite / Hybrid style — MapTiler Hybrid (aerial photo + street labels)
+// Uses NEXT_PUBLIC_MAPTILER_KEY, which is exposed to the browser by Next.js.
+function getSatelliteStyleUrl(): string {
+  const key = process.env.NEXT_PUBLIC_MAPTILER_KEY || "";
+  return `https://api.maptiler.com/maps/hybrid/style.json?key=${key}`;
+}
+
+
+export default function LocationSelectorMap({
+  onSelect,
   onClose,
   initialLat,
-  initialLng
-}: { 
+  initialLng,
+}: {
   onSelect: (lat: number, lng: number, address?: string) => void;
   onClose: () => void;
   initialLat?: number | null;
@@ -21,12 +51,15 @@ export default function LocationSelectorMap({
   const [maplibregl, setMaplibregl] = useState<any>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
-  
-  const [coords, setCoords] = useState<{lat: number, lng: number} | null>(
-    initialLat != null && initialLng != null ? { lat: initialLat, lng: initialLng } : null
+
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    initialLat != null && initialLng != null
+      ? { lat: initialLat, lng: initialLng }
+      : null
   );
   const [mounted, setMounted] = useState(false);
   const activeRef = useRef(true);
+  const [isSatellite, setIsSatellite] = useState(false);
 
   // Search Address States
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,23 +83,24 @@ export default function LocationSelectorMap({
   useEffect(() => {
     if (!maplibregl || !mapContainer.current || mapRef.current) return;
 
-    const startCenter: [number, number] = (initialLng != null && initialLat != null)
-      ? [initialLng, initialLat] 
-      : [INITIAL_MAP_CONFIG.longitude, INITIAL_MAP_CONFIG.latitude];
-
-    // Deep copy standard style object to prevent MapLibre internal mutations from colliding
-    const styleCopy = JSON.parse(JSON.stringify(MAP_STYLE));
+    const startCenter: [number, number] =
+      initialLng != null && initialLat != null
+        ? [initialLng, initialLat]
+        : [INITIAL_MAP_CONFIG.longitude, INITIAL_MAP_CONFIG.latitude];
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: styleCopy,
+      style: JSON.parse(JSON.stringify(STREET_STYLE)),
       center: startCenter,
       zoom: INITIAL_MAP_CONFIG.zoomSelector,
       maxZoom: INITIAL_MAP_CONFIG.maxZoom,
       attributionControl: true,
     });
-    
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      "top-right"
+    );
 
     mapRef.current = map;
 
@@ -122,6 +156,34 @@ export default function LocationSelectorMap({
     };
   }, [maplibregl]); // Run only once when maplibre loads
 
+  // Toggle satellite / street map style
+  const handleToggleSatellite = () => {
+    if (!mapRef.current) return;
+    const newSatellite = !isSatellite;
+    setIsSatellite(newSatellite);
+
+    // MapLibre accepts both a style object and a URL string.
+    // For the hybrid satellite style we use the MapTiler URL directly so that
+    // the full GL style (aerial imagery + vector labels) loads correctly.
+    if (newSatellite) {
+      mapRef.current.setStyle(getSatelliteStyleUrl());
+    } else {
+      mapRef.current.setStyle(JSON.parse(JSON.stringify(STREET_STYLE)));
+    }
+
+    // Re-add marker after style change (markers are removed by setStyle)
+    mapRef.current.once("styledata", () => {
+      if (coords && maplibregl && mapRef.current) {
+        if (markerRef.current) {
+          markerRef.current.remove();
+        }
+        markerRef.current = new maplibregl.Marker({ color: "#2563eb" })
+          .setLngLat([coords.lng, coords.lat])
+          .addTo(mapRef.current);
+      }
+    });
+  };
+
   const handleSearch = (val: string) => {
     setSearchQuery(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -137,7 +199,9 @@ export default function LocationSelectorMap({
         const lat = coords?.lat || INITIAL_MAP_CONFIG.latitude;
         const lng = coords?.lng || INITIAL_MAP_CONFIG.longitude;
         const proximity = `${lng},${lat}`;
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(val)}&proximity=${proximity}`);
+        const res = await fetch(
+          `/api/geocode?q=${encodeURIComponent(val)}&proximity=${proximity}`
+        );
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.features)) {
@@ -156,7 +220,7 @@ export default function LocationSelectorMap({
       const lng = geoCoords[0];
       const lat = geoCoords[1];
       const name = sug.place_name || sug.text || "Dirección encontrada";
-      
+
       setCoords({ lat, lng });
       setSelectedAddress(name);
       setSearchQuery(name);
@@ -183,27 +247,47 @@ export default function LocationSelectorMap({
       {/* Header */}
       <div className="p-4 bg-white border-b border-gray-100 flex justify-between items-center shadow-sm relative z-10 shrink-0">
         <div>
-          <h3 className="text-sm font-black text-gray-900">Ubicación de tu local</h3>
-          <p className="text-[10px] text-gray-555 font-bold">Toca el mapa o busca para colocar el marcador</p>
+          <h3 className="text-sm font-black text-gray-900">
+            Ubicación de tu local
+          </h3>
+          <p className="text-[10px] text-gray-500 font-bold">
+            Toca el mapa o busca para colocar el marcador
+          </p>
         </div>
-        <button onClick={onClose} className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200">
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Satellite / Street toggle */}
+          <button
+            onClick={handleToggleSatellite}
+            title={isSatellite ? "Ver mapa normal" : "Ver satélite"}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+              isSatellite
+                ? "bg-blue-600 text-white border-blue-600 shadow"
+                : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200"
+            }`}
+          >
+            {isSatellite ? <Map size={13} /> : <Satellite size={13} />}
+            {isSatellite ? "Mapa" : "Satélite"}
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Buscador de dirección */}
-      <div className="p-3 bg-gray-55 border-b border-gray-150 relative z-20 flex flex-col gap-1 shrink-0">
+      <div className="p-3 bg-gray-50 border-b border-gray-100 relative z-20 flex flex-col gap-1 shrink-0">
         <div className="relative flex items-center">
           <input
             type="text"
             placeholder="Buscar dirección o lugar (Ej. España, La Victoria...)"
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-250 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 shadow-xs font-semibold"
+            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 shadow-sm font-semibold"
           />
-          <span className="absolute left-3 text-gray-400 text-xs">
-            🔍
-          </span>
+          <span className="absolute left-3 text-gray-400 text-xs">🔍</span>
           {searchQuery && (
             <button
               type="button"
@@ -239,19 +323,21 @@ export default function LocationSelectorMap({
       <div className="relative flex-1 w-full bg-gray-100 min-h-0">
         <div ref={mapContainer} className="absolute inset-0" />
       </div>
-      
+
       {/* Confirm Button */}
-      <div 
+      <div
         className="fixed left-1/2 -translate-x-1/2 z-[100000] w-[90%] max-w-sm pointer-events-auto"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
       >
-        <button 
+        <button
           onClick={() => {
             if (coords) onSelect(coords.lat, coords.lng, selectedAddress);
           }}
           disabled={!coords}
           className={`w-full text-white font-bold py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-transform ${
-            coords ? "bg-blue-600 active:scale-95" : "bg-gray-400 opacity-80 cursor-not-allowed"
+            coords
+              ? "bg-blue-600 active:scale-95"
+              : "bg-gray-400 opacity-80 cursor-not-allowed"
           }`}
         >
           <Check size={18} /> Confirmar Ubicación

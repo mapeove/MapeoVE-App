@@ -65,6 +65,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [parish, setParish] = useState("");
   
   // Custom helper states for dropdown selections
+  const [selectedCity, setSelectedCity] = useState("");
+  const [customCity, setCustomCity] = useState("");
   const [selectedParish, setSelectedParish] = useState("");
   const [customParish, setCustomParish] = useState("");
 
@@ -86,6 +88,15 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [isEditingUserBiz, setIsEditingUserBiz] = useState(false);
   const [userBizEditSaving, setUserBizEditSaving] = useState(false);
   const [userBizEditSuccess, setUserBizEditSuccess] = useState(false);
+
+  // Sync city field
+  useEffect(() => {
+    if (selectedCity === "Otra ciudad") {
+      setCity(customCity);
+    } else {
+      setCity(selectedCity);
+    }
+  }, [selectedCity, customCity]);
 
   // Sync parish field
   useEffect(() => {
@@ -139,6 +150,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setState("");
     setCity("");
     setParish("");
+    setSelectedCity("");
+    setCustomCity("");
     setSelectedParish("");
     setCustomParish("");
 
@@ -445,8 +458,23 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           setHouseNumber(biz.houseNumber || "");
           setReference(biz.reference || "");
 
-          // Find state & city objects to check parishes
+          // Find state & city objects to check city list and parishes
           const stateObj = VENEZUELA_LOCATIONS.find((s) => s.name === dbState);
+          const cityList = stateObj?.cities.map((c) => c.name) || [];
+
+          if (dbCity) {
+            if (cityList.includes(dbCity)) {
+              setSelectedCity(dbCity);
+              setCustomCity("");
+            } else {
+              setSelectedCity("Otra ciudad");
+              setCustomCity(dbCity);
+            }
+          } else {
+            setSelectedCity("");
+            setCustomCity("");
+          }
+
           const cityObj = stateObj?.cities.find((c) => c.name === dbCity);
           const parishList = cityObj?.parishes || [];
 
@@ -462,6 +490,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
             setSelectedParish("");
             setCustomParish("");
           }
+
 
           const standardSectors = ["Urbanización", "Barrio", "Sector", "Casco Central", "Zona Industrial", "Conjunto Residencial", "Centro Comercial", "Edificio"];
           if (dbSectorType) {
@@ -813,6 +842,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                           const val = e.target.value;
                           setState(val);
                           setCity("");
+                          setSelectedCity("");
+                          setCustomCity("");
                           setSelectedParish("");
                           setCustomParish("");
                         }}
@@ -828,10 +859,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     <div>
                       <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Ciudad/Municipio *</label>
                       <select
-                        value={city}
+                        value={selectedCity}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setCity(val);
+                          setSelectedCity(val);
+                          if (val !== "Otra ciudad") setCustomCity("");
                           setSelectedParish("");
                           setCustomParish("");
                         }}
@@ -842,7 +874,17 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                         {VENEZUELA_LOCATIONS.find((s) => s.name === state)?.cities.map((c) => (
                           <option key={c.name} value={c.name}>{c.name}</option>
                         ))}
+                        <option value="Otra ciudad">Otra ciudad / municipio</option>
                       </select>
+                      {selectedCity === "Otra ciudad" && (
+                        <input
+                          type="text"
+                          placeholder="Ej. Colonia Tovar, El Junquito..."
+                          value={customCity}
+                          onChange={(e) => setCustomCity(e.target.value)}
+                          className="mt-1.5 w-full px-2.5 py-2 bg-white border border-blue-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                        />
+                      )}
                     </div>
 
                     <div>
@@ -1290,6 +1332,8 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                           const val = e.target.value;
                           setState(val);
                           setCity("");
+                          setSelectedCity("");
+                          setCustomCity("");
                           setSelectedParish("");
                           setCustomParish("");
                         }}
@@ -1305,10 +1349,11 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     <div>
                       <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Ciudad/Municipio *</label>
                       <select
-                        value={city}
+                        value={selectedCity}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setCity(val);
+                          setSelectedCity(val);
+                          if (val !== "Otra ciudad") setCustomCity("");
                           setSelectedParish("");
                           setCustomParish("");
                         }}
@@ -1319,8 +1364,19 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                         {VENEZUELA_LOCATIONS.find((s) => s.name === state)?.cities.map((c) => (
                           <option key={c.name} value={c.name}>{c.name}</option>
                         ))}
+                        <option value="Otra ciudad">Otra ciudad / municipio</option>
                       </select>
+                      {selectedCity === "Otra ciudad" && (
+                        <input
+                          type="text"
+                          placeholder="Ej. Colonia Tovar, El Junquito..."
+                          value={customCity}
+                          onChange={(e) => setCustomCity(e.target.value)}
+                          className="mt-1.5 w-full px-2.5 py-2 bg-white border border-blue-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                        />
+                      )}
                     </div>
+
 
                     <div>
                       <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Parroquia</label>
