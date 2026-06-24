@@ -45,9 +45,16 @@ model Business {
   phone       String?
   whatsapp    String?
   address     String
-  city        String   @default("La Victoria")
-  state       String   @default("Aragua")
+  city        String?
+  state       String?
   country     String   @default("Venezuela")
+  parish      String?
+  sectorType  String?
+  sectorName  String?
+  streetType  String?
+  streetName  String?
+  houseNumber String?
+  reference   String   @default("")
   latitude    Float
   longitude   Float
   image       String?

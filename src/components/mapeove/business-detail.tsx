@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
+import { Business, BRAND, CATEGORY_COLORS, formatBusinessAddress } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
 import {
   X,
@@ -716,7 +716,7 @@ export function BusinessDetail({
               </div>
               <div className="min-w-0 flex-1">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 block mb-0.5">Dirección</span>
-                <span className="text-[11.5px] md:text-xs text-gray-700 font-medium leading-relaxed block">{business.address}</span>
+                <span className="text-[11.5px] md:text-xs text-gray-700 font-medium leading-relaxed block">{formatBusinessAddress(business)}</span>
               </div>
             </div>
 

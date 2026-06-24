@@ -17,9 +17,16 @@ export interface Business {
   phone: string | null;
   whatsapp: string | null;
   address: string;
-  city: string;
-  state: string;
+  city?: string | null;
+  state?: string | null;
   country: string;
+  parish?: string | null;
+  sectorType?: string | null;
+  sectorName?: string | null;
+  streetType?: string | null;
+  streetName?: string | null;
+  houseNumber?: string | null;
+  reference?: string | null;
   latitude: number;
   longitude: number;
   image: string | null;
@@ -117,3 +124,80 @@ export const CATEGORY_COLORS: Record<string, string> = {
   salud: "#06B6D4",
   comercios: BRAND.yellow,
 };
+
+export function formatBusinessAddress(business: {
+  address: string;
+  state?: string | null;
+  city?: string | null;
+  parish?: string | null;
+  sectorType?: string | null;
+  sectorName?: string | null;
+  streetType?: string | null;
+  streetName?: string | null;
+  houseNumber?: string | null;
+  reference?: string | null;
+}): string {
+  const state = business.state?.trim();
+  const city = business.city?.trim();
+  
+  if (!state || !city) {
+    return business.address;
+  }
+
+  let parts = `${state}, ${city}`;
+
+  const parish = business.parish?.trim();
+  if (parish) {
+    parts += `, Parroquia ${parish}`;
+  }
+
+  const sectorType = business.sectorType?.trim();
+  const sectorName = business.sectorName?.trim();
+  let zonePart = "";
+  if (sectorType && sectorName) {
+    zonePart = `${sectorType} ${sectorName}`;
+  } else if (sectorName) {
+    zonePart = sectorName;
+  }
+
+  const streetType = business.streetType?.trim();
+  const streetName = business.streetName?.trim();
+  let streetPart = "";
+  if (streetType && streetName) {
+    streetPart = `${streetType} ${streetName}`;
+  } else if (streetName) {
+    streetPart = streetName;
+  }
+
+  const houseNumber = business.houseNumber?.trim();
+  
+  let details = "";
+  if (zonePart) {
+    details += zonePart;
+  }
+  if (streetPart) {
+    if (details) {
+      details += `, ${streetPart}`;
+    } else {
+      details += streetPart;
+    }
+  }
+  if (houseNumber) {
+    if (details) {
+      details += `, Nro/Local ${houseNumber}`;
+    } else {
+      details += `Nro/Local ${houseNumber}`;
+    }
+  }
+
+  if (details) {
+    parts += `. ${details}`;
+  }
+
+  const reference = business.reference?.trim();
+  if (reference) {
+    parts += `. Ref: ${reference}`;
+  }
+
+  return parts;
+}

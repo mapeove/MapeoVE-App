@@ -4,6 +4,7 @@ import { successResponse, errorResponse, notFoundResponse } from "@/lib/api-resp
 import { NextRequest } from "next/server";
 import { verify } from "@/lib/session";
 import { supabase } from "@/lib/supabase";
+import { formatBusinessAddress } from "@/types/mapeove";
 
 function normalizeUrl(url: string | null | undefined, type: "web" | "instagram" | "facebook" | "tiktok"): string | null {
   if (!url || !url.trim()) return null;
@@ -200,15 +201,54 @@ export async function PUT(
       instagram,
       facebook,
       tiktok,
+      parish,
+      sectorType,
+      sectorName,
+      streetType,
+      streetName,
+      houseNumber,
+      reference,
     } = body;
 
     // Validate required fields if provided
     if (name !== undefined && (!name || typeof name !== "string" || !name.trim())) {
       return errorResponse("El nombre no puede estar vacío");
     }
-    if (address !== undefined && (!address || typeof address !== "string" || !address.trim())) {
+
+    const cleanParish = parish === "Otra parroquia" ? null : (parish !== undefined ? (parish?.trim() || null) : undefined);
+    const cleanSectorType = sectorType === "Otro" ? null : (sectorType !== undefined ? (sectorType?.trim() || null) : undefined);
+    const cleanStreetType = streetType === "Otro" ? null : (streetType !== undefined ? (streetType?.trim() || null) : undefined);
+
+    let finalAddress = address;
+    if (address === undefined || address === "") {
+      const finalState = state !== undefined ? state : existing.state;
+      const finalCity = city !== undefined ? city : existing.city;
+      const finalParish = cleanParish !== undefined ? cleanParish : existing.parish;
+      const finalSectorType = cleanSectorType !== undefined ? cleanSectorType : existing.sectorType;
+      const finalSectorName = sectorName !== undefined ? sectorName : existing.sectorName;
+      const finalStreetType = cleanStreetType !== undefined ? cleanStreetType : existing.streetType;
+      const finalStreetName = streetName !== undefined ? streetName : existing.streetName;
+      const finalHouseNumber = houseNumber !== undefined ? houseNumber : existing.houseNumber;
+      const finalReference = reference !== undefined ? reference : existing.reference;
+
+      finalAddress = formatBusinessAddress({
+        address: existing.address,
+        state: finalState,
+        city: finalCity,
+        parish: finalParish,
+        sectorType: finalSectorType,
+        sectorName: finalSectorName,
+        streetType: finalStreetType,
+        streetName: finalStreetName,
+        houseNumber: finalHouseNumber,
+        reference: finalReference,
+      });
+    }
+
+    if (finalAddress !== undefined && (!finalAddress || typeof finalAddress !== "string" || !finalAddress.trim())) {
       return errorResponse("La dirección no puede estar vacía");
     }
+
     if (latitude !== undefined && (typeof latitude !== "number" || isNaN(latitude))) {
       return errorResponse("La latitud debe ser un número válido");
     }
@@ -229,9 +269,9 @@ export async function PUT(
 
     if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description?.trim() || null;
-    if (address !== undefined) updateData.address = address.trim();
-    if (city !== undefined) updateData.city = city.trim();
-    if (state !== undefined) updateData.state = state.trim();
+    if (finalAddress !== undefined) updateData.address = finalAddress.trim();
+    if (city !== undefined) updateData.city = city?.trim() || null;
+    if (state !== undefined) updateData.state = state?.trim() || null;
     if (country !== undefined) updateData.country = country.trim();
     if (latitude !== undefined) updateData.latitude = latitude;
     if (longitude !== undefined) updateData.longitude = longitude;
@@ -245,6 +285,13 @@ export async function PUT(
     if (instagram !== undefined) updateData.instagram = normalizeUrl(instagram, "instagram");
     if (facebook !== undefined) updateData.facebook = normalizeUrl(facebook, "facebook");
     if (tiktok !== undefined) updateData.tiktok = normalizeUrl(tiktok, "tiktok");
+    if (cleanParish !== undefined) updateData.parish = cleanParish;
+    if (cleanSectorType !== undefined) updateData.sectorType = cleanSectorType;
+    if (sectorName !== undefined) updateData.sectorName = sectorName?.trim() || null;
+    if (cleanStreetType !== undefined) updateData.streetType = cleanStreetType;
+    if (streetName !== undefined) updateData.streetName = streetName?.trim() || null;
+    if (houseNumber !== undefined) updateData.houseNumber = houseNumber?.trim() || null;
+    if (reference !== undefined) updateData.reference = reference?.trim() || "";
 
     // Only super admin can change verified/active flags
     if (isSuperAdmin) {

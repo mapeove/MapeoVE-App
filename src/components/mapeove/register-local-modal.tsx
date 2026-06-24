@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { X, Store, Clock, MessageCircle, Phone, MapPin, CheckCircle, Camera, Upload, Trash2, Edit2 } from "lucide-react";
-import { BRAND } from "@/types/mapeove";
+import { BRAND, formatBusinessAddress } from "@/types/mapeove";
+import { VENEZUELA_LOCATIONS } from "@/lib/venezuela-locations";
 import { PromotionRequestForm } from "./promotion-request-form";
 import dynamic from "next/dynamic";
 
@@ -27,8 +28,6 @@ interface RequestData {
   createdAt: string;
 }
 
-// PaymentSettings interface removed — registration is now free
-
 export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModalProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [existingRequests, setExistingRequests] = useState<RequestData[]>([]);
@@ -37,9 +36,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"datos" | "fotos" | "promocionar">("datos");
-  
-
-  // Payment settings removed — registration is now free
 
   // Form Fields
   const [businessName, setBusinessName] = useState("");
@@ -50,7 +46,6 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [description, setDescription] = useState("");
   const [openingHours, setOpeningHours] = useState("");
   const [note, setNote] = useState("");
-  // Payment fields removed — registration is now free
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
@@ -64,11 +59,60 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
   const [facebook, setFacebook] = useState("");
   const [tiktok, setTiktok] = useState("");
 
+  // Structured Address Fields
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [parish, setParish] = useState("");
+  
+  // Custom helper states for dropdown selections
+  const [selectedParish, setSelectedParish] = useState("");
+  const [customParish, setCustomParish] = useState("");
+
+  const [selectedSectorType, setSelectedSectorType] = useState("Urbanización");
+  const [customSectorType, setCustomSectorType] = useState("");
+  const [sectorType, setSectorType] = useState("Urbanización");
+  const [sectorName, setSectorName] = useState("");
+
+  const [selectedStreetType, setSelectedStreetType] = useState("Calle");
+  const [customStreetType, setCustomStreetType] = useState("");
+  const [streetType, setStreetType] = useState("Calle");
+  const [streetName, setStreetName] = useState("");
+
+  const [houseNumber, setHouseNumber] = useState("");
+  const [reference, setReference] = useState("");
+
   // Owner Edit Mode States
   const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
   const [isEditingUserBiz, setIsEditingUserBiz] = useState(false);
   const [userBizEditSaving, setUserBizEditSaving] = useState(false);
   const [userBizEditSuccess, setUserBizEditSuccess] = useState(false);
+
+  // Sync parish field
+  useEffect(() => {
+    if (selectedParish === "Otra parroquia") {
+      setParish(customParish);
+    } else {
+      setParish(selectedParish);
+    }
+  }, [selectedParish, customParish]);
+
+  // Sync sectorType field
+  useEffect(() => {
+    if (selectedSectorType === "Otro") {
+      setSectorType(customSectorType);
+    } else {
+      setSectorType(selectedSectorType);
+    }
+  }, [selectedSectorType, customSectorType]);
+
+  // Sync streetType field
+  useEffect(() => {
+    if (selectedStreetType === "Otro") {
+      setStreetType(customStreetType);
+    } else {
+      setStreetType(selectedStreetType);
+    }
+  }, [selectedStreetType, customStreetType]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -91,6 +135,25 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setTiktok("");
     setError("");
     setSuccess(false);
+
+    setState("");
+    setCity("");
+    setParish("");
+    setSelectedParish("");
+    setCustomParish("");
+
+    setSectorType("Urbanización");
+    setSelectedSectorType("Urbanización");
+    setCustomSectorType("");
+    setSectorName("");
+
+    setStreetType("Calle");
+    setSelectedStreetType("Calle");
+    setCustomStreetType("");
+    setStreetName("");
+
+    setHouseNumber("");
+    setReference("");
 
     // Reset edit states
     setEditingBusinessId(null);
@@ -253,8 +316,23 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setError("");
     setSuccess(false);
 
-    if (!businessName || !categoryId || !address || !phone || !whatsapp) {
+    if (!businessName || !categoryId || !phone || !whatsapp) {
       setError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
+    if (!state || !state.trim()) {
+      setError("El Estado es obligatorio");
+      return;
+    }
+    if (!city || !city.trim()) {
+      setError("La Ciudad/Municipio es obligatoria");
+      return;
+    }
+    const hasZone = !!(sectorName && sectorName.trim());
+    const hasStreet = !!(streetName && streetName.trim());
+    if (!hasZone && !hasStreet) {
+      setError("Debes indicar al menos el Nombre de zona o el Nombre de vía/calle");
       return;
     }
 
@@ -270,13 +348,26 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
         ...uploadedImages.filter((img) => !img.isPrimary).map((img) => img.url),
       ];
 
+      const constructedAddress = formatBusinessAddress({
+        address: "",
+        state,
+        city,
+        parish,
+        sectorType,
+        sectorName,
+        streetType,
+        streetName,
+        houseNumber,
+        reference,
+      });
+
       const res = await fetch("/api/business-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessName,
           categoryId,
-          address,
+          address: constructedAddress,
           phone,
           whatsapp,
           description,
@@ -290,6 +381,15 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           instagram: instagram.trim() || null,
           facebook: facebook.trim() || null,
           tiktok: tiktok.trim() || null,
+          state,
+          city,
+          parish,
+          sectorType,
+          sectorName,
+          streetType,
+          streetName,
+          houseNumber,
+          reference,
         }),
       });
 
@@ -331,6 +431,72 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           setInstagram(biz.instagram || "");
           setFacebook(biz.facebook || "");
           setTiktok(biz.tiktok || "");
+
+          const dbState = biz.state || "";
+          const dbCity = biz.city || "";
+          const dbParish = biz.parish || "";
+          const dbSectorType = biz.sectorType || "Urbanización";
+          const dbStreetType = biz.streetType || "Calle";
+
+          setState(dbState);
+          setCity(dbCity);
+          setParish(dbParish);
+          setSectorName(biz.sectorName || "");
+          setHouseNumber(biz.houseNumber || "");
+          setReference(biz.reference || "");
+
+          // Find state & city objects to check parishes
+          const stateObj = VENEZUELA_LOCATIONS.find((s) => s.name === dbState);
+          const cityObj = stateObj?.cities.find((c) => c.name === dbCity);
+          const parishList = cityObj?.parishes || [];
+
+          if (dbParish) {
+            if (parishList.includes(dbParish)) {
+              setSelectedParish(dbParish);
+              setCustomParish("");
+            } else {
+              setSelectedParish("Otra parroquia");
+              setCustomParish(dbParish);
+            }
+          } else {
+            setSelectedParish("");
+            setCustomParish("");
+          }
+
+          const standardSectors = ["Urbanización", "Barrio", "Sector", "Casco Central", "Zona Industrial", "Conjunto Residencial", "Centro Comercial", "Edificio"];
+          if (dbSectorType) {
+            if (standardSectors.includes(dbSectorType)) {
+              setSelectedSectorType(dbSectorType);
+              setCustomSectorType("");
+              setSectorType(dbSectorType);
+            } else {
+              setSelectedSectorType("Otro");
+              setCustomSectorType(dbSectorType);
+              setSectorType(dbSectorType);
+            }
+          } else {
+            setSelectedSectorType("Urbanización");
+            setCustomSectorType("");
+            setSectorType("Urbanización");
+          }
+
+          const standardStreets = ["Calle", "Avenida", "Vereda", "Callejón", "Carretera", "Troncal", "Redoma", "Vía Principal", "Vía Secundaria"];
+          if (dbStreetType) {
+            if (standardStreets.includes(dbStreetType)) {
+              setSelectedStreetType(dbStreetType);
+              setCustomStreetType("");
+              setStreetType(dbStreetType);
+            } else {
+              setSelectedStreetType("Otro");
+              setCustomStreetType(dbStreetType);
+              setStreetType(dbStreetType);
+            }
+          } else {
+            setSelectedStreetType("Calle");
+            setCustomStreetType("");
+            setStreetType("Calle");
+          }
+
           setIsEditingUserBiz(true);
         } else {
           setError("No se pudieron cargar los datos del local.");
@@ -349,13 +515,46 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
     setError("");
     setUserBizEditSuccess(false);
 
-    if (!businessName || !categoryId || !address || !phone || !whatsapp) {
+    if (!businessName || !categoryId || !phone || !whatsapp) {
       setError("Por favor completa todos los campos requeridos");
       return;
     }
 
     if (latitude === null || longitude === null) {
       setError("Debes seleccionar la ubicación en el mapa");
+      return;
+    }
+
+    if (!state || !state.trim()) {
+      setError("El Estado es obligatorio");
+      return;
+    }
+    if (!city || !city.trim()) {
+      setError("La Ciudad/Municipio es obligatoria");
+      return;
+    }
+    const hasZone = !!(sectorName && sectorName.trim());
+    const hasStreet = !!(streetName && streetName.trim());
+    if (!hasZone && !hasStreet) {
+      setError("Debes indicar al menos el Nombre de zona o el Nombre de vía/calle");
+      return;
+    }
+
+    const finalAddress = formatBusinessAddress({
+      address: address || "",
+      state,
+      city,
+      parish,
+      sectorType,
+      sectorName,
+      streetType,
+      streetName,
+      houseNumber,
+      reference,
+    });
+
+    if (!finalAddress) {
+      setError("La dirección no puede estar vacía");
       return;
     }
 
@@ -367,7 +566,7 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
         body: JSON.stringify({
           name: businessName,
           categoryId,
-          address,
+          address: finalAddress,
           latitude,
           longitude,
           phone,
@@ -379,6 +578,15 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
           instagram: instagram.trim() || null,
           facebook: facebook.trim() || null,
           tiktok: tiktok.trim() || null,
+          state: state || null,
+          city: city || null,
+          parish: parish || null,
+          sectorType: sectorType || null,
+          sectorName: sectorName || null,
+          streetType: streetType || null,
+          streetName: streetName || null,
+          houseNumber: houseNumber || null,
+          reference: reference || "",
         }),
       });
 
@@ -592,20 +800,210 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Dirección Exacta *</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
-                      <MapPin size={14} />
-                    </span>
+                {/* DIRECCIÓN ESTRUCTURADA */}
+                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-150 space-y-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Dirección Estructurada</span>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Estado *</label>
+                      <select
+                        value={state}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setState(val);
+                          setCity("");
+                          setSelectedParish("");
+                          setCustomParish("");
+                        }}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      >
+                        <option value="">Selecciona estado</option>
+                        {VENEZUELA_LOCATIONS.map((s) => (
+                          <option key={s.name} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Ciudad/Municipio *</label>
+                      <select
+                        value={city}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCity(val);
+                          setSelectedParish("");
+                          setCustomParish("");
+                        }}
+                        disabled={!state}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        <option value="">Selecciona ciudad</option>
+                        {VENEZUELA_LOCATIONS.find((s) => s.name === state)?.cities.map((c) => (
+                          <option key={c.name} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Parroquia</label>
+                      <select
+                        value={selectedParish}
+                        onChange={(e) => {
+                          setSelectedParish(e.target.value);
+                          if (e.target.value !== "Otra parroquia") {
+                            setCustomParish("");
+                          }
+                        }}
+                        disabled={!city}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        <option value="">Selecciona parroquia (opcional)</option>
+                        {(VENEZUELA_LOCATIONS.find((s) => s.name === state)?.cities.find((c) => c.name === city)?.parishes || []).map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                        <option value="Otra parroquia">Otra parroquia</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {selectedParish === "Otra parroquia" && (
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Escribe la parroquia *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Juan Vicente Bolívar"
+                        value={customParish}
+                        onChange={(e) => setCustomParish(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Tipo de zona *</label>
+                      <select
+                        value={selectedSectorType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedSectorType(val);
+                          if (val !== "Otro") {
+                            setCustomSectorType("");
+                          }
+                        }}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      >
+                        <option value="Urbanización">Urbanización</option>
+                        <option value="Barrio">Barrio</option>
+                        <option value="Sector">Sector</option>
+                        <option value="Casco Central">Casco Central</option>
+                        <option value="Zona Industrial">Zona Industrial</option>
+                        <option value="Conjunto Residencial">Conjunto Residencial</option>
+                        <option value="Centro Comercial">Centro Comercial</option>
+                        <option value="Edificio">Edificio</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nombre de zona (opcional si hay calle/vía)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Las Mercedes o Centro"
+                        value={sectorName}
+                        onChange={(e) => setSectorName(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+
+                  {selectedSectorType === "Otro" && (
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Especifica tipo de zona *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Caserío, Parcelamiento..."
+                        value={customSectorType}
+                        onChange={(e) => setCustomSectorType(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Tipo de vía *</label>
+                      <select
+                        value={selectedStreetType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedStreetType(val);
+                          if (val !== "Otro") {
+                            setCustomStreetType("");
+                          }
+                        }}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      >
+                        <option value="Calle">Calle</option>
+                        <option value="Avenida">Avenida</option>
+                        <option value="Vereda">Vereda</option>
+                        <option value="Callejón">Callejón</option>
+                        <option value="Carretera">Carretera</option>
+                        <option value="Troncal">Troncal</option>
+                        <option value="Redoma">Redoma</option>
+                        <option value="Vía Principal">Vía Principal</option>
+                        <option value="Vía Secundaria">Vía Secundaria</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nombre de calle/vía (opcional si hay zona)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Calle Nieves o Av. Bolívar"
+                        value={streetName}
+                        onChange={(e) => setStreetName(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+
+                  {selectedStreetType === "Otro" && (
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Especifica tipo de vía *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Autopista, Calzada..."
+                        value={customStreetType}
+                        onChange={(e) => setCustomStreetType(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Número de casa/local/apto (opcional)</label>
                     <input
                       type="text"
-                      required
-                      placeholder="Calle, sector, punto de referencia..."
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      placeholder="Ej. Local 10, Casa S/N, Quinta María..."
+                      value={houseNumber}
+                      onChange={(e) => setHouseNumber(e.target.value)}
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Punto de Referencia (Recomendado)</label>
+                    <textarea
+                      placeholder="Ej. Frente a la plaza, portón verde, al lado de la farmacia..."
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      rows={2}
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 resize-none"
+                    />
+                    <p className="text-[9px] text-gray-400 mt-1">
+                      Recomendado para Venezuela: escribe una referencia clara si existe, por ejemplo: frente a la plaza, portón verde, al lado de la farmacia. Si no tienes una referencia conocida, puedes dejarlo vacío.
+                    </p>
                   </div>
                 </div>
 
@@ -864,30 +1262,232 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                       <input
                         type="text"
                         required
-                        placeholder="Ej. 0424-1234567"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
-                        className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Dirección Exacta del local *</label>
-                  <div className="relative mb-2">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
-                      <MapPin size={14} />
-                    </span>
-                    <input
-                      type="text"
                       required
-                      placeholder="Calle, sector, referencia de ubicación"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="Ej. 0424-1234567"
+                      value={whatsapp}
+                      onChange={(e) => setWhatsapp(e.target.value)}
                       className="w-full pl-8 pr-2.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
                     />
                   </div>
+                </div>
+
+                {/* DIRECCIÓN ESTRUCTURADA (EDIT) */}
+                <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-150 space-y-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Dirección Estructurada</span>
+                  
+                  {address && (
+                    <div className="p-2.5 bg-blue-50/50 border border-blue-100 rounded-xl text-[10px] text-blue-800">
+                      <strong>Dirección registrada actual:</strong> {address}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Estado *</label>
+                      <select
+                        value={state}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setState(val);
+                          setCity("");
+                          setSelectedParish("");
+                          setCustomParish("");
+                        }}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      >
+                        <option value="">Selecciona estado</option>
+                        {VENEZUELA_LOCATIONS.map((s) => (
+                          <option key={s.name} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Ciudad/Municipio *</label>
+                      <select
+                        value={city}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCity(val);
+                          setSelectedParish("");
+                          setCustomParish("");
+                        }}
+                        disabled={!state}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        <option value="">Selecciona ciudad</option>
+                        {VENEZUELA_LOCATIONS.find((s) => s.name === state)?.cities.map((c) => (
+                          <option key={c.name} value={c.name}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Parroquia</label>
+                      <select
+                        value={selectedParish}
+                        onChange={(e) => {
+                          setSelectedParish(e.target.value);
+                          if (e.target.value !== "Otra parroquia") {
+                            setCustomParish("");
+                          }
+                        }}
+                        disabled={!city}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        <option value="">Selecciona parroquia (opcional)</option>
+                        {(VENEZUELA_LOCATIONS.find((s) => s.name === state)?.cities.find((c) => c.name === city)?.parishes || []).map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                        <option value="Otra parroquia">Otra parroquia</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {selectedParish === "Otra parroquia" && (
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Escribe la parroquia *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Juan Vicente Bolívar"
+                        value={customParish}
+                        onChange={(e) => setCustomParish(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Tipo de zona *</label>
+                      <select
+                        value={selectedSectorType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedSectorType(val);
+                          if (val !== "Otro") {
+                            setCustomSectorType("");
+                          }
+                        }}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      >
+                        <option value="Urbanización">Urbanización</option>
+                        <option value="Barrio">Barrio</option>
+                        <option value="Sector">Sector</option>
+                        <option value="Casco Central">Casco Central</option>
+                        <option value="Zona Industrial">Zona Industrial</option>
+                        <option value="Conjunto Residencial">Conjunto Residencial</option>
+                        <option value="Centro Comercial">Centro Comercial</option>
+                        <option value="Edificio">Edificio</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nombre de zona (opcional si hay calle/vía)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Las Mercedes o Centro"
+                        value={sectorName}
+                        onChange={(e) => setSectorName(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+
+                  {selectedSectorType === "Otro" && (
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Especifica tipo de zona *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Caserío, Parcelamiento..."
+                        value={customSectorType}
+                        onChange={(e) => setCustomSectorType(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Tipo de vía *</label>
+                      <select
+                        value={selectedStreetType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedStreetType(val);
+                          if (val !== "Otro") {
+                            setCustomStreetType("");
+                          }
+                        }}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      >
+                        <option value="Calle">Calle</option>
+                        <option value="Avenida">Avenida</option>
+                        <option value="Vereda">Vereda</option>
+                        <option value="Callejón">Callejón</option>
+                        <option value="Carretera">Carretera</option>
+                        <option value="Troncal">Troncal</option>
+                        <option value="Redoma">Redoma</option>
+                        <option value="Vía Principal">Vía Principal</option>
+                        <option value="Vía Secundaria">Vía Secundaria</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nombre de calle/vía (opcional si hay zona)</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Calle Nieves o Av. Bolívar"
+                        value={streetName}
+                        onChange={(e) => setStreetName(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  </div>
+
+                  {selectedStreetType === "Otro" && (
+                    <div>
+                      <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Especifica tipo de vía *</label>
+                      <input
+                        type="text"
+                        placeholder="Ej. Autopista, Calzada..."
+                        value={customStreetType}
+                        onChange={(e) => setCustomStreetType(e.target.value)}
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Número de casa/local/apto (opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Local 10, Casa S/N, Quinta María..."
+                      value={houseNumber}
+                      onChange={(e) => setHouseNumber(e.target.value)}
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Punto de Referencia (Recomendado)</label>
+                    <textarea
+                      placeholder="Ej. Frente a la plaza, portón verde, al lado de la farmacia..."
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      rows={2}
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-800 resize-none"
+                    />
+                    <p className="text-[9px] text-gray-400 mt-1">
+                      Recomendado para Venezuela: escribe una referencia clara si existe, por ejemplo: frente a la plaza, portón verde, al lado de la farmacia. Si no tienes una referencia conocida, puedes dejarlo vacío.
+                    </p>
+                    {isEditingUserBiz && !reference && (
+                      <p className="text-[9px] text-amber-600 font-bold mt-1">
+                        ⚠️ Sugerencia: Completa el punto de referencia para ayudar a tus clientes a encontrarte.
+                      </p>
+                    )}
+                  </div>
+                </div>
                   
                   <button
                     type="button"

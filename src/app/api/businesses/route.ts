@@ -3,6 +3,7 @@ import { haversineDistance, roundDistance } from "@/lib/geo";
 import { successResponse, successResponseWithPagination, errorResponse } from "@/lib/api-response";
 import { NextRequest } from "next/server";
 import { verify } from "@/lib/session";
+import { formatBusinessAddress } from "@/types/mapeove";
 
 // Business type with optional distance
 type BusinessWithDistance = {
@@ -213,15 +214,44 @@ export async function POST(request: NextRequest) {
       hours,
       categoryId,
       verified,
+      parish,
+      sectorType,
+      sectorName,
+      streetType,
+      streetName,
+      houseNumber,
+      reference,
     } = body;
 
     // Validate required fields
     if (!name || typeof name !== "string" || name.trim() === "") {
       return errorResponse("El nombre es obligatorio");
     }
-    if (!address || typeof address !== "string" || address.trim() === "") {
-      return errorResponse("La direccion es obligatoria");
+
+    const cleanParish = parish === "Otra parroquia" ? null : (parish?.trim() || null);
+    const cleanSectorType = sectorType === "Otro" ? null : (sectorType?.trim() || null);
+    const cleanStreetType = streetType === "Otro" ? null : (streetType?.trim() || null);
+
+    let finalAddress = typeof address === "string" ? address.trim() : "";
+    if (!finalAddress) {
+      finalAddress = formatBusinessAddress({
+        address: "",
+        state: state?.trim() || null,
+        city: city?.trim() || null,
+        parish: cleanParish,
+        sectorType: cleanSectorType,
+        sectorName: sectorName?.trim() || null,
+        streetType: cleanStreetType,
+        streetName: streetName?.trim() || null,
+        houseNumber: houseNumber?.trim() || null,
+        reference: reference?.trim() || "",
+      });
     }
+
+    if (!finalAddress) {
+      return errorResponse("La dirección es obligatoria");
+    }
+
     if (latitude === undefined || typeof latitude !== "number") {
       return errorResponse("La latitud es obligatoria y debe ser un numero");
     }
@@ -242,10 +272,17 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         description: description?.trim() || null,
-        address: address.trim(),
-        city: city?.trim() || "La Victoria",
-        state: state?.trim() || "Aragua",
+        address: finalAddress,
+        city: city?.trim() || null,
+        state: state?.trim() || null,
         country: country?.trim() || "Venezuela",
+        parish: cleanParish,
+        sectorType: cleanSectorType,
+        sectorName: sectorName?.trim() || null,
+        streetType: cleanStreetType,
+        streetName: streetName?.trim() || null,
+        houseNumber: houseNumber?.trim() || null,
+        reference: reference?.trim() || "",
         latitude,
         longitude,
         phone: phone?.trim() || null,

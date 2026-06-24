@@ -1,6 +1,6 @@
 "use client";
 
-import { Business, BRAND, CATEGORY_COLORS } from "@/types/mapeove";
+import { Business, BRAND, CATEGORY_COLORS, formatBusinessAddress } from "@/types/mapeove";
 import { isInVenezuela } from "@/lib/coordinate-validator";
 import { MapPin, Clock, Navigation, Shield } from "lucide-react";
 
@@ -96,7 +96,7 @@ export function BusinessList({
                 <div className="flex items-center gap-1 mt-0.5">
                   <MapPin size={10} className="text-gray-400 flex-shrink-0" />
                   <span className="text-[11px] text-gray-600 truncate">
-                    {business.address}
+                    {formatBusinessAddress(business)}
                   </span>
                 </div>
                 {business.hours && (

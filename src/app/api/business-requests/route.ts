@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verify } from "@/lib/session";
+import { formatBusinessAddress } from "@/types/mapeove";
 import { resend } from "@/lib/resend";
 import { supabase } from "@/lib/supabase";
 
@@ -81,10 +82,39 @@ export async function POST(request: NextRequest) {
       instagram,
       facebook,
       tiktok,
+      parish,
+      sectorType,
+      sectorName,
+      streetType,
+      streetName,
+      houseNumber,
+      reference,
+      state,
+      city,
     } = body;
 
+    const cleanParish = parish === "Otra parroquia" ? null : (parish?.trim() || null);
+    const cleanSectorType = sectorType === "Otro" ? null : (sectorType?.trim() || null);
+    const cleanStreetType = streetType === "Otro" ? null : (streetType?.trim() || null);
+
+    let finalAddress = typeof address === "string" ? address.trim() : "";
+    if (!finalAddress) {
+      finalAddress = formatBusinessAddress({
+        address: "",
+        state: state?.trim() || null,
+        city: city?.trim() || null,
+        parish: cleanParish,
+        sectorType: cleanSectorType,
+        sectorName: sectorName?.trim() || null,
+        streetType: cleanStreetType,
+        streetName: streetName?.trim() || null,
+        houseNumber: houseNumber?.trim() || null,
+        reference: reference?.trim() || "",
+      });
+    }
+
     // Validate required fields (payment fields are NO LONGER required — registration is free)
-    if (!businessName || !categoryId || !address || !phone || !whatsapp) {
+    if (!businessName || !categoryId || !finalAddress || !phone || !whatsapp) {
       return NextResponse.json(
         { error: "Faltan campos obligatorios para la solicitud" },
         { status: 400 }
@@ -122,7 +152,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: businessName.trim(),
         categoryId,
-        address: address.trim(),
+        address: finalAddress,
         phone: phone.trim(),
         whatsapp: whatsapp.trim(),
         description: description?.trim() || null,
@@ -130,9 +160,16 @@ export async function POST(request: NextRequest) {
         ownerId: session.userId,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        city: "La Victoria",
-        state: "Aragua",
+        city: city?.trim() || null,
+        state: state?.trim() || null,
         country: "Venezuela",
+        parish: cleanParish,
+        sectorType: cleanSectorType,
+        sectorName: sectorName?.trim() || null,
+        streetType: cleanStreetType,
+        streetName: streetName?.trim() || null,
+        houseNumber: houseNumber?.trim() || null,
+        reference: reference?.trim() || "",
         verified: false,   // NOT verified by default — admin can verify later
         active: true,      // IMMEDIATELY visible on the map
         businessEmail: businessEmail?.trim() || null,
