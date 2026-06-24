@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Business, CATEGORY_COLORS, BRAND } from "@/types/mapeove";
 import { MAP_STYLE, INITIAL_MAP_CONFIG } from "@/lib/map-config";
+import { haversineDistance } from "@/lib/geo";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ interface MapeoVEMapProps {
   onMapExplore?: (coords: { lat: number; lng: number }) => void;
   onResetToGps?: () => void;
   activeCategory?: string | null;
+  isExploring?: boolean;
 }
 
 
@@ -77,6 +79,7 @@ export function MapeoVEMap({
   onMapExplore,
   onResetToGps,
   activeCategory = null,
+  isExploring = false,
 }: MapeoVEMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -722,17 +725,24 @@ export function MapeoVEMap({
     const map = mapRef.current;
     if (!map || !mapLoaded || !focusNearbyTrigger) return;
 
-    const refCenter = isRealLocation ? userLocation : null;
+    const refCenter = isRealLocation && !isExploring && userLocation 
+      ? userLocation 
+      : map.getCenter();
+
     const validBiz = (businesses || []).filter((b) => {
       if (activeCategory && b.category.slug !== activeCategory) return false;
       const lat = Number(b.latitude);
       const lng = Number(b.longitude);
       const isValid = Number.isFinite(lat) && Number.isFinite(lng);
       if (!isValid) return false;
-      if (refCenter) {
-        return b.distance !== undefined && b.distance <= 30;
-      }
-      return true;
+      
+      const dist = haversineDistance(
+        refCenter.lat,
+        refCenter.lng,
+        lat,
+        lng
+      );
+      return dist <= 30;
     });
 
     if (validBiz.length === 0) return;
@@ -754,7 +764,9 @@ export function MapeoVEMap({
         bounds.extend([Number(b.longitude), Number(b.latitude)]);
       });
 
-      if (refCenter) {
+      if (isRealLocation && !isExploring && userLocation) {
+        bounds.extend([userLocation.lng, userLocation.lat]);
+      } else {
         bounds.extend([refCenter.lng, refCenter.lat]);
       }
 
