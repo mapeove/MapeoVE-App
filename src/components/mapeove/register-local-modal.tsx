@@ -1312,8 +1312,9 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* DIRECCIÓN ESTRUCTURADA (EDIT) */}
+              {/* DIRECCIÓN ESTRUCTURADA (EDIT) */}
                 <div className="bg-gray-50/50 p-3 rounded-2xl border border-gray-150 space-y-3">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">Dirección Estructurada</span>
                   
@@ -1544,22 +1545,23 @@ export function RegisterLocalModal({ isOpen, onClose, user }: RegisterLocalModal
                     )}
                   </div>
                 </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setShowMapSelector(true)}
-                    className="w-full py-2 border border-blue-200 text-blue-600 bg-blue-50 rounded-xl text-[11px] font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <MapPin size={14} />
-                    {latitude && longitude ? "Cambiar ubicación en el mapa" : "Seleccionar ubicación en el mapa"}
-                  </button>
-                  
-                  {latitude && longitude && (
-                    <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1 font-medium">
-                      <CheckCircle size={10} /> Ubicación seleccionada ({latitude.toFixed(5)}, {longitude.toFixed(5)})
-                    </p>
-                  )}
-                </div>
+                  <div className="mt-2">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Ubicación en el Mapa *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowMapSelector(true)}
+                      className="w-full py-2 border border-blue-200 text-blue-600 bg-blue-50 rounded-xl text-[11px] font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <MapPin size={14} />
+                      {latitude && longitude ? "Cambiar ubicación en el mapa" : "Seleccionar ubicación en el mapa"}
+                    </button>
+                    
+                    {latitude && longitude && (
+                      <p className="text-[10px] text-green-600 mt-1 flex items-center gap-1 font-medium">
+                        <CheckCircle size={10} /> Ubicación seleccionada ({latitude.toFixed(5)}, {longitude.toFixed(5)})
+                      </p>
+                    )}
+                  </div>
 
                 <div>
                   <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Descripción del Negocio</label>
